@@ -1,0 +1,15 @@
+{
+  "name": "emf-wasm",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "emf_wasm_bg.wasm",
+    "emf_wasm.js",
+    "emf_wasm.d.ts"
+  ],
+  "main": "emf_wasm.js",
+  "types": "emf_wasm.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
