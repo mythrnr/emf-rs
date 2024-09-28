@@ -174,6 +174,7 @@ dependencies = [
  "thiserror",
  "tracing",
  "unicode-segmentation",
+ "wmf-core",
 ]
 
 [[package]]
@@ -466,9 +467,9 @@ checksum = "94afda9cd163c04f6bee8b4bf2501c91548deae308373c436f36aeff3cf3c4a3"
 
 [[package]]
 name = "syn"
-version = "2.0.77"
+version = "2.0.79"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f35bcdf61fd8e7be6caf75f429fdca8beb3ed76584befb503b1569faee373ed"
+checksum = "89132cd0bf050864e1d38dc3bbc07a0eb8e7530af26344d3d2bbbef83499f590"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -858,3 +859,15 @@ name = "windows_x86_64_msvc"
 version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
+
+[[package]]
+name = "wmf-core"
+version = "0.1.0"
+source = "git+https://github.com/mythrnr/wmf-rs.git?tag=0.0.2#785affa13aedb6ab15bbfbbf9b4a64e0aad493fa"
+dependencies = [
+ "encoding_rs",
+ "paste",
+ "thiserror",
+ "tracing",
+ "unicode-segmentation",
+]
