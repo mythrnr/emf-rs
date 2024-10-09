@@ -14,7 +14,15 @@
 /// the most-significant bit. If that bit is set, the object is a stock object;
 /// if the bit is clear, the object was created by a previous metafile record.
 #[derive(
-    Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, strum::FromRepr,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    strum::FromRepr,
+    strum::EnumIter,
 )]
 #[repr(u32)]
 pub enum StockObject {
@@ -140,4 +148,4 @@ pub enum StockObject {
     DC_PEN = 0x80000013,
 }
 
-crate::parser::constants::impl_parser!(StockObject, u32);
+crate::parser::enums::impl_parser!(StockObject, u32);

@@ -1,7 +1,15 @@
 /// The Letterform enumeration defines values for one of the characteristics in
 /// the PANOSE system for classifying typefaces.
 #[derive(
-    Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, strum::FromRepr,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    strum::FromRepr,
+    strum::EnumIter,
 )]
 #[repr(u8)]
 pub enum Letterform {
@@ -39,4 +47,4 @@ pub enum Letterform {
     PAN_LETT_OBLIQUE_SQUARE = 0x0F,
 }
 
-crate::parser::constants::impl_parser!(Letterform, u8);
+crate::parser::enums::impl_parser!(Letterform, u8);

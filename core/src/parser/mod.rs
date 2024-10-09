@@ -1,8 +1,9 @@
 mod enums;
 mod objects;
+mod primitive;
 mod records;
 
-pub use self::{enums::*, objects::*, records::*};
+pub use self::{enums::*, objects::*, primitive::*, records::*};
 
 #[derive(Clone, Debug, thiserror::Error)]
 pub enum ParseError {
@@ -25,6 +26,27 @@ impl From<ReadError> for ParseError {
     }
 }
 
+impl From<wmf_core::parser::ParseError> for ParseError {
+    fn from(err: wmf_core::parser::ParseError) -> Self {
+        use wmf_core::parser::ParseError::*;
+
+        match err {
+            FailedReadBuffer { cause } => {
+                Self::FailedReadBuffer { cause: cause.into() }
+            }
+            NotSupported { .. } => {
+                Self::NotSupported { cause: err.to_string() }
+            }
+            UnexpectedEnumValue { .. } => {
+                Self::UnexpectedEnumValue { cause: err.to_string() }
+            }
+            UnexpectedPattern { .. } => {
+                Self::UnexpectedPattern { cause: err.to_string() }
+            }
+        }
+    }
+}
+
 #[derive(Clone, Debug, thiserror::Error)]
 #[error("failed to read buffer: {cause}")]
 pub struct ReadError {
@@ -40,6 +62,12 @@ impl ReadError {
 impl From<std::io::Error> for ReadError {
     fn from(err: std::io::Error) -> Self {
         Self::new(err)
+    }
+}
+
+impl From<wmf_core::parser::ReadError> for ReadError {
+    fn from(err: wmf_core::parser::ReadError) -> Self {
+        Self { cause: err.to_string() }
     }
 }
 

@@ -1,7 +1,15 @@
 /// The Weight enumeration defines values for one of the characteristics in the
 /// PANOSE system for classifying typefaces.
 #[derive(
-    Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, strum::FromRepr,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    strum::FromRepr,
+    strum::EnumIter,
 )]
 #[repr(u8)]
 pub enum Weight {
@@ -31,4 +39,4 @@ pub enum Weight {
     PAN_WEIGHT_NORD = 0x0B,
 }
 
-crate::parser::constants::impl_parser!(Weight, u8);
+crate::parser::enums::impl_parser!(Weight, u8);

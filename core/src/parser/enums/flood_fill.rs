@@ -1,7 +1,15 @@
 /// The FloodFill enumeration defines values that specify how to determine the
 /// area for a flood fill operation.
 #[derive(
-    Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, strum::FromRepr,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    strum::FromRepr,
+    strum::EnumIter,
 )]
 #[repr(u32)]
 pub enum FloodFill {
@@ -13,4 +21,4 @@ pub enum FloodFill {
     FLOODFILLSURFACE = 0x00000001,
 }
 
-crate::parser::constants::impl_parser!(FloodFill, u32);
+crate::parser::enums::impl_parser!(FloodFill, u32);

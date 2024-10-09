@@ -4,7 +4,15 @@
 /// DIBs are specified by DeviceIndependentBitmap objects ([MS-WMF] section
 /// 2.2.2.9).
 #[derive(
-    Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, strum::FromRepr,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    strum::FromRepr,
+    strum::EnumIter,
 )]
 #[repr(u8)]
 pub enum DIBColors {
@@ -19,4 +27,4 @@ pub enum DIBColors {
     DIB_PAL_INDICES = 0x02,
 }
 
-crate::parser::constants::impl_parser!(DIBColors, u8);
+crate::parser::enums::impl_parser!(DIBColors, u8);

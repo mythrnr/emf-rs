@@ -1,7 +1,15 @@
 /// The GraphicsMode enumeration is used to specify how to interpret shape data
 /// such as rectangle coordinates.
 #[derive(
-    Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, strum::FromRepr,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    strum::FromRepr,
+    strum::EnumIter,
 )]
 #[repr(u32)]
 pub enum GraphicsMode {
@@ -42,4 +50,4 @@ pub enum GraphicsMode {
     GM_ADVANCED = 0x00000002,
 }
 
-crate::parser::constants::impl_parser!(GraphicsMode, u32);
+crate::parser::enums::impl_parser!(GraphicsMode, u32);

@@ -2,7 +2,15 @@
 /// transforming page space units into device space units and for defining the
 /// orientation of the drawing axes.
 #[derive(
-    Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, strum::FromRepr,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    strum::FromRepr,
+    strum::EnumIter,
 )]
 #[repr(u8)]
 pub enum MapMode {
@@ -42,4 +50,4 @@ pub enum MapMode {
     MM_ANISOTROPIC = 0x08,
 }
 
-crate::parser::constants::impl_parser!(MapMode, u8);
+crate::parser::enums::impl_parser!(MapMode, u8);

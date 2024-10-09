@@ -12,7 +12,15 @@
 /// #define HALFTONE     4
 /// ```
 #[derive(
-    Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, strum::FromRepr,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    strum::FromRepr,
+    strum::EnumIter,
 )]
 #[repr(u8)]
 pub enum StretchMode {
@@ -37,4 +45,4 @@ pub enum StretchMode {
     STRETCH_HALFTONE = 0x04,
 }
 
-crate::parser::constants::impl_parser!(StretchMode, u8);
+crate::parser::enums::impl_parser!(StretchMode, u8);

@@ -1,7 +1,15 @@
 /// The HatchStyle enumeration is an extension to the WMF HatchStyle
 /// enumeration.
 #[derive(
-    Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, strum::FromRepr,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    strum::FromRepr,
+    strum::EnumIter,
 )]
 #[repr(u16)]
 pub enum HatchStyle {
@@ -23,4 +31,4 @@ pub enum HatchStyle {
     HS_DITHEREDBKCLR = 0x000B,
 }
 
-crate::parser::constants::impl_parser!(HatchStyle, u16);
+crate::parser::enums::impl_parser!(HatchStyle, u16);

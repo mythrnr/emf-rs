@@ -2,7 +2,15 @@
 /// of an image, which determines the standard light source under which the
 /// image is viewed so that the color can be adjusted appropriately.
 #[derive(
-    Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, strum::FromRepr,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    strum::FromRepr,
+    strum::EnumIter,
 )]
 #[repr(u8)]
 pub enum Illuminant {
@@ -26,4 +34,4 @@ pub enum Illuminant {
     ILLUMINANT_FLUORESCENT = 0x08,
 }
 
-crate::parser::constants::impl_parser!(Illuminant, u8);
+crate::parser::enums::impl_parser!(Illuminant, u8);

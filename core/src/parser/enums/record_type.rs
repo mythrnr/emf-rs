@@ -2,7 +2,15 @@
 /// an EMF metafile. These values are specified in the Type fields of EMF
 /// records
 #[derive(
-    Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, strum::FromRepr,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    strum::FromRepr,
+    strum::EnumIter,
 )]
 #[repr(u32)]
 pub enum RecordType {
@@ -428,4 +436,4 @@ pub enum RecordType {
     EMR_CREATECOLORSPACEW = 0x0000007A,
 }
 
-crate::parser::constants::impl_parser!(RecordType, u32);
+crate::parser::enums::impl_parser!(RecordType, u32);

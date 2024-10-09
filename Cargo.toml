@@ -4,7 +4,7 @@ members = ["cli", "core", "wasm"]
 
 [workspace.dependencies]
 base64 = "0.22.1"
-clap = { version = "4.5.18", features = ["derive", "env"] }
+clap = { version = "4.5.20", features = ["derive", "env"] }
 encoding_rs = "0.8.34"
 paste = "1.0.15"
 strum = { version = "0.26.3", features = ["derive"] }
@@ -16,7 +16,7 @@ tracing-wasm = "0.2.1"
 unicode-segmentation = "1.12.0"
 wasm-bindgen = "0.2.93"
 wasm-bindgen-test = "0.3.43"
-wmf-core = { git = "https://github.com/mythrnr/wmf-rs.git", tag = "0.0.2", package = "wmf-core", default-features = false }
+wmf-core = { git = "https://github.com/mythrnr/wmf-rs.git", tag = "0.0.4", package = "wmf-core" }
 
 # The `console_error_panic_hook` crate provides better debugging of panics by
 # logging them with `console.error`. This is great for development, but requires

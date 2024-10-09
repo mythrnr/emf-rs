@@ -63,4 +63,4 @@ pub enum PenStyle {
     PS_GEOMETRIC = 0x00010000,
 }
 
-crate::parser::constants::impl_parser!(PenStyle, u32);
+crate::parser::enums::impl_parser!(PenStyle, u32);

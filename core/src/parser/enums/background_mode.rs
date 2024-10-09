@@ -3,7 +3,15 @@
 /// background mode determines how to combine the background with foreground
 /// text, hatched brushes, and pen styles that are not solid lines.
 #[derive(
-    Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, strum::FromRepr,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    strum::FromRepr,
+    strum::EnumIter,
 )]
 #[repr(u16)]
 pub enum BackgroundMode {
@@ -14,4 +22,4 @@ pub enum BackgroundMode {
     OPAQUE = 0x0002,
 }
 
-crate::parser::constants::impl_parser!(BackgroundMode, u16);
+crate::parser::enums::impl_parser!(BackgroundMode, u16);

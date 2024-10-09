@@ -6,7 +6,15 @@
 /// For more information concerning transforms and coordinate spaces, see
 /// [MSDN-WRLDPGSPC].
 #[derive(
-    Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, strum::FromRepr,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    strum::FromRepr,
+    strum::EnumIter,
 )]
 #[repr(u8)]
 pub enum ModifyWorldTransformMode {
@@ -25,4 +33,4 @@ pub enum ModifyWorldTransformMode {
     MWT_SET = 0x04,
 }
 
-crate::parser::constants::impl_parser!(ModifyWorldTransformMode, u8);
+crate::parser::enums::impl_parser!(ModifyWorldTransformMode, u8);

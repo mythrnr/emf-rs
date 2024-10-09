@@ -1,7 +1,15 @@
 /// The StrokeVariation enumeration defines values for one of the
 /// characteristics in the PANOSE system for classifying typefaces.
 #[derive(
-    Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, strum::FromRepr,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    strum::FromRepr,
+    strum::EnumIter,
 )]
 #[repr(u8)]
 pub enum StrokeVariation {
@@ -25,4 +33,4 @@ pub enum StrokeVariation {
     PAN_STROKE_INSTANT_VERT = 0x08,
 }
 
-crate::parser::constants::impl_parser!(StrokeVariation, u8);
+crate::parser::enums::impl_parser!(StrokeVariation, u8);

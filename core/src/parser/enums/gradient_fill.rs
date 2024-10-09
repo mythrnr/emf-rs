@@ -1,6 +1,14 @@
 /// The GradientFill enumeration defines the modes for gradient fill operations.
 #[derive(
-    Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, strum::FromRepr,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    strum::FromRepr,
+    strum::EnumIter,
 )]
 #[repr(u32)]
 pub enum GradientFill {
@@ -14,4 +22,4 @@ pub enum GradientFill {
     GRADIENT_FILL_TRIANGLE = 0x00000002,
 }
 
-crate::parser::constants::impl_parser!(GradientFill, u32);
+crate::parser::enums::impl_parser!(GradientFill, u32);

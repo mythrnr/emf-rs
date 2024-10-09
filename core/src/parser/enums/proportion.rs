@@ -1,7 +1,15 @@
 /// The Proportion enumeration defines values for one of the characteristics in
 /// the PANOSE system for classifying typefaces.
 #[derive(
-    Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, strum::FromRepr,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    strum::FromRepr,
+    strum::EnumIter,
 )]
 #[repr(u8)]
 pub enum Proportion {
@@ -27,4 +35,4 @@ pub enum Proportion {
     PAN_PROP_MONOSPACED = 0x09,
 }
 
-crate::parser::constants::impl_parser!(Proportion, u8);
+crate::parser::enums::impl_parser!(Proportion, u8);

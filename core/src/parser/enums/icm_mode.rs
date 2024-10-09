@@ -4,7 +4,15 @@
 /// Windows NT 3.1, Windows NT 3.5, Windows NT 3.51, Windows 98, and Windows
 /// Millennium Edition: Do not support Image Color Management (ICM).
 #[derive(
-    Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, strum::FromRepr,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    strum::FromRepr,
+    strum::EnumIter,
 )]
 #[repr(u8)]
 pub enum ICMMode {
@@ -18,4 +26,4 @@ pub enum ICMMode {
     ICM_DONE_OUTSIDEDC = 0x04,
 }
 
-crate::parser::constants::impl_parser!(ICMMode, u8);
+crate::parser::enums::impl_parser!(ICMMode, u8);

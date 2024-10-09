@@ -1,7 +1,15 @@
 /// The EmrComment enumeration defines the types of data that a public comment
 /// record can contain.
 #[derive(
-    Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, strum::FromRepr,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    strum::FromRepr,
+    strum::EnumIter,
 )]
 #[repr(u32)]
 pub enum EmrComment {
@@ -23,4 +31,4 @@ pub enum EmrComment {
     EMR_COMMENT_UNICODE_END = 0x00000080,
 }
 
-crate::parser::constants::impl_parser!(EmrComment, u32);
+crate::parser::enums::impl_parser!(EmrComment, u32);

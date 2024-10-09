@@ -1,7 +1,15 @@
 /// The FormatSignature enumeration defines values that are used to identify the
 /// format of embedded data in EMF metafiles.
 #[derive(
-    Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, strum::FromRepr,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    strum::FromRepr,
+    strum::EnumIter,
 )]
 #[repr(u32)]
 pub enum FormatSignature {
@@ -26,4 +34,4 @@ pub enum FormatSignature {
     EPS_SIGNATURE = 0x46535045,
 }
 
-crate::parser::constants::impl_parser!(FormatSignature, u32);
+crate::parser::enums::impl_parser!(FormatSignature, u32);

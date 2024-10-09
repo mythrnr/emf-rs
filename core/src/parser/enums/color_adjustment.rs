@@ -1,7 +1,15 @@
 /// The ColorAdjustment enumeration is used to specify how the output image is
 /// prepared when the stretch mode is HALFTONE.
 #[derive(
-    Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, strum::FromRepr,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    strum::FromRepr,
+    strum::EnumIter,
 )]
 #[repr(u16)]
 pub enum ColorAdjustment {
@@ -13,4 +21,4 @@ pub enum ColorAdjustment {
     CA_LOG_FILTER = 0x0002,
 }
 
-crate::parser::constants::impl_parser!(ColorAdjustment, u16);
+crate::parser::enums::impl_parser!(ColorAdjustment, u16);

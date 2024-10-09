@@ -1,7 +1,15 @@
 /// The ColorSpace enumeration is used to specify when to turn color proofing on
 /// and off, and when to delete transforms.
 #[derive(
-    Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, strum::FromRepr,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    strum::FromRepr,
+    strum::EnumIter,
 )]
 #[repr(u32)]
 pub enum ColorSpace {
@@ -16,4 +24,4 @@ pub enum ColorSpace {
     CS_DELETE_TRANSFORM = 0x00000003,
 }
 
-crate::parser::constants::impl_parser!(ColorSpace, u32);
+crate::parser::enums::impl_parser!(ColorSpace, u32);

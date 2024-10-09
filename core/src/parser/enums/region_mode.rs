@@ -3,7 +3,15 @@
 /// bracket or a new region that is being combined with the current clipping
 /// region.
 #[derive(
-    Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, strum::FromRepr,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    strum::FromRepr,
+    strum::EnumIter,
 )]
 #[repr(u8)]
 pub enum RegionMode {
@@ -26,4 +34,4 @@ pub enum RegionMode {
     RGN_COPY = 0x05,
 }
 
-crate::parser::constants::impl_parser!(RegionMode, u8);
+crate::parser::enums::impl_parser!(RegionMode, u8);

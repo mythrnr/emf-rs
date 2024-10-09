@@ -13,5 +13,12 @@
   ],
   "language": "en",
   "minWordLength": 4,
-  "words": []
+  "words": [
+    "facename",
+    "gradientfill",
+    "metafile",
+    "metafiles",
+    "opengl",
+    "thiserror"
+  ]
 }

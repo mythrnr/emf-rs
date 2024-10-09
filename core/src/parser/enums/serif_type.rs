@@ -1,7 +1,15 @@
 /// The SerifType enumeration defines values for one of the characteristics in
 /// the PANOSE system for classifying typefaces.
 #[derive(
-    Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, strum::FromRepr,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    strum::FromRepr,
+    strum::EnumIter,
 )]
 #[repr(u8)]
 pub enum SerifType {
@@ -39,4 +47,4 @@ pub enum SerifType {
     PAN_SERIF_ROUNDED = 0x0F,
 }
 
-crate::parser::constants::impl_parser!(SerifType, u8);
+crate::parser::enums::impl_parser!(SerifType, u8);

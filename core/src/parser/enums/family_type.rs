@@ -1,7 +1,15 @@
 /// The FamilyType enumeration defines values for one of the characteristics in
 /// the PANOSE system for classifying typefaces.
 #[derive(
-    Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, strum::FromRepr,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    strum::FromRepr,
+    strum::EnumIter,
 )]
 #[repr(u8)]
 pub enum FamilyType {
@@ -19,4 +27,4 @@ pub enum FamilyType {
     PAN_FAMILY_PICTORIAL = 0x05,
 }
 
-crate::parser::constants::impl_parser!(FamilyType, u8);
+crate::parser::enums::impl_parser!(FamilyType, u8);

@@ -2,7 +2,15 @@
 /// aspects of the output of text by EMR_SMALLTEXTOUT records and in EmrText
 /// objects.
 #[derive(
-    Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, strum::FromRepr,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    strum::FromRepr,
+    strum::EnumIter,
 )]
 #[repr(u32)]
 pub enum ExtTextOutOptions {
@@ -80,4 +88,4 @@ pub enum ExtTextOutOptions {
     ETO_REVERSE_INDEX_MAP = 0x00010000,
 }
 
-crate::parser::constants::impl_parser!(ExtTextOutOptions, u32);
+crate::parser::enums::impl_parser!(ExtTextOutOptions, u32);

@@ -1,7 +1,15 @@
 /// The Point enumeration is used to specify how a point is to be used in a
 /// drawing call.
 #[derive(
-    Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, strum::FromRepr,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    strum::FromRepr,
+    strum::EnumIter,
 )]
 #[repr(u8)]
 pub enum Point {
@@ -29,4 +37,4 @@ pub enum Point {
     PT_MOVETO = 0x06,
 }
 
-crate::parser::constants::impl_parser!(Point, u8);
+crate::parser::enums::impl_parser!(Point, u8);

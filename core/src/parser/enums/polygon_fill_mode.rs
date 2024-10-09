@@ -1,7 +1,15 @@
 /// The PolygonFillMode enumeration defines values that specify how to calculate
 /// the region of a polygon that is to be filled.
 #[derive(
-    Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, strum::FromRepr,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    strum::FromRepr,
+    strum::EnumIter,
 )]
 #[repr(u8)]
 pub enum PolygonFillMode {
@@ -12,4 +20,4 @@ pub enum PolygonFillMode {
     WINDING = 0x02,
 }
 
-crate::parser::constants::impl_parser!(PolygonFillMode, u8);
+crate::parser::enums::impl_parser!(PolygonFillMode, u8);
