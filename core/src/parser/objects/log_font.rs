@@ -172,7 +172,7 @@ impl LogFont {
         );
 
         let (facename, facename_bytes) = {
-            let (v, facename_bytes) = crate::parser::read_variable(buf, 64)?;
+            let (v, facename_bytes) = crate::parser::read::<_, 64>(buf)?;
 
             // Find the position of the first null byte (0)
             let len = v.iter().position(|&c| c == 0).unwrap_or(64);

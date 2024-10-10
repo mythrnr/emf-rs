@@ -22,7 +22,7 @@ pub struct ColorAdjustment {
     /// Values (2 bytes): An unsigned integer that specifies how to prepare the
     /// output image. This field can be set to NULL or to any combination of
     /// values in the ColorAdjustment enumeration.
-    pub values: Vec<crate::parser::enums::ColorAdjustment>,
+    pub values: Vec<crate::parser::enums::ColorAdjustmentEnum>,
     /// IlluminantIndex (2 bytes): An unsigned integer that specifies the type
     /// of standard light source under which the image is viewed, from the
     /// Illuminant enumeration.
@@ -102,7 +102,7 @@ impl ColorAdjustment {
             let (v, values_bytes) = crate::parser::read_u16_from_le_bytes(buf)?;
 
             (
-                crate::parser::enums::ColorAdjustment::iter()
+                crate::parser::enums::ColorAdjustmentEnum::iter()
                     .filter(|c| v & (*c as u16) == (*c as u16))
                     .collect(),
                 values_bytes,

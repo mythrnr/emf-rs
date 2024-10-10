@@ -14,11 +14,15 @@
   "language": "en",
   "minWordLength": 4,
   "words": [
+    "doublebuffer",
     "facename",
     "gradientfill",
+    "letterform",
     "metafile",
     "metafiles",
     "opengl",
+    "panose",
+    "rects",
     "thiserror"
   ]
 }

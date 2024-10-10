@@ -104,6 +104,25 @@ pub fn read_variable<R: std::io::Read>(
     }
 }
 
+/// Convert UTF16-LE bytes to String.
+fn utf16le_bytes_to_string(bytes: &[u8]) -> Result<String, ParseError> {
+    if bytes.len() % 2 != 0 {
+        return Err(ParseError::UnexpectedPattern {
+            cause: "Byte array length must be even".to_owned(),
+        });
+    }
+
+    let u16_vec = bytes
+        .chunks_exact(2)
+        .map(|chunk| {
+            u16::from_le_bytes(chunk.try_into().expect("should be converted"))
+        })
+        .collect::<Vec<_>>();
+
+    String::from_utf16(&u16_vec)
+        .map_err(|err| ParseError::UnexpectedPattern { cause: err.to_string() })
+}
+
 macro_rules! impl_from_le_bytes {
     ($(($t:ty, $n:expr)),+) => {
         paste::paste!{
@@ -120,4 +139,8 @@ macro_rules! impl_from_le_bytes {
     };
 }
 
-impl_from_le_bytes! {(i8, 1), (i16, 2), (i32, 4), (u8, 1), (u16, 2), (u32, 4) }
+impl_from_le_bytes! {
+    (i8, 1), (i16, 2), (i32, 4),
+    (u8, 1), (u16, 2), (u32, 4),
+    (f32, 4)
+}

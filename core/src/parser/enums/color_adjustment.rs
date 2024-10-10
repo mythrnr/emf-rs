@@ -12,7 +12,7 @@
     strum::EnumIter,
 )]
 #[repr(u16)]
-pub enum ColorAdjustment {
+pub enum ColorAdjustmentEnum {
     /// Specifies that the negative of the original image SHOULD be displayed.
     CA_NEGATIVE = 0x0001,
     /// Specifies that a logarithmic process SHOULD be applied to the final
@@ -21,4 +21,4 @@ pub enum ColorAdjustment {
     CA_LOG_FILTER = 0x0002,
 }
 
-crate::parser::enums::impl_parser!(ColorAdjustment, u16);
+crate::parser::enums::impl_parser!(ColorAdjustmentEnum, u16);
