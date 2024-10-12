@@ -44,6 +44,14 @@ fn main() {
                     .parse()
                     .expect("should be parsed"),
             )
+            .add_directive(
+                format!("wmf_core={level}").parse().expect("should be parsed"),
+            )
+            .add_directive(
+                format!("wmf_converter={level}")
+                    .parse()
+                    .expect("should be parsed"),
+            )
     };
 
     tracing_subscriber::fmt::fmt()

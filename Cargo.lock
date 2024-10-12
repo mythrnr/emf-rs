@@ -160,6 +160,7 @@ dependencies = [
  "emf-core",
  "tracing",
  "tracing-subscriber",
+ "wmf-core",
 ]
 
 [[package]]
