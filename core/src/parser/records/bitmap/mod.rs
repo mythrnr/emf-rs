@@ -9,4 +9,8 @@ mod stretch_blt;
 mod stretch_dibits;
 mod transparent_blt;
 
-// TODO: will be supported
+pub use self::{
+    alpha_blend::*, bit_blt::*, mask_blt::*, plg_blt::*,
+    set_dibits_to_device::*, stretch_blt::*, stretch_dibits::*,
+    transparent_blt::*,
+};
