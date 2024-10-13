@@ -7,7 +7,7 @@ pub struct EMR_OFFSETCLIPRGN {
     pub record_type: crate::parser::RecordType,
     /// Size (4 bytes): An unsigned integer that specifies the size in bytes of
     /// this record in the metafile. This value MUST be a multiple of 4 bytes.
-    pub size: u32,
+    pub size: crate::parser::Size,
     /// Offset (8 bytes): A PointL object ([MS-WMF] section 2.2.2.15) that
     /// specifies the horizontal and vertical offsets in logical units.
     pub offset: wmf_core::parser::PointL,
@@ -23,6 +23,7 @@ impl EMR_OFFSETCLIPRGN {
     pub fn parse<R: std::io::Read>(
         buf: &mut R,
         record_type: crate::parser::RecordType,
+        mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
         if record_type != crate::parser::RecordType::EMR_OFFSETCLIPRGN {
             return Err(crate::parser::ParseError::UnexpectedPattern {
@@ -34,15 +35,12 @@ impl EMR_OFFSETCLIPRGN {
             });
         }
 
-        let ((size, size_bytes), (offset, offset_bytes)) = (
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            wmf_core::parser::PointL::parse(buf)?,
-        );
-        let consumed_bytes = size_bytes + offset_bytes;
+        let (offset, offset_bytes) = wmf_core::parser::PointL::parse(buf)?;
+        size.consume(offset_bytes);
 
         crate::parser::records::consume_remaining_bytes(
             buf,
-            size as usize - consumed_bytes,
+            size.remaining_bytes(),
         )?;
 
         Ok(Self { record_type, size, offset })

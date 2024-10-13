@@ -44,8 +44,8 @@ impl RegionDataHeader {
         if size != 0x00000020 {
             return Err(crate::parser::ParseError::UnexpectedPattern {
                 cause: format!(
-                    "size field in RegionDataHeader must be `0x00000020`, but \
-                     parsed value is {size:#010X}"
+                    "size field must be `0x00000020`, but parsed value is \
+                     {size:#010X}"
                 ),
             });
         }
@@ -53,8 +53,8 @@ impl RegionDataHeader {
         if typ != 0x00000001 {
             return Err(crate::parser::ParseError::UnexpectedPattern {
                 cause: format!(
-                    "type field in RegionDataHeader must be `0x00000001`, but \
-                     parsed value is {typ:#010X}"
+                    "type field must be `0x00000001`, but parsed value is \
+                     {typ:#010X}"
                 ),
             });
         }

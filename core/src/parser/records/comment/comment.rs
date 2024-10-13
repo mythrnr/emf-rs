@@ -7,7 +7,7 @@ pub struct EMR_COMMENT {
     pub record_type: crate::parser::RecordType,
     /// Size (4 bytes): An unsigned integer that specifies the size in bytes of
     /// this record in the metafile. This value MUST be a multiple of 4 bytes.
-    pub size: u32,
+    pub size: crate::parser::Size,
     /// DataSize (4 bytes): An unsigned integer that specifies the size in
     /// bytes, of the CommentIdentifier and CommentRecordParm fields in the
     /// RecordBuffer field that follows. It MUST NOT include the size of itself
@@ -34,6 +34,7 @@ impl EMR_COMMENT {
     pub fn parse<R: std::io::Read>(
         buf: &mut R,
         record_type: crate::parser::RecordType,
+        mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
         if record_type != crate::parser::RecordType::EMR_COMMENT {
             return Err(crate::parser::ParseError::UnexpectedPattern {
@@ -45,16 +46,16 @@ impl EMR_COMMENT {
             });
         }
 
-        let ((size, size_bytes), (data_size, data_size_bytes)) = (
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-        );
+        let (data_size, data_size_bytes) =
+            crate::parser::read_u32_from_le_bytes(buf)?;
         let (private_data, private_data_bytes) =
             crate::parser::read_variable(buf, data_size as usize)?;
 
+        size.consume(data_size_bytes + private_data_bytes);
+
         crate::parser::records::consume_remaining_bytes(
             buf,
-            size as usize - (size_bytes + data_size_bytes + private_data_bytes),
+            size.remaining_bytes(),
         )?;
 
         Ok(Self { record_type, size, data_size, private_data })

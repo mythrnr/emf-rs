@@ -7,7 +7,7 @@ pub struct EMR_EXTSELECTCLIPRGN {
     pub record_type: crate::parser::RecordType,
     /// Size (4 bytes): An unsigned integer that specifies the size in bytes of
     /// this record in the metafile. This value MUST be a multiple of 4 bytes.
-    pub size: u32,
+    pub size: crate::parser::Size,
     /// RgnDataSize (4 bytes): An unsigned integer that specifies the size of
     /// the RgnData field in bytes.
     pub rgn_data_size: u32,
@@ -31,6 +31,7 @@ impl EMR_EXTSELECTCLIPRGN {
     pub fn parse<R: std::io::Read>(
         buf: &mut R,
         record_type: crate::parser::RecordType,
+        mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
         if record_type != crate::parser::RecordType::EMR_EXTSELECTCLIPRGN {
             return Err(crate::parser::ParseError::UnexpectedPattern {
@@ -43,37 +44,31 @@ impl EMR_EXTSELECTCLIPRGN {
         }
 
         let (
-            (size, size_bytes),
             (rgn_data_size, rgn_data_size_bytes),
             (region_mode, region_mode_bytes),
         ) = (
             crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
             crate::parser::RegionMode::parse(buf)?,
         );
 
-        let mut consumed_bytes =
-            size_bytes + rgn_data_size_bytes + region_mode_bytes;
+        size.consume(rgn_data_size_bytes + region_mode_bytes);
 
-        let (rgn_data, rgn_data_bytes) = {
+        let rgn_data = {
             let mut entries = vec![];
-            let mut bytes = 0;
 
             for _ in 0..rgn_data_size {
                 let (v, b) = crate::parser::RegionData::parse(buf)?;
 
                 entries.push(v);
-                bytes += b;
+                size.consume(b);
             }
 
-            (entries, bytes)
+            entries
         };
-
-        consumed_bytes += rgn_data_bytes;
 
         crate::parser::records::consume_remaining_bytes(
             buf,
-            size as usize - consumed_bytes,
+            size.remaining_bytes(),
         )?;
 
         Ok(Self { record_type, size, rgn_data_size, region_mode, rgn_data })

@@ -1,4 +1,5 @@
-//! Implementation of the definitions in Section 2.3 of the EMF specifications.
+//! Implementation of the definitions in Section 2.3.1 of the EMF
+//! specifications.
 
 mod alpha_blend;
 mod bit_blt;

@@ -1,6 +1,7 @@
-//! Implementation of the definitions in Section 2.1.1 of the EMF
+//! Implementation of the definitions in Section 2.1 of the EMF
 //! specifications.
 
+mod arc_direction;
 mod arm_style;
 mod background_mode;
 mod color_adjustment;
@@ -18,6 +19,7 @@ mod graphics_mode;
 mod hatch_style;
 mod icm_mode;
 mod illuminant;
+mod layout_mode;
 mod letterform;
 mod map_mode;
 mod metafile_version;
@@ -37,11 +39,11 @@ mod weight;
 mod x_height;
 
 pub use self::{
-    arm_style::*, background_mode::*, color_adjustment::*,
+    arc_direction::*, arm_style::*, background_mode::*, color_adjustment::*,
     color_match_to_target::*, color_space::*, contrast::*, dib_colors::*,
     emr_comment::*, ext_text_out_options::*, family_type::*, flood_fill::*,
     format_signature::*, gradient_fill::*, graphics_mode::*, hatch_style::*,
-    icm_mode::*, illuminant::*, letterform::*, map_mode::*,
+    icm_mode::*, illuminant::*, layout_mode::*, letterform::*, map_mode::*,
     metafile_version::*, mid_line::*, modify_world_transform_mode::*,
     pen_style::*, point::*, polygon_fill_mode::*, proportion::*,
     record_type::*, region_mode::*, serif_type::*, stock_object::*,

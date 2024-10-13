@@ -1,3 +1,6 @@
+//! Implementation of the definitions in Section 2.3.2 of the EMF
+//! specifications.
+
 mod exclude_clip_rect;
 mod ext_select_clip_rgn;
 mod intersect_clip_rect;

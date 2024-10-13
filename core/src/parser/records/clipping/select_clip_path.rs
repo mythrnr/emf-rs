@@ -8,7 +8,7 @@ pub struct EMR_SELECTCLIPPATH {
     pub record_type: crate::parser::RecordType,
     /// Size (4 bytes): An unsigned integer that specifies the size in bytes of
     /// this record in the metafile. This value MUST be a multiple of 4 bytes.
-    pub size: u32,
+    pub size: crate::parser::Size,
     /// RegionMode (4 bytes): An unsigned integer that specifies how to combine
     /// the current clipping region with the current path bracket. This value
     /// is in the RegionMode enumeration.
@@ -25,6 +25,7 @@ impl EMR_SELECTCLIPPATH {
     pub fn parse<R: std::io::Read>(
         buf: &mut R,
         record_type: crate::parser::RecordType,
+        mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
         if record_type != crate::parser::RecordType::EMR_SELECTCLIPPATH {
             return Err(crate::parser::ParseError::UnexpectedPattern {
@@ -36,15 +37,13 @@ impl EMR_SELECTCLIPPATH {
             });
         }
 
-        let ((size, size_bytes), (region_mode, region_mode_bytes)) = (
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::RegionMode::parse(buf)?,
-        );
-        let consumed_bytes = size_bytes + region_mode_bytes;
+        let (region_mode, region_mode_bytes) =
+            crate::parser::RegionMode::parse(buf)?;
+        size.consume(region_mode_bytes);
 
         crate::parser::records::consume_remaining_bytes(
             buf,
-            size as usize - consumed_bytes,
+            size.remaining_bytes(),
         )?;
 
         Ok(Self { record_type, size, region_mode })

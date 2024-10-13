@@ -66,3 +66,67 @@ impl Adjustment {
         self.0 == 0
     }
 }
+
+#[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd)]
+pub struct Size(u32, usize);
+
+impl Size {
+    #[::tracing::instrument(
+        level = tracing::Level::TRACE,
+        skip_all,
+        err(level = tracing::Level::DEBUG, Display),
+    )]
+    pub fn parse<R: std::io::Read>(
+        buf: &mut R,
+    ) -> Result<Self, crate::parser::ParseError> {
+        let (v, c) = crate::parser::read_u32_from_le_bytes(buf)?;
+
+        Ok(Self(v, c))
+    }
+}
+
+impl From<u32> for Size {
+    fn from(v: u32) -> Self {
+        Self(v, 0)
+    }
+}
+
+impl From<Size> for u32 {
+    fn from(v: Size) -> Self {
+        v.0
+    }
+}
+
+impl std::fmt::Display for Size {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:#010X}", self.0)
+    }
+}
+
+impl std::fmt::Debug for Size {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Size(size: {:#010X}, consumed_bytes: {})", self.0, self.1)
+    }
+}
+
+impl Size {
+    pub fn byte_count(&self) -> usize {
+        self.0 as usize
+    }
+
+    pub fn consume(&mut self, consumed_bytes: usize) {
+        self.1 += consumed_bytes;
+    }
+
+    pub fn consumed_bytes(&self) -> usize {
+        self.1
+    }
+
+    pub fn remaining(&self) -> bool {
+        self.remaining_bytes() > 0
+    }
+
+    pub fn remaining_bytes(&self) -> usize {
+        self.byte_count() - self.1
+    }
+}

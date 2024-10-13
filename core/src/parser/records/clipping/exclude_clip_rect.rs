@@ -11,7 +11,7 @@ pub struct EMR_EXCLUDECLIPRECT {
     pub record_type: crate::parser::RecordType,
     /// Size (4 bytes): An unsigned integer that specifies the size in bytes of
     /// this record in the metafile. This value MUST be a multiple of 4 bytes.
-    pub size: u32,
+    pub size: crate::parser::Size,
     /// Clip (16 bytes): A RectL object ([MS-WMF] section 2.2.2.19) that
     /// specifies a rectangle in logical units.
     pub clip: wmf_core::parser::RectL,
@@ -27,6 +27,7 @@ impl EMR_EXCLUDECLIPRECT {
     pub fn parse<R: std::io::Read>(
         buf: &mut R,
         record_type: crate::parser::RecordType,
+        mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
         if record_type != crate::parser::RecordType::EMR_EXCLUDECLIPRECT {
             return Err(crate::parser::ParseError::UnexpectedPattern {
@@ -38,15 +39,12 @@ impl EMR_EXCLUDECLIPRECT {
             });
         }
 
-        let ((size, size_bytes), (clip, clip_bytes)) = (
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            wmf_core::parser::RectL::parse(buf)?,
-        );
-        let consumed_bytes = size_bytes + clip_bytes;
+        let (clip, clip_bytes) = wmf_core::parser::RectL::parse(buf)?;
+        size.consume(clip_bytes);
 
         crate::parser::records::consume_remaining_bytes(
             buf,
-            size as usize - consumed_bytes,
+            size.remaining_bytes(),
         )?;
 
         Ok(Self { record_type, size, clip })

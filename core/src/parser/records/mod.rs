@@ -1,3 +1,5 @@
+//! Implementation of the definitions in Section 2.3 of the EMF specifications.
+
 mod bitmap;
 mod clipping;
 mod comment;
