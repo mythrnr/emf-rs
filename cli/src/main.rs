@@ -98,9 +98,19 @@ fn main() {
     //     .join("\n");
     // println!("{bytes}");
 
+    let Ok(cloned_output) = output.try_clone().inspect_err(|err| {
+        tracing::error!(%err);
+    }) else {
+        std::process::exit(1);
+    };
+
+    let wmf_player = wmf_core::converter::SVGPlayer::new(cloned_output);
     let player = emf_core::converter::SVGPlayer::new(output);
-    let converter =
-        emf_core::converter::EMFConverter::new(buffer.as_slice(), player);
+    let converter = emf_core::converter::EMFConverter::new(
+        buffer.as_slice(),
+        player,
+        wmf_player,
+    );
 
     if let Err(err) = converter.run() {
         tracing::error!(%err);

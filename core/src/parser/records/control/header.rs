@@ -22,14 +22,19 @@ impl EMR_HEADER {
     #[tracing::instrument(
         level = tracing::Level::TRACE,
         skip_all,
-        fields(record_type = %format!("{record_type:?}")),
         err(level = tracing::Level::DEBUG, Display),
     )]
     pub fn parse<R: std::io::Read>(
         buf: &mut R,
-        record_type: crate::parser::RecordType,
-        mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
+        let ((record_type, record_type_bytes), (size, size_bytes)) = (
+            crate::parser::RecordType::parse(buf)?,
+            crate::parser::read_u32_from_le_bytes(buf)?,
+        );
+
+        let mut size = crate::parser::Size::from(size);
+        size.consume(record_type_bytes + size_bytes);
+
         if record_type != crate::parser::RecordType::EMR_HEADER {
             return Err(crate::parser::ParseError::UnexpectedPattern {
                 cause: format!(

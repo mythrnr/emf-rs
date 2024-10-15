@@ -46,8 +46,9 @@ pub use self::{
     ext_text_out_a::*, ext_text_out_w::*, fill_path::*, fill_rgn::*,
     frame_rgn::*, gradient_fill::*, line_to::*, paint_rgn::*, pie::*,
     poly_bezier::*, poly_bezier_16::*, poly_bezier_to::*, poly_bezier_to_16::*,
-    poly_draw::*, poly_draw_16::*, poly_text_out_a::*, poly_text_out_w::*,
-    polygon::*, polygon_16::*, polyline::*, polyline_16::*, polyline_to::*,
-    polyline_to_16::*, rectangle::*, round_rect::*, set_pixel_v::*,
-    small_text_out::*, stroke_and_fill_path::*, stroke_path::*,
+    poly_draw::*, poly_draw_16::*, poly_polygon::*, poly_polygon_16::*,
+    poly_polyline::*, poly_polyline_16::*, poly_text_out_a::*,
+    poly_text_out_w::*, polygon::*, polygon_16::*, polyline::*, polyline_16::*,
+    polyline_to::*, polyline_to_16::*, rectangle::*, round_rect::*,
+    set_pixel_v::*, small_text_out::*, stroke_and_fill_path::*, stroke_path::*,
 };

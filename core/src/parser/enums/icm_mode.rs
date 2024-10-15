@@ -14,7 +14,7 @@
     strum::FromRepr,
     strum::EnumIter,
 )]
-#[repr(u8)]
+#[repr(u32)]
 pub enum ICMMode {
     /// Turns off ICM; turns on old-style color correction of halftones.
     ICM_OFF = 0x01,
@@ -26,4 +26,4 @@ pub enum ICMMode {
     ICM_DONE_OUTSIDEDC = 0x04,
 }
 
-crate::parser::enums::impl_parser!(ICMMode, u8);
+crate::parser::enums::impl_parser!(ICMMode, u32);

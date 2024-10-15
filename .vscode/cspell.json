@@ -16,20 +16,29 @@
   "words": [
     "alphablend",
     "aptl",
+    "bezier",
     "blendfunction",
     "doublebuffer",
+    "excludecliprect",
+    "extselectcliprgn",
     "facename",
     "gradientfill",
     "letterform",
     "metafile",
     "metafiles",
+    "modifyworldtransform",
+    "namedescape",
     "opengl",
     "panose",
     "plgblt",
+    "polyline",
+    "polylines",
     "rects",
     "repr",
     "setdibitstodevice",
+    "setworldtransform",
     "stretchblt",
-    "thiserror"
+    "thiserror",
+    "xform"
   ]
 }
