@@ -82,7 +82,7 @@ pub trait Player {
     // .
     // .
     fn eof(&mut self, record: EMR_EOF) -> Result<(), PlayError>;
-    fn header(&mut self, header: EMR_HEADER) -> Result<(), PlayError>;
+    fn header(&mut self, record: EMR_HEADER) -> Result<(), PlayError>;
 
     // .
     // .

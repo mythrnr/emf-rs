@@ -4,16 +4,25 @@ use wasm_bindgen::prelude::*;
 pub fn convert_emf_to_svg(buf: &[u8]) -> Result<String, JsValue> {
     set_log_level("info");
 
-    let mut output: Vec<u8> = vec![];
-    let out = std::io::BufWriter::new(&mut output);
-    let player = emf_core::converter::SVGPlayer::new(out);
-    let converter = emf_core::converter::EMFConverter::new(buf, player);
+    let mut output_wmf: Vec<u8> = vec![];
+    let mut output_emf: Vec<u8> = vec![];
+    let out_wmf = std::io::BufWriter::new(&mut output_wmf);
+    let out_emf = std::io::BufWriter::new(&mut output_emf);
+
+    let wmf_player = wmf_core::converter::SVGPlayer::new(out_wmf);
+    let emf_player = emf_core::converter::SVGPlayer::new(out_emf);
+    let converter =
+        emf_core::converter::EMFConverter::new(buf, emf_player, wmf_player);
 
     if let Err(err) = converter.run() {
         return Err(err.to_string().into());
     }
 
-    Ok(String::from_utf8_lossy(&output).to_string())
+    if !output_wmf.is_empty() {
+        Ok(String::from_utf8_lossy(&output_wmf).to_string())
+    } else {
+        Ok(String::from_utf8_lossy(&output_emf).to_string())
+    }
 }
 
 static INIT: std::sync::Once = std::sync::Once::new();

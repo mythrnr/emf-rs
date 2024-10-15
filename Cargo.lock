@@ -187,6 +187,7 @@ dependencies = [
  "tracing-wasm",
  "wasm-bindgen",
  "wasm-bindgen-test",
+ "wmf-core",
 ]
 
 [[package]]

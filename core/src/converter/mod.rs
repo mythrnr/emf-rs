@@ -1,7 +1,6 @@
 mod playback_device_context;
 mod player;
 
-use self::playback_device_context::*;
 pub use self::player::*;
 use crate::parser::*;
 
@@ -61,7 +60,7 @@ where
     pub fn run(self) -> Result<(), ConvertError> {
         let Self { mut buffer, mut player, wmf_player } = self;
 
-        let mut buffer = {
+        let buffer = {
             let mut buf = vec![];
             buffer.read_to_end(&mut buf).map_err(|err| {
                 ConvertError::IoError { cause: format!("{err:?}") }
@@ -70,7 +69,7 @@ where
             buf
         };
 
-        let b = &buffer[0..4];
+        let mut b = &buffer[0..4];
 
         match RecordType::parse(&mut b) {
             Ok((record_type, _))
@@ -164,12 +163,6 @@ where
 
                     tracing::debug!(?record);
                     player.set_dibits_to_device(record)?;
-                }
-                RecordType::EMR_STRETCHBLT => {
-                    let record = EMR_STRETCHBLT::parse(buf, record_type, size)?;
-
-                    tracing::debug!(?record);
-                    player.stretch_blt(record)?;
                 }
                 RecordType::EMR_STRETCHBLT => {
                     let record = EMR_STRETCHBLT::parse(buf, record_type, size)?;
