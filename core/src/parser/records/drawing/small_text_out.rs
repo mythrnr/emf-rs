@@ -26,7 +26,8 @@ pub struct EMR_SMALLTEXTOUT {
     /// fuOptions (4 bytes): An unsigned integer specifying the text output
     /// options to use. These options are specified by one or a combination of
     /// values from the ExtTextOutOptions enumeration.
-    pub fu_options: Vec<crate::parser::ExtTextOutOptions>,
+    pub fu_options:
+        std::collections::BTreeSet<crate::parser::ExtTextOutOptions>,
     /// iGraphicsMode (4 bytes): An unsigned integer specifying the graphics
     /// mode, from the GraphicsMode enumeration.
     pub i_graphics_mode: crate::parser::GraphicsMode,
@@ -80,7 +81,7 @@ impl EMR_SMALLTEXTOUT {
             (
                 crate::parser::ExtTextOutOptions::iter()
                     .filter(|c| v & (*c as u32) == (*c as u32))
-                    .collect::<Vec<_>>(),
+                    .collect::<std::collections::BTreeSet<_>>(),
                 values_bytes,
             )
         };

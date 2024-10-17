@@ -6,7 +6,7 @@ pub struct LogPenEx {
     ///
     /// The pen style is a combination of pen type, line style, line cap, and
     /// line join.
-    pub pen_style: Vec<crate::parser::PenStyle>,
+    pub pen_style: std::collections::BTreeSet<crate::parser::PenStyle>,
     /// An unsigned integer that specifies the width of the line drawn by the
     /// pen.
     ///
@@ -74,7 +74,7 @@ impl LogPenEx {
             (
                 crate::parser::PenStyle::iter()
                     .filter(|c| v & (*c as u32) == (*c as u32))
-                    .collect::<Vec<_>>(),
+                    .collect::<std::collections::BTreeSet<_>>(),
                 values_bytes,
             )
         };
@@ -154,7 +154,7 @@ impl LogPenExBrush {
     )]
     fn parse<R: std::io::Read>(
         buf: &mut R,
-        pen_style: &[crate::parser::PenStyle],
+        pen_style: &std::collections::BTreeSet<crate::parser::PenStyle>,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
         let (
             (brush_style, brush_style_bytes),

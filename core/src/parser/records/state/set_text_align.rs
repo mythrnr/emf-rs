@@ -62,7 +62,7 @@ impl EMR_SETTEXTALIGN {
 
     pub fn horizontal_baseline(
         &self,
-    ) -> Vec<wmf_core::parser::TextAlignmentMode> {
+    ) -> std::collections::BTreeSet<wmf_core::parser::TextAlignmentMode> {
         use strum::IntoEnumIterator;
 
         wmf_core::parser::TextAlignmentMode::iter()
@@ -74,7 +74,8 @@ impl EMR_SETTEXTALIGN {
 
     pub fn vertical_baseline(
         &self,
-    ) -> Vec<wmf_core::parser::VerticalTextAlignmentMode> {
+    ) -> std::collections::BTreeSet<wmf_core::parser::VerticalTextAlignmentMode>
+    {
         use strum::IntoEnumIterator;
 
         wmf_core::parser::VerticalTextAlignmentMode::iter()

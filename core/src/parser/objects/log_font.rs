@@ -93,7 +93,8 @@ pub struct LogFont {
     /// precision. The clipping precision defines how to clip characters that
     /// are partially outside the clipping region. It can be one or more of the
     /// ClipPrecision Flags ([MS-WMF] section 2.1.2.1).
-    pub clip_precision: Vec<wmf_core::parser::ClipPrecision>,
+    pub clip_precision:
+        std::collections::BTreeSet<wmf_core::parser::ClipPrecision>,
     /// Quality (1 byte): An unsigned integer that specifies the output
     /// quality. The output quality defines how closely to attempt to match the
     /// logical-font attributes to those of an actual physical font. It MUST be

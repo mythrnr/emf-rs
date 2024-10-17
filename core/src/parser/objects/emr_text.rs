@@ -34,7 +34,7 @@ pub struct EmrText {
     /// Options (4 bytes): An unsigned integer that specifies how to use the
     /// rectangle specified in the Rectangle field. This field can be a
     /// combination of more than one ExtTextOutOptions enumeration values.
-    pub options: Vec<crate::parser::ExtTextOutOptions>,
+    pub options: std::collections::BTreeSet<crate::parser::ExtTextOutOptions>,
     /// Rectangle (16 bytes, optional): A RectL object ([MS-WMF] section
     /// 2.2.2.19) that defines a clipping and/or opaquing rectangle in logical
     /// units. This rectangle is applied to the text output performed by the
@@ -101,7 +101,7 @@ impl EmrText {
             (
                 crate::parser::ExtTextOutOptions::iter()
                     .filter(|o| v & (*o as u32) == (*o as u32))
-                    .collect::<Vec<_>>(),
+                    .collect::<std::collections::BTreeSet<_>>(),
                 options_bytes,
             )
         };

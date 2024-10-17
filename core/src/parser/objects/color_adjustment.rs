@@ -22,7 +22,8 @@ pub struct ColorAdjustment {
     /// Values (2 bytes): An unsigned integer that specifies how to prepare the
     /// output image. This field can be set to NULL or to any combination of
     /// values in the ColorAdjustment enumeration.
-    pub values: Vec<crate::parser::enums::ColorAdjustmentEnum>,
+    pub values:
+        std::collections::BTreeSet<crate::parser::enums::ColorAdjustmentEnum>,
     /// IlluminantIndex (2 bytes): An unsigned integer that specifies the type
     /// of standard light source under which the image is viewed, from the
     /// Illuminant enumeration.
