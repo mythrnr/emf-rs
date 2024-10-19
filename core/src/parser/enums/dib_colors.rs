@@ -14,7 +14,7 @@
     strum::FromRepr,
     strum::EnumIter,
 )]
-#[repr(u8)]
+#[repr(u32)]
 pub enum DIBColors {
     /// The color table contains literal RGB values.
     DIB_RGB_COLORS = 0x00,
@@ -27,4 +27,4 @@ pub enum DIBColors {
     DIB_PAL_INDICES = 0x02,
 }
 
-crate::parser::enums::impl_parser!(DIBColors, u8);
+crate::parser::enums::impl_parser!(DIBColors, u32);

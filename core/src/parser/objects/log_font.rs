@@ -173,20 +173,9 @@ impl LogFont {
         );
 
         let (facename, facename_bytes) = {
-            let (v, facename_bytes) = crate::parser::read::<_, 64>(buf)?;
+            let (v, facename_bytes) = crate::parser::read_variable(buf, 64)?;
 
-            // Find the position of the first null byte (0)
-            let len = v.iter().position(|&c| c == 0).unwrap_or(64);
-            let encoding: &'static encoding_rs::Encoding = charset.into();
-            let (cow, _, had_errors) = encoding.decode(&v[..len]);
-
-            let facename = if had_errors {
-                "undecodable facename".to_owned()
-            } else {
-                cow.trim_end().to_owned()
-            };
-
-            (facename, facename_bytes)
+            (crate::parser::null_terminated_utf16le_string(&v)?, facename_bytes)
         };
 
         Ok((

@@ -46,10 +46,6 @@ pub struct EmrText {
     /// intercharacter spacing array in bytes, from the start of the record in
     /// which this object is contained. This value is 32-bit aligned.
     pub off_dx: u32,
-    /// UndefinedSpace1 (variable, optional): The number of unused bytes. The
-    /// OutputString field is not required to follow immediately the preceding
-    /// portion of this structure.
-    _undefined_space1: Vec<u8>,
     /// StringBuffer (variable): The character string buffer.
     ///
     /// OutputString (variable): An array of characters that specify the string
@@ -57,10 +53,6 @@ pub struct EmrText {
     /// offString in bytes from the start of this record. The number of
     /// characters is specified by the value of Chars.
     pub string_buffer: String,
-    /// UndefinedSpace2 (variable, optional): The number of unused bytes. The
-    /// OutputDx field is not required to follow immediately the preceding
-    /// portion of this structure.
-    _undefined_space2: Vec<u8>,
     /// DxBuffer (variable, optional): The character spacing buffer.
     ///
     /// OutputDx (variable): An array of 32-bit unsigned integers that specify
@@ -81,6 +73,7 @@ impl EmrText {
     pub fn parse<R: std::io::Read>(
         buf: &mut R,
         record_type: &crate::parser::RecordType,
+        offset: usize,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
         use strum::IntoEnumIterator;
 
@@ -109,7 +102,7 @@ impl EmrText {
             reference_bytes + chars_bytes + off_string_bytes + options_bytes;
 
         let (rectangle, rectangle_bytes) =
-            if (off_string as usize) - consumed_bytes >= 20 {
+            if (off_string as usize - offset) - consumed_bytes >= 20 {
                 let (rect, rect_bytes) = wmf_core::parser::RectL::parse(buf)?;
                 (Some(rect), rect_bytes)
             } else {
@@ -120,13 +113,12 @@ impl EmrText {
 
         consumed_bytes += rectangle_bytes + off_dx_bytes;
 
-        let (_undefined_space1, _undefined_space1_bytes) =
-            crate::parser::read_variable(
-                buf,
-                (off_string as usize) - consumed_bytes,
-            )?;
+        let (_, undefined_space1_bytes) = crate::parser::read_variable(
+            buf,
+            (off_string as usize - offset) - consumed_bytes,
+        )?;
 
-        consumed_bytes += _undefined_space1_bytes;
+        consumed_bytes += undefined_space1_bytes;
 
         let (string_buffer, string_buffer_bytes) = match record_type {
             crate::parser::RecordType::EMR_EXTTEXTOUTA
@@ -179,13 +171,12 @@ impl EmrText {
 
         consumed_bytes += string_buffer_bytes;
 
-        let (_undefined_space2, _undefined_space2_bytes) =
-            crate::parser::read_variable(
-                buf,
-                (off_dx as usize) - consumed_bytes,
-            )?;
+        let (_, undefined_space2_bytes) = crate::parser::read_variable(
+            buf,
+            (off_dx as usize - offset) - consumed_bytes,
+        )?;
 
-        consumed_bytes += _undefined_space2_bytes;
+        consumed_bytes += undefined_space2_bytes;
 
         let (dx_buffer, dx_buffer_bytes) = {
             let length = chars
@@ -220,9 +211,7 @@ impl EmrText {
                 options,
                 rectangle,
                 off_dx,
-                _undefined_space1,
                 string_buffer,
-                _undefined_space2,
                 dx_buffer,
             },
             consumed_bytes,

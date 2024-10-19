@@ -84,7 +84,11 @@ impl EMR_POLYTEXTOUTA {
             let mut entries = vec![];
 
             for _ in 0..c_strings {
-                let (v, b) = crate::parser::EmrText::parse(buf, &record_type)?;
+                let (v, b) = crate::parser::EmrText::parse(
+                    buf,
+                    &record_type,
+                    size.consumed_bytes(),
+                )?;
 
                 entries.push(v);
                 size.consume(b);

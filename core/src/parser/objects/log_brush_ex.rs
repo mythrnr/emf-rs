@@ -32,20 +32,38 @@ impl LogBrushEx {
     pub fn parse<R: std::io::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        let (
-            (brush_style, brush_style_bytes),
-            (color, color_bytes),
-            (brush_hatch, brush_hatch_bytes),
-        ) = (
-            wmf_core::parser::BrushStyle::parse(buf)?,
-            wmf_core::parser::ColorRef::parse(buf)?,
-            crate::parser::HatchStyle::parse(buf)?,
-        );
+        let (brush_style, mut consumed_bytes) =
+            wmf_core::parser::BrushStyle::parse(buf)?;
 
         let v = match brush_style {
-            wmf_core::parser::BrushStyle::BS_SOLID => Self::Solid { color },
-            wmf_core::parser::BrushStyle::BS_NULL => Self::Null,
+            wmf_core::parser::BrushStyle::BS_SOLID => {
+                let ((color, color_bytes), (_, brush_hatch_bytes)) = (
+                    wmf_core::parser::ColorRef::parse(buf)?,
+                    crate::parser::read::<_, 2>(buf)?,
+                );
+
+                consumed_bytes += color_bytes + brush_hatch_bytes;
+
+                Self::Solid { color }
+            }
+            wmf_core::parser::BrushStyle::BS_NULL => {
+                let ((_, color_bytes), (_, brush_hatch_bytes)) = (
+                    crate::parser::read::<_, 4>(buf)?,
+                    crate::parser::read::<_, 2>(buf)?,
+                );
+
+                consumed_bytes += color_bytes + brush_hatch_bytes;
+
+                Self::Null
+            }
             wmf_core::parser::BrushStyle::BS_HATCHED => {
+                let ((color, color_bytes), (brush_hatch, brush_hatch_bytes)) = (
+                    wmf_core::parser::ColorRef::parse(buf)?,
+                    crate::parser::HatchStyle::parse(buf)?,
+                );
+
+                consumed_bytes += color_bytes + brush_hatch_bytes;
+
                 Self::Hatched { color, brush_hatch }
             }
             _ => {
@@ -55,6 +73,6 @@ impl LogBrushEx {
             }
         };
 
-        Ok((v, brush_style_bytes + color_bytes + brush_hatch_bytes))
+        Ok((v, consumed_bytes))
     }
 }

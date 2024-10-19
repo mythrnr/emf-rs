@@ -59,41 +59,48 @@ impl EMR_EOF {
 
         size.consume(n_pal_entries_bytes + off_pal_entries_bytes);
 
-        let (_, undefined_space_bytes) = crate::parser::read_variable(
-            buf,
-            off_pal_entries_bytes as usize - size.consumed_bytes(),
-        )?;
+        let palette_buffer = if off_pal_entries > 0 {
+            let (_, undefined_space_bytes) = crate::parser::read_variable(
+                buf,
+                off_pal_entries as usize - size.consumed_bytes(),
+            )?;
 
-        size.consume(undefined_space_bytes);
+            size.consume(undefined_space_bytes);
 
-        let palette_buffer = {
-            let mut entries = vec![];
+            let palette_buffer = {
+                let mut entries = vec![];
 
-            for _ in 0..n_pal_entries {
-                let (v, b) = crate::parser::LogPaletteEntry::parse(buf)?;
+                for _ in 0..n_pal_entries {
+                    let (v, b) = crate::parser::LogPaletteEntry::parse(buf)?;
 
-                entries.push(v);
-                size.consume(b);
-            }
+                    entries.push(v);
+                    size.consume(b);
+                }
 
-            entries
+                entries
+            };
+
+            let (_, undefined_space_2_bytes) =
+                crate::parser::read_variable(buf, size.remaining_bytes() - 4)?;
+
+            size.consume(undefined_space_2_bytes);
+
+            palette_buffer
+        } else {
+            vec![]
         };
 
-        let (_, undefined_space_2_bytes) =
-            crate::parser::read_variable(buf, size.remaining_bytes() - 4)?;
         let (size_last, size_last_bytes) =
             crate::parser::read_u32_from_le_bytes(buf)?;
 
-        size.consume(undefined_space_2_bytes + size_last_bytes);
+        size.consume(size_last_bytes);
 
         if size.byte_count() as u32 != size_last {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "size and size_last must be same value. but size is \
-                     `{:#010X}`, and size_last is `{size_last:#010X}`",
-                    size.byte_count(),
-                ),
-            });
+            tracing::warn!(
+                size = %size.byte_count(),
+                %size_last,
+                "size and size_last must be same value",
+            );
         }
 
         crate::parser::records::consume_remaining_bytes(

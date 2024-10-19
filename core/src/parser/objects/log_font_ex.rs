@@ -37,15 +37,15 @@ impl LogFontEx {
             (script, script_bytes),
         ) = (
             crate::parser::LogFont::parse(buf)?,
-            crate::parser::read::<_, 128>(buf)?,
-            crate::parser::read::<_, 64>(buf)?,
-            crate::parser::read::<_, 64>(buf)?,
+            crate::parser::read_variable(buf, 128)?,
+            crate::parser::read_variable(buf, 64)?,
+            crate::parser::read_variable(buf, 64)?,
         );
 
         let (full_name, style, script) = (
-            crate::parser::utf16le_bytes_to_string(&full_name)?,
-            crate::parser::utf16le_bytes_to_string(&style)?,
-            crate::parser::utf16le_bytes_to_string(&script)?,
+            crate::parser::null_terminated_utf16le_string(&full_name)?,
+            crate::parser::null_terminated_utf16le_string(&style)?,
+            crate::parser::null_terminated_utf16le_string(&script)?,
         );
 
         Ok((

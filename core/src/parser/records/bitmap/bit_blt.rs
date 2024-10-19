@@ -153,25 +153,37 @@ impl EMR_BITBLT {
                 + cb_bits_src_bytes,
         );
 
-        let ((_, undef_space_bytes), (bmi_src, bmi_src_bytes)) = (
-            crate::parser::read_variable(
-                buf,
-                off_bmi_src as usize - size.consumed_bytes(),
-            )?,
-            crate::parser::read_variable(buf, cb_bmi_src as usize)?,
-        );
+        let bmi_src = if off_bmi_src > 0 && cb_bmi_src > 0 {
+            let ((_, undef_space_bytes), (bmi_src, bmi_src_bytes)) = (
+                crate::parser::read_variable(
+                    buf,
+                    off_bmi_src as usize - size.consumed_bytes(),
+                )?,
+                crate::parser::read_variable(buf, cb_bmi_src as usize)?,
+            );
 
-        size.consume(undef_space_bytes + bmi_src_bytes);
+            size.consume(undef_space_bytes + bmi_src_bytes);
 
-        let ((_, undef_space_bytes), (bits_src, bits_src_bytes)) = (
-            crate::parser::read_variable(
-                buf,
-                off_bits_src as usize - size.consumed_bytes(),
-            )?,
-            crate::parser::read_variable(buf, cb_bits_src as usize)?,
-        );
+            bmi_src
+        } else {
+            vec![]
+        };
 
-        size.consume(undef_space_bytes + bits_src_bytes);
+        let bits_src = if off_bits_src > 0 && cb_bits_src > 0 {
+            let ((_, undef_space_bytes), (bits_src, bits_src_bytes)) = (
+                crate::parser::read_variable(
+                    buf,
+                    off_bits_src as usize - size.consumed_bytes(),
+                )?,
+                crate::parser::read_variable(buf, cb_bits_src as usize)?,
+            );
+
+            size.consume(undef_space_bytes + bits_src_bytes);
+
+            bits_src
+        } else {
+            vec![]
+        };
 
         crate::parser::records::consume_remaining_bytes(
             buf,

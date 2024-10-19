@@ -63,22 +63,27 @@ impl EMR_EXTTEXTOUTW {
             (i_graphics_mode, i_graphics_mode_bytes),
             (ex_scale, ex_scale_bytes),
             (ey_scale, ey_scale_bytes),
-            (w_emr_text, w_emr_text_bytes),
         ) = (
             wmf_core::parser::RectL::parse(buf)?,
             crate::parser::GraphicsMode::parse(buf)?,
             crate::parser::read_f32_from_le_bytes(buf)?,
             crate::parser::read_f32_from_le_bytes(buf)?,
-            crate::parser::EmrText::parse(buf, &record_type)?,
         );
 
         size.consume(
             bounds_bytes
                 + i_graphics_mode_bytes
                 + ex_scale_bytes
-                + ey_scale_bytes
-                + w_emr_text_bytes,
+                + ey_scale_bytes,
         );
+
+        let (w_emr_text, w_emr_text_bytes) = crate::parser::EmrText::parse(
+            buf,
+            &record_type,
+            size.consumed_bytes(),
+        )?;
+
+        size.consume(w_emr_text_bytes);
 
         crate::parser::records::consume_remaining_bytes(
             buf,

@@ -39,10 +39,10 @@ pub struct EMR_EXTCREATEPEN {
     ///
     /// BmiSrc (variable): The DIB header, which is the DibHeaderInfo field of
     /// a DeviceIndependentBitmap object.
-    pub bmi_src: wmf_core::parser::BitmapInfoHeader,
+    pub bmi_src: Option<wmf_core::parser::BitmapInfoHeader>,
     /// BitsSrc (variable): The DIB bits, which is the aData field of a
     /// DeviceIndependentBitmap object.
-    pub bits_src: Vec<u8>,
+    pub bits_src: Option<Vec<u8>>,
 }
 
 impl EMR_EXTCREATEPEN {
@@ -92,25 +92,31 @@ impl EMR_EXTCREATEPEN {
                 + elp_bytes,
         );
 
-        let ((_, undef_space_bytes), (bmi_src, bmi_src_bytes)) = (
-            crate::parser::read_variable(
-                buf,
-                off_bmi as usize - size.consumed_bytes(),
-            )?,
-            wmf_core::parser::BitmapInfoHeader::parse(buf)?,
-        );
+        let (bmi_src, bits_src) = if off_bmi > 0 && cb_bmi > 0 {
+            let ((_, undef_space_bytes), (bmi_src, bmi_src_bytes)) = (
+                crate::parser::read_variable(
+                    buf,
+                    off_bmi as usize - size.consumed_bytes(),
+                )?,
+                wmf_core::parser::BitmapInfoHeader::parse(buf)?,
+            );
 
-        size.consume(undef_space_bytes + bmi_src_bytes);
+            size.consume(undef_space_bytes + bmi_src_bytes);
 
-        let ((_, undef_space_bytes), (bits_src, bits_src_bytes)) = (
-            crate::parser::read_variable(
-                buf,
-                off_bits as usize - size.consumed_bytes(),
-            )?,
-            crate::parser::read_variable(buf, cb_bits as usize)?,
-        );
+            let ((_, undef_space_bytes), (bits_src, bits_src_bytes)) = (
+                crate::parser::read_variable(
+                    buf,
+                    off_bits as usize - size.consumed_bytes(),
+                )?,
+                crate::parser::read_variable(buf, cb_bits as usize)?,
+            );
 
-        size.consume(undef_space_bytes + bits_src_bytes);
+            size.consume(undef_space_bytes + bits_src_bytes);
+
+            (Some(bmi_src), Some(bits_src))
+        } else {
+            (None, None)
+        };
 
         crate::parser::records::consume_remaining_bytes(
             buf,

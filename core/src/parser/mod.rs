@@ -123,6 +123,25 @@ fn utf16le_bytes_to_string(bytes: &[u8]) -> Result<String, ParseError> {
         .map_err(|err| ParseError::UnexpectedPattern { cause: err.to_string() })
 }
 
+fn null_terminated_utf16le_string(bytes: &[u8]) -> Result<String, ParseError> {
+    if bytes.len() % 2 != 0 {
+        return Err(ParseError::UnexpectedPattern {
+            cause: "Byte array length must be even".to_owned(),
+        });
+    }
+
+    // Find the position of the first null byte (0)
+    let len = bytes
+        .chunks(2)
+        .position(|chunk| {
+            u16::from_le_bytes(chunk.try_into().expect("should be converted"))
+                == 0
+        })
+        .unwrap_or(bytes.len() / 2);
+
+    utf16le_bytes_to_string(&bytes[..len * 2])
+}
+
 macro_rules! impl_from_le_bytes {
     ($(($t:ty, $n:expr)),+) => {
         paste::paste!{

@@ -339,12 +339,10 @@ impl BlendFunction {
         );
 
         if blend_flags != 0x00 {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "blend_flags field must be `0x00`, but parsed value is \
-                     {blend_flags:#06X}"
-                ),
-            });
+            tracing::warn!(
+                "blend_flags field must be `0x00`, but parsed value is \
+                 {blend_flags:#04X}",
+            );
         }
 
         Ok((
