@@ -23,7 +23,7 @@ impl EMR_RESTOREDC {
         fields(record_type = %format!("{record_type:?}")),
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn parse<R: std::io::Read>(
+    pub fn parse<R: crate::Read>(
         buf: &mut R,
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
@@ -52,6 +52,16 @@ impl EMR_RESTOREDC {
             crate::parser::read_i32_from_le_bytes(buf)?;
 
         size.consume(saved_dc_bytes);
+
+        if saved_dc >= 0 {
+            return Err(crate::parser::ParseError::UnexpectedPattern {
+                cause: format!(
+                    "saved_dc field must be negative value, but parsed value \
+                     is {:#010X}",
+                    size.byte_count(),
+                ),
+            });
+        }
 
         crate::parser::records::consume_remaining_bytes(
             buf,

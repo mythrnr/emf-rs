@@ -1,3 +1,5 @@
+use crate::imports::*;
+
 /// The EMR_MASKBLT record specifies a block transfer of pixels from a source
 /// bitmap to a destination rectangle, optionally in combination with a brush
 /// pattern and with the application of a color mask bitmap, according to
@@ -117,7 +119,7 @@ impl EMR_MASKBLT {
         fields(record_type = %format!("{record_type:?}")),
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn parse<R: std::io::Read>(
+    pub fn parse<R: crate::Read>(
         buf: &mut R,
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
@@ -306,7 +308,7 @@ impl ROP4 {
         skip_all,
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn parse<R: std::io::Read>(
+    pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
         let (

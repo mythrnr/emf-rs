@@ -1,3 +1,5 @@
+use crate::imports::*;
+
 /// The EMR_ALPHABLEND record specifies a block transfer of pixels from a source
 /// bitmap to a destination rectangle, including alpha transparency data,
 /// according to a specified blending operation.
@@ -138,7 +140,7 @@ impl EMR_ALPHABLEND {
         fields(record_type = %format!("{record_type:?}")),
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn parse<R: std::io::Read>(
+    pub fn parse<R: crate::Read>(
         buf: &mut R,
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
@@ -323,7 +325,7 @@ pub struct BlendFunction {
 }
 
 impl BlendFunction {
-    fn parse<R: std::io::Read>(
+    fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
         let (

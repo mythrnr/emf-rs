@@ -1,3 +1,5 @@
+use crate::imports::*;
+
 /// The EMR_POLYBEZIER record specifies one or more Bezier curves.
 #[derive(Clone, Debug)]
 pub struct EMR_POLYBEZIER {
@@ -37,7 +39,7 @@ impl EMR_POLYBEZIER {
         fields(record_type = %format!("{record_type:?}")),
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn parse<R: std::io::Read>(
+    pub fn parse<R: crate::Read>(
         buf: &mut R,
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,

@@ -1,3 +1,5 @@
+use crate::imports::*;
+
 /// The EMR_EXTCREATEPEN record defines an extended logical pen for graphics
 /// operations. An optional DIB can be specified to use as the line style.
 ///
@@ -52,7 +54,7 @@ impl EMR_EXTCREATEPEN {
         fields(record_type = %format!("{record_type:?}")),
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn parse<R: std::io::Read>(
+    pub fn parse<R: crate::Read>(
         buf: &mut R,
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,

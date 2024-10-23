@@ -1,3 +1,5 @@
+use crate::imports::*;
+
 /// The EMR_PAINTRGN record paints the specified region by using the current
 /// brush. The current clipping regions used by this record are maintained in a
 /// Regions state element in the playback device context.
@@ -33,7 +35,7 @@ impl EMR_PAINTRGN {
         fields(record_type = %format!("{record_type:?}")),
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn parse<R: std::io::Read>(
+    pub fn parse<R: crate::Read>(
         buf: &mut R,
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,

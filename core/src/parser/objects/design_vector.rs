@@ -1,3 +1,5 @@
+use crate::imports::*;
+
 /// The DesignVector object defines the design vector, which specifies values
 /// for the font axes of a multiple master font.
 #[derive(Clone, Debug)]
@@ -21,7 +23,7 @@ impl DesignVector {
         skip_all,
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn parse<R: std::io::Read>(
+    pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
         let (signature, signature_bytes) =

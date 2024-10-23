@@ -1,3 +1,5 @@
+use crate::imports::*;
+
 /// The EMR_BITBLT record specifies a block transfer of pixels from a source
 /// bitmap to a destination rectangle, optionally in combination with a brush
 /// pattern, according to a specified raster operation.
@@ -86,7 +88,7 @@ impl EMR_BITBLT {
         fields(record_type = %format!("{record_type:?}")),
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn parse<R: std::io::Read>(
+    pub fn parse<R: crate::Read>(
         buf: &mut R,
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,

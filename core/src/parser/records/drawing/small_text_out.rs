@@ -1,3 +1,5 @@
+use crate::imports::*;
+
 /// The EMR_SMALLTEXTOUT record outputs a string.
 ///
 /// If ETO_SMALL_CHARS is set in the fuOptions field, TextString contains 8-bit
@@ -26,8 +28,7 @@ pub struct EMR_SMALLTEXTOUT {
     /// fuOptions (4 bytes): An unsigned integer specifying the text output
     /// options to use. These options are specified by one or a combination of
     /// values from the ExtTextOutOptions enumeration.
-    pub fu_options:
-        std::collections::BTreeSet<crate::parser::ExtTextOutOptions>,
+    pub fu_options: BTreeSet<crate::parser::ExtTextOutOptions>,
     /// iGraphicsMode (4 bytes): An unsigned integer specifying the graphics
     /// mode, from the GraphicsMode enumeration.
     pub i_graphics_mode: crate::parser::GraphicsMode,
@@ -53,7 +54,7 @@ impl EMR_SMALLTEXTOUT {
         fields(record_type = %format!("{record_type:?}")),
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn parse<R: std::io::Read>(
+    pub fn parse<R: crate::Read>(
         buf: &mut R,
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
@@ -81,7 +82,7 @@ impl EMR_SMALLTEXTOUT {
             (
                 crate::parser::ExtTextOutOptions::iter()
                     .filter(|c| v & (*c as u32) == (*c as u32))
-                    .collect::<std::collections::BTreeSet<_>>(),
+                    .collect::<BTreeSet<_>>(),
                 values_bytes,
             )
         };

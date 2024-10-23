@@ -19,7 +19,7 @@ pub use self::{
     state::*, transform::*,
 };
 
-fn consume_remaining_bytes<R: std::io::Read>(
+fn consume_remaining_bytes<R: crate::Read>(
     buf: &mut R,
     remaining_bytes: usize,
 ) -> Result<(), crate::parser::ParseError> {

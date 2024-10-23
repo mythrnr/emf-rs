@@ -1,3 +1,5 @@
+use crate::imports::*;
+
 /// The EMR_CREATEMONOBRUSH record defines a monochrome pattern brush for
 /// graphics operations. The pattern is specified by a monochrome DIB.
 ///
@@ -52,7 +54,7 @@ impl EMR_CREATEMONOBRUSH {
         fields(record_type = %format!("{record_type:?}")),
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn parse<R: std::io::Read>(
+    pub fn parse<R: crate::Read>(
         buf: &mut R,
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,

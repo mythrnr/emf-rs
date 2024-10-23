@@ -1,3 +1,5 @@
+use crate::imports::*;
+
 /// The EMR_SETICMPROFILEW record specifies a color profile in a file with a
 /// name consisting of Unicode characters, for graphics output.
 ///
@@ -32,7 +34,7 @@ impl EMR_SETICMPROFILEW {
         fields(record_type = %format!("{record_type:?}")),
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn parse<R: std::io::Read>(
+    pub fn parse<R: crate::Read>(
         buf: &mut R,
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,

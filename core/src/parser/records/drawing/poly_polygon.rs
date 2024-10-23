@@ -1,3 +1,5 @@
+use crate::imports::*;
+
 /// The EMR_POLYPOLYGON record specifies a series of closed polygons.
 ///
 /// Each polygon SHOULD be outlined using the current pen, and filled using the
@@ -47,7 +49,7 @@ impl EMR_POLYPOLYGON {
         fields(record_type = %format!("{record_type:?}")),
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn parse<R: std::io::Read>(
+    pub fn parse<R: crate::Read>(
         buf: &mut R,
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,

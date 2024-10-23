@@ -1,27 +1,76 @@
-use crate::{converter::PlayError, parser::*};
+mod node;
 
-pub struct SVGPlayer<W> {
-    output: W,
+use wmf_core::parser::{PointL, SizeL};
+
+use crate::{
+    converter::{
+        playback_device_context::{
+            EmfObjectTable, GraphicsEnvironment, GraphicsObject,
+            PlaybackDeviceContext, PlaybackStateColors, PlaybackStateDrawing,
+            PlaybackStateRegions, PlaybackStateText, SelectedObject, Viewport,
+            Window,
+        },
+        svg::node::{Data, Node},
+        PlayError,
+    },
+    imports::*,
+    parser::*,
+};
+
+pub struct SVGPlayer {
+    context_stack: Vec<PlaybackDeviceContext>,
+    context: PlaybackDeviceContext,
+    definitions: Vec<Node>,
+    elements: Vec<Node>,
+    emf_object_table: EmfObjectTable,
+    selected_emf_object: SelectedObject,
 }
 
-impl<W> SVGPlayer<W> {
-    pub fn new(output: W) -> Self {
-        Self { output }
+impl Default for SVGPlayer {
+    fn default() -> Self {
+        Self {
+            context_stack: vec![],
+            context: PlaybackDeviceContext::default(),
+            definitions: vec![],
+            elements: vec![],
+            emf_object_table: EmfObjectTable::new(0),
+            selected_emf_object: SelectedObject::default(),
+        }
     }
 }
 
-impl<W> crate::converter::Player for SVGPlayer<W>
-where
-    W: std::io::Write,
-{
+impl SVGPlayer {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl crate::converter::Player for SVGPlayer {
     #[tracing::instrument(
         level = tracing::Level::TRACE,
         skip_all,
         err(level = tracing::Level::ERROR, Display),
     )]
-    fn generate(self) -> Result<(), PlayError> {
-        tracing::info!("generate: not implemented");
-        Ok(())
+    fn generate(self) -> Result<Vec<u8>, PlayError> {
+        let Self { definitions, elements, .. } = self;
+
+        let mut document =
+            Node::node("svg").set("xmlns", "http://www.w3.org/2000/svg");
+
+        if !definitions.is_empty() {
+            let mut defs = Node::node("defs");
+            for v in definitions {
+                defs = defs.add(v);
+            }
+
+            document = document.add(defs);
+        }
+
+        for v in elements {
+            document = document.add(v);
+        }
+
+        Ok(document.to_string().into_bytes())
     }
 
     // .
@@ -218,7 +267,6 @@ where
         err(level = tracing::Level::ERROR, Display),
     )]
     fn comment(&mut self, _record: EMR_COMMENT) -> Result<(), PlayError> {
-        tracing::info!("EMR_COMMENT: not implemented");
         Ok(())
     }
 
@@ -233,7 +281,6 @@ where
         err(level = tracing::Level::ERROR, Display),
     )]
     fn eof(&mut self, _record: EMR_EOF) -> Result<(), PlayError> {
-        tracing::info!("EMR_EOF: not implemented");
         Ok(())
     }
 
@@ -242,8 +289,38 @@ where
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     )]
-    fn header(&mut self, _record: EMR_HEADER) -> Result<(), PlayError> {
-        tracing::info!("EMR_HEADER: not implemented");
+    fn header(&mut self, record: EMR_HEADER) -> Result<(), PlayError> {
+        self.emf_object_table =
+            EmfObjectTable::new(record.emf_header.handles as usize);
+
+        let (extent, origin) = (
+            SizeL {
+                cx: (record.emf_header.bounds.right
+                    - record.emf_header.bounds.left) as u32,
+                cy: (record.emf_header.bounds.bottom
+                    - record.emf_header.bounds.top) as u32,
+            },
+            PointL {
+                x: record.emf_header.bounds.left,
+                y: record.emf_header.bounds.top,
+            },
+        );
+
+        self.context.graphics_environment = GraphicsEnvironment {
+            regions: PlaybackStateRegions {
+                clipping: None,
+                meta_clipping: None,
+                viewport: Viewport {
+                    extent: extent.clone(),
+                    origin: origin.clone(),
+                },
+                window: Window { extent, origin },
+            },
+            color: PlaybackStateColors::default(),
+            text: PlaybackStateText::default(),
+            drawing: PlaybackStateDrawing::default(),
+        };
+
         Ok(())
     }
 
@@ -758,9 +835,13 @@ where
     )]
     fn create_brush_indirect(
         &mut self,
-        _record: EMR_CREATEBRUSHINDIRECT,
+        record: EMR_CREATEBRUSHINDIRECT,
     ) -> Result<(), PlayError> {
-        tracing::info!("EMR_CREATEBRUSHINDIRECT: not implemented");
+        self.emf_object_table.set(
+            record.ih_brush as usize,
+            GraphicsObject::LogBrushEx(record.log_brush),
+        );
+
         Ok(())
     }
 
@@ -835,7 +916,11 @@ where
         err(level = tracing::Level::ERROR, Display),
     )]
     fn create_pen(&mut self, record: EMR_CREATEPEN) -> Result<(), PlayError> {
-        tracing::info!("EMR_CREATEPEN: not implemented");
+        self.emf_object_table.set(
+            record.ih_pen as usize,
+            GraphicsObject::LogPenEx(record.log_pen.into()),
+        );
+
         Ok(())
     }
 
@@ -846,9 +931,18 @@ where
     )]
     fn ext_create_font_indirect_w(
         &mut self,
-        _record: EMR_EXTCREATEFONTINDIRECTW,
+        record: EMR_EXTCREATEFONTINDIRECTW,
     ) -> Result<(), PlayError> {
-        tracing::info!("EMR_EXTCREATEFONTINDIRECTW: not implemented");
+        let font = match record.elw {
+            crate::parser::ELW::LogFontExDv(v) => {
+                v.get(0).expect("should be set").clone()
+            }
+            crate::parser::ELW::LogFontPanose(v) => v.into(),
+        };
+
+        self.emf_object_table
+            .set(record.ih_fonts as usize, GraphicsObject::LogFontExDv(font));
+
         Ok(())
     }
 
@@ -859,9 +953,11 @@ where
     )]
     fn ext_create_pen(
         &mut self,
-        _record: EMR_EXTCREATEPEN,
+        record: EMR_EXTCREATEPEN,
     ) -> Result<(), PlayError> {
-        tracing::info!("EMR_EXTCREATEPEN: not implemented");
+        self.emf_object_table
+            .set(record.ih_pen as usize, GraphicsObject::LogPenEx(record.elp));
+
         Ok(())
     }
 
@@ -903,9 +999,9 @@ where
     )]
     fn delete_object(
         &mut self,
-        _record: EMR_DELETEOBJECT,
+        record: EMR_DELETEOBJECT,
     ) -> Result<(), PlayError> {
-        tracing::info!("EMR_DELETEOBJECT: not implemented");
+        self.emf_object_table.delete(record.in_object as usize);
         Ok(())
     }
 
@@ -929,9 +1025,51 @@ where
     )]
     fn select_object(
         &mut self,
-        _record: EMR_SELECTOBJECT,
+        record: EMR_SELECTOBJECT,
     ) -> Result<(), PlayError> {
-        tracing::info!("EMR_SELECTOBJECT: not implemented");
+        let emf_object = if let Some(stock_object) =
+            StockObject::from_repr(record.in_object)
+        {
+            GraphicsObject::from(&self.selected_emf_object, stock_object)
+        } else {
+            self.emf_object_table.get(record.in_object as usize).clone()
+        };
+
+        match emf_object {
+            GraphicsObject::DeviceIndependentBitmap(v) => {
+                self.selected_emf_object.dib = v.into();
+            }
+            GraphicsObject::LogBrushEx(v) => {
+                self.selected_emf_object.brush = v.into();
+            }
+            GraphicsObject::LogColorSpace(v) => {
+                self.selected_emf_object.color_space = v.into();
+            }
+            GraphicsObject::LogColorSpaceW(v) => {
+                self.selected_emf_object.color_space_w = v.into();
+            }
+            GraphicsObject::LogFont(v) => {
+                self.selected_emf_object.font = v.into();
+            }
+            GraphicsObject::LogFontExDv(v) => {
+                self.selected_emf_object.font_ex_dv = v.into();
+            }
+            GraphicsObject::LogPalette(v) => {
+                self.selected_emf_object.palette = v.into();
+            }
+            GraphicsObject::LogPenEx(v) => {
+                self.selected_emf_object.pen = v.into();
+            }
+            _ => {
+                return Err(PlayError::UnexpectedGraphicsObject {
+                    cause: format!(
+                        "unexpected graphics object is selected: \
+                         {emf_object:?}"
+                    ),
+                });
+            }
+        }
+
         Ok(())
     }
 
@@ -1155,8 +1293,20 @@ where
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     )]
-    fn restore_dc(&mut self, _record: EMR_RESTOREDC) -> Result<(), PlayError> {
-        tracing::info!("EMR_RESTOREDC: not implemented");
+    fn restore_dc(&mut self, record: EMR_RESTOREDC) -> Result<(), PlayError> {
+        let mut current = record.saved_dc;
+
+        while current < 0 {
+            let Some(context) = self.context_stack.pop() else {
+                return Err(PlayError::InvalidRecord {
+                    cause: "device context to restore is not saved.".to_owned(),
+                });
+            };
+
+            self.context = context;
+            current += 1;
+        }
+
         Ok(())
     }
 
@@ -1166,7 +1316,8 @@ where
         err(level = tracing::Level::ERROR, Display),
     )]
     fn save_dc(&mut self, _record: EMR_SAVEDC) -> Result<(), PlayError> {
-        tracing::info!("EMR_SAVEDC: not implemented");
+        self.context_stack.push(self.context.clone());
+
         Ok(())
     }
 
@@ -1402,9 +1553,11 @@ where
     )]
     fn set_text_align(
         &mut self,
-        _record: EMR_SETTEXTALIGN,
+        record: EMR_SETTEXTALIGN,
     ) -> Result<(), PlayError> {
-        tracing::info!("EMR_SETTEXTALIGN: not implemented");
+        self.context.graphics_environment.text.text_alignment =
+            record.text_alignment_mode;
+
         Ok(())
     }
 
@@ -1415,9 +1568,9 @@ where
     )]
     fn set_text_color(
         &mut self,
-        _record: EMR_SETTEXTCOLOR,
+        record: EMR_SETTEXTCOLOR,
     ) -> Result<(), PlayError> {
-        tracing::info!("EMR_SETTEXTCOLOR: not implemented");
+        self.context.graphics_environment.drawing.text_color = record.color;
         Ok(())
     }
 
@@ -1441,9 +1594,11 @@ where
     )]
     fn set_viewport_ext_ex(
         &mut self,
-        _record: EMR_SETVIEWPORTEXTEX,
+        record: EMR_SETVIEWPORTEXTEX,
     ) -> Result<(), PlayError> {
-        tracing::info!("EMR_SETVIEWPORTEXTEX: not implemented");
+        self.context.graphics_environment.regions.viewport.extent =
+            record.extent;
+
         Ok(())
     }
 
@@ -1454,9 +1609,11 @@ where
     )]
     fn set_viewport_org_ex(
         &mut self,
-        _record: EMR_SETVIEWPORTORGEX,
+        record: EMR_SETVIEWPORTORGEX,
     ) -> Result<(), PlayError> {
-        tracing::info!("EMR_SETVIEWPORTORGEX: not implemented");
+        self.context.graphics_environment.regions.viewport.origin =
+            record.origin;
+
         Ok(())
     }
 
@@ -1467,9 +1624,10 @@ where
     )]
     fn set_window_ext_ex(
         &mut self,
-        _record: EMR_SETWINDOWEXTEX,
+        record: EMR_SETWINDOWEXTEX,
     ) -> Result<(), PlayError> {
-        tracing::info!("EMR_SETWINDOWEXTEX: not implemented");
+        self.context.graphics_environment.regions.window.extent = record.extent;
+
         Ok(())
     }
 
@@ -1480,9 +1638,10 @@ where
     )]
     fn set_window_org_ex(
         &mut self,
-        _record: EMR_SETWINDOWORGEX,
+        record: EMR_SETWINDOWORGEX,
     ) -> Result<(), PlayError> {
-        tracing::info!("EMR_SETWINDOWORGEX: not implemented");
+        self.context.graphics_environment.regions.window.origin = record.origin;
+
         Ok(())
     }
 

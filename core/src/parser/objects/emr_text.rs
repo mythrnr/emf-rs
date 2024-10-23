@@ -1,3 +1,5 @@
+use crate::imports::*;
+
 /// The EmrText object contains values for text output.
 ///
 /// If the Options field of the EmrText object contains the ETO_PDY flag, then
@@ -34,7 +36,7 @@ pub struct EmrText {
     /// Options (4 bytes): An unsigned integer that specifies how to use the
     /// rectangle specified in the Rectangle field. This field can be a
     /// combination of more than one ExtTextOutOptions enumeration values.
-    pub options: std::collections::BTreeSet<crate::parser::ExtTextOutOptions>,
+    pub options: BTreeSet<crate::parser::ExtTextOutOptions>,
     /// Rectangle (16 bytes, optional): A RectL object ([MS-WMF] section
     /// 2.2.2.19) that defines a clipping and/or opaquing rectangle in logical
     /// units. This rectangle is applied to the text output performed by the
@@ -70,7 +72,7 @@ impl EmrText {
         skip_all,
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn parse<R: std::io::Read>(
+    pub fn parse<R: crate::Read>(
         buf: &mut R,
         record_type: &crate::parser::RecordType,
         offset: usize,
@@ -94,7 +96,7 @@ impl EmrText {
             (
                 crate::parser::ExtTextOutOptions::iter()
                     .filter(|o| v & (*o as u32) == (*o as u32))
-                    .collect::<std::collections::BTreeSet<_>>(),
+                    .collect::<BTreeSet<_>>(),
                 options_bytes,
             )
         };
@@ -125,7 +127,7 @@ impl EmrText {
             | crate::parser::RecordType::EMR_POLYTEXTOUTA => {
                 let (buffer, buffer_bytes) =
                     crate::parser::read_variable(buf, chars as usize)?;
-                let string_buffer = std::str::from_utf8(&buffer)
+                let string_buffer = str::from_utf8(&buffer)
                     .map_err(|err| {
                         crate::parser::ParseError::UnexpectedPattern {
                             cause: err.to_string(),
@@ -139,20 +141,8 @@ impl EmrText {
             | crate::parser::RecordType::EMR_POLYTEXTOUTW => {
                 let (buffer, buffer_bytes) =
                     crate::parser::read_variable(buf, (2 * chars) as usize)?;
-                let buffer: Vec<u16> = buffer
-                    .chunks_exact(2)
-                    .map(|chunk| {
-                        u16::from_le_bytes(
-                            chunk.try_into().expect("should be success"),
-                        )
-                    })
-                    .collect();
                 let string_buffer =
-                    String::from_utf16(&buffer).map_err(|err| {
-                        crate::parser::ParseError::UnexpectedPattern {
-                            cause: err.to_string(),
-                        }
-                    })?;
+                    crate::parser::utf16le_bytes_to_string(&buffer)?;
 
                 (string_buffer, buffer_bytes)
             }

@@ -5,13 +5,19 @@
 #[derive(Clone, Debug)]
 pub struct Gamma(u16);
 
+impl Default for Gamma {
+    fn default() -> Self {
+        Gamma(10_000)
+    }
+}
+
 impl Gamma {
     #[tracing::instrument(
         level = tracing::Level::TRACE,
         skip_all,
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn parse<R: std::io::Read>(
+    pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
         let (value, value_bytes) = crate::parser::read_u16_from_le_bytes(buf)?;
@@ -39,13 +45,19 @@ impl Gamma {
 #[derive(Clone, Debug)]
 pub struct Adjustment(i16);
 
+impl Default for Adjustment {
+    fn default() -> Self {
+        Adjustment(0)
+    }
+}
+
 impl Adjustment {
     #[tracing::instrument(
         level = tracing::Level::TRACE,
         skip_all,
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn parse<R: std::io::Read>(
+    pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
         let (value, value_bytes) = crate::parser::read_i16_from_le_bytes(buf)?;
@@ -76,7 +88,7 @@ impl Size {
         skip_all,
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn parse<R: std::io::Read>(
+    pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<Self, crate::parser::ParseError> {
         let (v, c) = crate::parser::read_u32_from_le_bytes(buf)?;
@@ -97,14 +109,14 @@ impl From<Size> for u32 {
     }
 }
 
-impl std::fmt::Display for Size {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for Size {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{:#010X}", self.0)
     }
 }
 
-impl std::fmt::Debug for Size {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for Size {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "Size(size: {:#010X}, consumed_bytes: {})", self.0, self.1)
     }
 }

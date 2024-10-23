@@ -11,7 +11,23 @@
     non_camel_case_types,
     non_snake_case
 )]
+#![no_std]
 
-#[cfg(feature = "converter")]
+#[macro_use]
+extern crate alloc;
+
 pub mod converter;
 pub mod parser;
+
+mod imports {
+    pub use alloc::{
+        borrow::ToOwned,
+        boxed::Box,
+        collections::{BTreeMap, BTreeSet},
+        str,
+        string::{String, ToString},
+        vec::Vec,
+    };
+}
+
+pub use embedded_io::Read;

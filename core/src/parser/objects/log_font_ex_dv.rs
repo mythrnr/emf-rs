@@ -1,3 +1,5 @@
+use crate::imports::*;
+
 /// The LogFontExDv object specifies the design vector for an extended logical
 /// font.
 #[derive(Clone, Debug)]
@@ -19,7 +21,7 @@ impl LogFontExDv {
         skip_all,
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn parse<R: std::io::Read>(
+    pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
         let (
@@ -41,5 +43,23 @@ impl LogFontExDv {
             Self { log_font_ex, design_vector },
             log_font_ex_bytes + design_vector_bytes,
         ))
+    }
+}
+
+impl From<crate::parser::LogFontPanose> for LogFontExDv {
+    fn from(v: crate::parser::LogFontPanose) -> Self {
+        Self {
+            log_font_ex: crate::parser::LogFontEx {
+                log_font: v.log_font,
+                full_name: v.full_name,
+                style: v.style,
+                script: "".to_owned(),
+            },
+            design_vector: crate::parser::DesignVector {
+                signature: 0x08007664,
+                num_axes: 0,
+                values: vec![],
+            },
+        }
     }
 }

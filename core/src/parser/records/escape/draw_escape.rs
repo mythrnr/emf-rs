@@ -1,3 +1,5 @@
+use crate::imports::*;
+
 /// The EMR_DRAWESCAPE record passes arbitrary information to a printer driver.
 /// The intent is that the information results in drawing being done.
 #[derive(Clone, Debug)]
@@ -28,7 +30,7 @@ impl EMR_DRAWESCAPE {
         fields(record_type = %format!("{record_type:?}")),
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn parse<R: std::io::Read>(
+    pub fn parse<R: crate::Read>(
         buf: &mut R,
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,

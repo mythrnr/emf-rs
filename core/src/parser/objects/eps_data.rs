@@ -1,3 +1,5 @@
+use crate::imports::*;
+
 /// The EpsData object is a container for EPS data.
 #[derive(Clone, Debug)]
 pub struct EpsData {
@@ -34,7 +36,7 @@ impl EpsData {
         skip_all,
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn parse<R: std::io::Read>(
+    pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
         let ((size_data, size_data_bytes), (version, version_bytes)) = (

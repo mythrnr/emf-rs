@@ -1,3 +1,5 @@
+use crate::imports::*;
+
 /// The EMR_POLYTEXTOUTW record draws one or more Unicode text strings using the
 /// current font and text colors.
 ///
@@ -44,7 +46,7 @@ impl EMR_POLYTEXTOUTW {
         fields(record_type = %format!("{record_type:?}")),
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn parse<R: std::io::Read>(
+    pub fn parse<R: crate::Read>(
         buf: &mut R,
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,

@@ -1,3 +1,5 @@
+use crate::imports::*;
+
 /// The RegionData object specifies data that defines a region, which is made of
 /// non-overlapping rectangles.
 #[derive(Clone, Debug)]
@@ -16,7 +18,7 @@ impl RegionData {
         skip_all,
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn parse<R: std::io::Read>(
+    pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
         let (region_data_header, region_data_header_bytes) =

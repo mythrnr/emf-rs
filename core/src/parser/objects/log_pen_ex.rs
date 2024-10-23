@@ -1,3 +1,5 @@
+use crate::imports::*;
+
 /// The LogPen object defines the style, width, and color of a logical pen.
 #[derive(Clone, Debug)]
 pub struct LogPenEx {
@@ -6,7 +8,7 @@ pub struct LogPenEx {
     ///
     /// The pen style is a combination of pen type, line style, line cap, and
     /// line join.
-    pub pen_style: std::collections::BTreeSet<crate::parser::PenStyle>,
+    pub pen_style: BTreeSet<crate::parser::PenStyle>,
     /// An unsigned integer that specifies the width of the line drawn by the
     /// pen.
     ///
@@ -63,7 +65,7 @@ impl LogPenEx {
         skip_all,
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn parse<R: std::io::Read>(
+    pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
         use strum::IntoEnumIterator;
@@ -74,7 +76,7 @@ impl LogPenEx {
             (
                 crate::parser::PenStyle::iter()
                     .filter(|c| v & (*c as u32) == (*c as u32))
-                    .collect::<std::collections::BTreeSet<_>>(),
+                    .collect::<BTreeSet<_>>(),
                 values_bytes,
             )
         };
@@ -152,9 +154,9 @@ impl LogPenExBrush {
         skip_all,
         err(level = tracing::Level::ERROR, Display),
     )]
-    fn parse<R: std::io::Read>(
+    fn parse<R: crate::Read>(
         buf: &mut R,
-        pen_style: &std::collections::BTreeSet<crate::parser::PenStyle>,
+        pen_style: &BTreeSet<crate::parser::PenStyle>,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
         let (
             (brush_style, brush_style_bytes),
@@ -229,5 +231,17 @@ impl LogPenExBrush {
         };
 
         Ok((v, brush_style_bytes + color_bytes + brush_hatch_bytes))
+    }
+}
+
+impl From<crate::parser::LogPen> for LogPenEx {
+    fn from(v: crate::parser::LogPen) -> Self {
+        Self {
+            pen_style: BTreeSet::from_iter([v.pen_style]),
+            width: v.width.x.abs() as u32,
+            brush: LogPenExBrush::Solid { color_ref: v.color_ref },
+            num_style_entries: 0,
+            style_entry: vec![],
+        }
     }
 }

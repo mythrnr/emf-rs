@@ -1,3 +1,5 @@
+use crate::imports::*;
+
 /// The EMR_SETTEXTALIGN record specifies text alignment for text drawing.
 ///
 /// The EMR_SMALLTEXTOUT, EMR_EXTTEXTOUTA, and EMR_EXTTEXTOUTW records use text
@@ -32,7 +34,7 @@ impl EMR_SETTEXTALIGN {
         fields(record_type = %format!("{record_type:?}")),
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn parse<R: std::io::Read>(
+    pub fn parse<R: crate::Read>(
         buf: &mut R,
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
@@ -62,7 +64,7 @@ impl EMR_SETTEXTALIGN {
 
     pub fn horizontal_baseline(
         &self,
-    ) -> std::collections::BTreeSet<wmf_core::parser::TextAlignmentMode> {
+    ) -> BTreeSet<wmf_core::parser::TextAlignmentMode> {
         use strum::IntoEnumIterator;
 
         wmf_core::parser::TextAlignmentMode::iter()
@@ -74,8 +76,7 @@ impl EMR_SETTEXTALIGN {
 
     pub fn vertical_baseline(
         &self,
-    ) -> std::collections::BTreeSet<wmf_core::parser::VerticalTextAlignmentMode>
-    {
+    ) -> BTreeSet<wmf_core::parser::VerticalTextAlignmentMode> {
         use strum::IntoEnumIterator;
 
         wmf_core::parser::VerticalTextAlignmentMode::iter()

@@ -101,7 +101,7 @@ impl PixelFormatDescriptor {
         skip_all,
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn parse<R: std::io::Read>(
+    pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
         let ((n_size, n_size_bytes), (n_version, n_version_bytes)) = (
@@ -319,7 +319,7 @@ impl DwFlags {
         skip_all,
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn parse<R: std::io::Read>(
+    pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
         let (v, bytes) = crate::parser::read_u32_from_le_bytes(buf)?;

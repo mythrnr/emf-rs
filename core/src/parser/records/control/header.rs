@@ -1,3 +1,5 @@
+use crate::imports::*;
+
 /// The EMR_HEADER record is the starting point of an EMF metafile. It specifies
 /// properties of the device on which the image in the metafile was recorded;
 /// this information in the header record makes it possible for EMF metafiles to
@@ -24,7 +26,7 @@ impl EMR_HEADER {
         skip_all,
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn parse<R: std::io::Read>(
+    pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<Self, crate::parser::ParseError> {
         let ((record_type, record_type_bytes), (size, size_bytes)) = (
@@ -118,7 +120,7 @@ pub enum EmfHeaderRecordBuffer {
 }
 
 impl EmfHeaderRecordBuffer {
-    fn parse<R: std::io::Read>(
+    fn parse<R: crate::Read>(
         buf: &mut R,
         emf_header: &crate::parser::Header,
         mut size: crate::parser::Size,
@@ -196,7 +198,7 @@ impl EmfHeaderRecordBuffer {
         }
     }
 
-    fn parse_as_emf_file_header<R: std::io::Read>(
+    fn parse_as_emf_file_header<R: crate::Read>(
         buf: &mut R,
         emf_header: &crate::parser::Header,
         mut size: crate::parser::Size,
@@ -230,7 +232,7 @@ impl EmfHeaderRecordBuffer {
         Ok((Some(Self::EmfMetafileHeader { emf_description }), size))
     }
 
-    fn parse_as_emf_file_header_extension_1<R: std::io::Read>(
+    fn parse_as_emf_file_header_extension_1<R: crate::Read>(
         buf: &mut R,
         emf_header: &crate::parser::Header,
         emf_header_extension_1: crate::parser::HeaderExtension1,
@@ -289,7 +291,7 @@ impl EmfHeaderRecordBuffer {
         ))
     }
 
-    fn parse_as_emf_file_header_extension_2<R: std::io::Read>(
+    fn parse_as_emf_file_header_extension_2<R: crate::Read>(
         buf: &mut R,
         emf_header: &crate::parser::Header,
         emf_header_extension_1: crate::parser::HeaderExtension1,

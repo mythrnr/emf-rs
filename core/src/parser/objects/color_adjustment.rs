@@ -1,3 +1,5 @@
+use crate::imports::*;
+
 /// The ColorAdjustment object defines values for adjusting the colors in source
 /// bitmaps in bit-block transfers.
 ///
@@ -22,8 +24,7 @@ pub struct ColorAdjustment {
     /// Values (2 bytes): An unsigned integer that specifies how to prepare the
     /// output image. This field can be set to NULL or to any combination of
     /// values in the ColorAdjustment enumeration.
-    pub values:
-        std::collections::BTreeSet<crate::parser::enums::ColorAdjustmentEnum>,
+    pub values: BTreeSet<crate::parser::enums::ColorAdjustmentEnum>,
     /// IlluminantIndex (2 bytes): An unsigned integer that specifies the type
     /// of standard light source under which the image is viewed, from the
     /// Illuminant enumeration.
@@ -84,7 +85,7 @@ impl ColorAdjustment {
         skip_all,
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn parse<R: std::io::Read>(
+    pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
         use strum::IntoEnumIterator;
@@ -182,5 +183,25 @@ impl ColorAdjustment {
                 + colorfulness_bytes
                 + red_green_tint_bytes,
         ))
+    }
+}
+
+impl Default for ColorAdjustment {
+    fn default() -> Self {
+        Self {
+            size: 0x0018,
+            values: BTreeSet::new(),
+            illuminant_index:
+                crate::parser::Illuminant::ILLUMINANT_DEVICE_DEFAULT,
+            red_gamma: crate::parser::Gamma::default(),
+            green_gamma: crate::parser::Gamma::default(),
+            blue_gamma: crate::parser::Gamma::default(),
+            reference_black: 0,
+            reference_white: 10_000,
+            contrast: crate::parser::Adjustment::default(),
+            brightness: crate::parser::Adjustment::default(),
+            colorfulness: crate::parser::Adjustment::default(),
+            red_green_tint: crate::parser::Adjustment::default(),
+        }
     }
 }

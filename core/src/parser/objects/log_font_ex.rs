@@ -1,3 +1,5 @@
+use crate::imports::*;
+
 /// The LogFontEx object specifies the extended attributes of a logical font.
 #[derive(Clone, Debug)]
 pub struct LogFontEx {
@@ -27,7 +29,7 @@ impl LogFontEx {
         skip_all,
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn parse<R: std::io::Read>(
+    pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
         let (

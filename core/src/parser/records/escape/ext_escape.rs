@@ -1,3 +1,5 @@
+use crate::imports::*;
+
 /// The EMR_EXTESCAPE record passes arbitrary information to a printer driver.
 /// The intent is that the information does not result in drawing being done.
 #[derive(Clone, Debug)]
@@ -27,7 +29,7 @@ impl EMR_EXTESCAPE {
         fields(record_type = %format!("{record_type:?}")),
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn parse<R: std::io::Read>(
+    pub fn parse<R: crate::Read>(
         buf: &mut R,
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,

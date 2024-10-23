@@ -1,4 +1,7 @@
-use std::{fs::File, io::Read};
+use std::{
+    fs::File,
+    io::{Read, Write},
+};
 
 use clap::Parser;
 use tracing_subscriber::{
@@ -75,7 +78,7 @@ fn main() {
         std::process::exit(1);
     };
 
-    let Ok(output) = File::create(cli.output.clone()).inspect_err(|err| {
+    let Ok(mut output) = File::create(cli.output.clone()).inspect_err(|err| {
         tracing::error!(%err);
     }) else {
         std::process::exit(1);
@@ -98,28 +101,35 @@ fn main() {
     //     .join("\n");
     // println!("{bytes}");
 
-    let Ok(cloned_output) = output.try_clone().inspect_err(|err| {
-        tracing::error!(%err);
-    }) else {
-        std::process::exit(1);
-    };
-
-    let wmf_player = wmf_core::converter::SVGPlayer::new(cloned_output);
-    let player = emf_core::converter::SVGPlayer::new(output);
+    let wmf_player = wmf_core::converter::SVGPlayer::new();
+    let emf_player = emf_core::converter::SVGPlayer::new();
     let converter = emf_core::converter::EMFConverter::new(
         buffer.as_slice(),
-        player,
+        emf_player,
         wmf_player,
     );
 
-    if let Err(err) = converter.run() {
-        tracing::error!(%err);
+    match converter.run() {
+        Ok(bytes) => {
+            if let Err(err) = output.write_all(&bytes) {
+                tracing::error!(%err);
 
-        // ignore error.
-        let _ = std::fs::remove_file(cli.output)
-            .inspect_err(|err| tracing::error!(%err));
+                // ignore error.
+                let _ = std::fs::remove_file(cli.output)
+                    .inspect_err(|err| tracing::error!(%err));
 
-        std::process::exit(1);
+                std::process::exit(1);
+            }
+        }
+        Err(err) => {
+            tracing::error!(%err);
+
+            // ignore error.
+            let _ = std::fs::remove_file(cli.output)
+                .inspect_err(|err| tracing::error!(%err));
+
+            std::process::exit(1);
+        }
     };
 
     tracing::info!("Converted successfully.");

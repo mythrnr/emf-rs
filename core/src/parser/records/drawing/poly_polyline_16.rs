@@ -1,3 +1,5 @@
+use crate::imports::*;
+
 /// The EMR_POLYPOLYLINE16 record specifies multiple series of connected line
 /// segments.
 #[derive(Clone, Debug)]
@@ -33,7 +35,7 @@ impl EMR_POLYPOLYLINE16 {
         fields(record_type = %format!("{record_type:?}")),
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn parse<R: std::io::Read>(
+    pub fn parse<R: crate::Read>(
         buf: &mut R,
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,

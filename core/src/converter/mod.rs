@@ -2,7 +2,7 @@ mod playback_device_context;
 mod player;
 
 pub use self::player::*;
-use crate::parser::*;
+use crate::{imports::*, parser::*};
 
 #[cfg(feature = "svg")]
 mod svg;
@@ -10,15 +10,15 @@ mod svg;
 #[cfg(feature = "svg")]
 pub use self::svg::*;
 
-#[derive(Clone, Debug, thiserror::Error)]
+#[derive(Clone, Debug, snafu::prelude::Snafu)]
 pub enum ConvertError {
-    #[error("parse error: {source}")]
+    #[snafu(display("parse error: {source}"))]
     ParseError { source: ParseError },
-    #[error("play error: {source}")]
+    #[snafu(display("play error: {source}"))]
     PlayError { source: crate::converter::PlayError },
-    #[error("WMF convert error: {source}")]
+    #[snafu(display("WMF convert error: {source}"))]
     WMFConvertError { source: wmf_core::converter::ConvertError },
-    #[error("I/O error: {cause}")]
+    #[snafu(display("I/O error: {cause}"))]
     IoError { cause: String },
 }
 
@@ -48,7 +48,7 @@ impl<B, P, WP> EMFConverter<B, P, WP> {
 
 impl<B, P, WP> EMFConverter<B, P, WP>
 where
-    B: std::io::Read,
+    B: crate::Read,
     P: crate::converter::Player,
     WP: wmf_core::converter::Player,
 {
@@ -57,14 +57,25 @@ where
         skip_all,
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn run(self) -> Result<(), ConvertError> {
+    pub fn run(self) -> Result<Vec<u8>, ConvertError> {
         let Self { mut buffer, mut player, wmf_player } = self;
 
         let buffer = {
             let mut buf = vec![];
-            buffer.read_to_end(&mut buf).map_err(|err| {
-                ConvertError::IoError { cause: format!("{err:?}") }
-            })?;
+
+            // read to end
+            loop {
+                let mut b = vec![0; 8192];
+                let read = buffer.read(&mut b).map_err(|err| {
+                    ConvertError::IoError { cause: format!("{err:?}") }
+                })?;
+
+                buf.extend(&b[..read]);
+
+                if read < 8192 {
+                    break;
+                }
+            }
 
             buf
         };
@@ -944,8 +955,6 @@ where
             };
         }
 
-        player.generate()?;
-
-        Ok(())
+        Ok(player.generate()?)
     }
 }

@@ -1,3 +1,5 @@
+use crate::imports::*;
+
 /// The EMR_CREATECOLORSPACEW record creates a logical color space object from a
 /// color profile with a name consisting of Unicode characters.
 ///
@@ -44,7 +46,7 @@ impl EMR_CREATECOLORSPACEW {
         fields(record_type = %format!("{record_type:?}")),
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn parse<R: std::io::Read>(
+    pub fn parse<R: crate::Read>(
         buf: &mut R,
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,

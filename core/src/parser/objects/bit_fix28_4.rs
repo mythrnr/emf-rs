@@ -20,7 +20,7 @@ impl BitFIX28_4 {
         skip_all,
         err(level = tracing::Level::ERROR, Display),
     )]
-    pub fn parse<R: std::io::Read>(
+    pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
         let ((int_value, int_value_bytes), (frac_value, frac_value_bytes)) =
