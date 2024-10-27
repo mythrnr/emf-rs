@@ -12,11 +12,11 @@ impl Default for Gamma {
 }
 
 impl Gamma {
-    #[tracing::instrument(
+    #[cfg_attr(feature = "tracing", tracing::instrument(
         level = tracing::Level::TRACE,
         skip_all,
         err(level = tracing::Level::ERROR, Display),
-    )]
+    ))]
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
@@ -52,11 +52,11 @@ impl Default for Adjustment {
 }
 
 impl Adjustment {
-    #[tracing::instrument(
+    #[cfg_attr(feature = "tracing", tracing::instrument(
         level = tracing::Level::TRACE,
         skip_all,
         err(level = tracing::Level::ERROR, Display),
-    )]
+    ))]
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
@@ -83,11 +83,11 @@ impl Adjustment {
 pub struct Size(u32, usize);
 
 impl Size {
-    #[::tracing::instrument(
+    #[cfg_attr(feature = "tracing", tracing::instrument(
         level = tracing::Level::TRACE,
         skip_all,
         err(level = tracing::Level::ERROR, Display),
-    )]
+    ))]
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<Self, crate::parser::ParseError> {

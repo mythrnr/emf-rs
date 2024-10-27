@@ -60,11 +60,11 @@ pub struct LogPenEx {
 }
 
 impl LogPenEx {
-    #[tracing::instrument(
+    #[cfg_attr(feature = "tracing", tracing::instrument(
         level = tracing::Level::TRACE,
         skip_all,
         err(level = tracing::Level::ERROR, Display),
-    )]
+    ))]
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
@@ -149,11 +149,11 @@ pub enum LogPenExBrush {
 }
 
 impl LogPenExBrush {
-    #[tracing::instrument(
+    #[cfg_attr(feature = "tracing", tracing::instrument(
         level = tracing::Level::TRACE,
         skip_all,
         err(level = tracing::Level::ERROR, Display),
-    )]
+    ))]
     fn parse<R: crate::Read>(
         buf: &mut R,
         pen_style: &BTreeSet<crate::parser::PenStyle>,

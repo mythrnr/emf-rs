@@ -22,11 +22,11 @@ pub struct HeaderExtension1 {
 }
 
 impl HeaderExtension1 {
-    #[tracing::instrument(
+    #[cfg_attr(feature = "tracing", tracing::instrument(
         level = tracing::Level::TRACE,
         skip_all,
         err(level = tracing::Level::ERROR, Display),
-    )]
+    ))]
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {

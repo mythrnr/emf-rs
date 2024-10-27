@@ -30,12 +30,12 @@ pub struct EMR_EOF {
 }
 
 impl EMR_EOF {
-    #[tracing::instrument(
+    #[cfg_attr(feature = "tracing", tracing::instrument(
         level = tracing::Level::TRACE,
         skip_all,
         fields(record_type = %format!("{record_type:?}")),
         err(level = tracing::Level::ERROR, Display),
-    )]
+    ))]
     pub fn parse<R: crate::Read>(
         buf: &mut R,
         record_type: crate::parser::RecordType,
@@ -98,7 +98,7 @@ impl EMR_EOF {
         size.consume(size_last_bytes);
 
         if size.byte_count() as u32 != size_last {
-            tracing::warn!(
+            warn!(
                 size = %size.byte_count(),
                 %size_last,
                 "size and size_last must be same value",

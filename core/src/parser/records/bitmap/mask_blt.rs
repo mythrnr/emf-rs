@@ -113,12 +113,12 @@ pub struct EMR_MASKBLT {
 }
 
 impl EMR_MASKBLT {
-    #[tracing::instrument(
+    #[cfg_attr(feature = "tracing", tracing::instrument(
         level = tracing::Level::TRACE,
         skip_all,
         fields(record_type = %format!("{record_type:?}")),
         err(level = tracing::Level::ERROR, Display),
-    )]
+    ))]
     pub fn parse<R: crate::Read>(
         buf: &mut R,
         record_type: crate::parser::RecordType,
@@ -303,11 +303,11 @@ pub struct ROP4 {
 }
 
 impl ROP4 {
-    #[tracing::instrument(
+    #[cfg_attr(feature = "tracing", tracing::instrument(
         level = tracing::Level::TRACE,
         skip_all,
         err(level = tracing::Level::ERROR, Display),
-    )]
+    ))]
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {

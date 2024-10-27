@@ -29,12 +29,12 @@ pub struct EMR_PIE {
 }
 
 impl EMR_PIE {
-    #[tracing::instrument(
+    #[cfg_attr(feature = "tracing", tracing::instrument(
         level = tracing::Level::TRACE,
         skip_all,
         fields(record_type = %format!("{record_type:?}")),
         err(level = tracing::Level::ERROR, Display),
-    )]
+    ))]
     pub fn parse<R: crate::Read>(
         buf: &mut R,
         record_type: crate::parser::RecordType,
