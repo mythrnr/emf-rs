@@ -857,7 +857,7 @@ checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
 [[package]]
 name = "wmf-core"
 version = "0.1.0"
-source = "git+https://github.com/mythrnr/wmf-rs.git?branch=chore/no-std#7c3e3a1446820ec9bca772e3708b916ed183b8a9"
+source = "git+https://github.com/mythrnr/wmf-rs.git?branch=chore/no-std#a6bd7ed6b4b4b5396c8c200db471332815e671a9"
 dependencies = [
  "base64",
  "embedded-io",

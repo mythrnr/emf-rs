@@ -14,7 +14,7 @@ enum NodeType {
 }
 
 impl Node {
-    pub fn node(name: impl ToString) -> Self {
+    pub fn new(name: impl ToString) -> Self {
         Self {
             typ: NodeType::Node(name.to_string()),
             inner: vec![],
@@ -22,7 +22,7 @@ impl Node {
         }
     }
 
-    pub fn text(value: impl ToString) -> Self {
+    pub fn new_text(value: impl ToString) -> Self {
         Self {
             typ: NodeType::Text(value.to_string()),
             inner: vec![],
@@ -65,7 +65,7 @@ impl core::fmt::Display for Node {
             NodeType::Node(name) => {
                 write!(
                     f,
-                    "<{name} {}>\n{}</{name}>\n",
+                    "<{name} {}>{}</{name}>",
                     self.attrs
                         .iter()
                         .map(|(k, v)| {
@@ -101,6 +101,22 @@ impl Default for Data {
 impl Data {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.commands.is_empty()
+    }
+
+    /// https://www.w3.org/TR/SVG/paths.html#PathDataClosePathCommand
+    pub fn close(mut self) -> Self {
+        self.commands.push("Z".to_owned());
+        self
+    }
+
+    /// https://www.w3.org/TR/SVG/paths.html#PathDataCubicBezierCommands
+    pub fn curve_to(mut self, param: impl Into<Parameters>) -> Self {
+        self.commands.push(format!("C {}", param.into().0));
+        self
     }
 
     /// https://www.w3.org/TR/SVG/paths.html#PathDataMovetoCommands

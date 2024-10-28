@@ -55,4 +55,36 @@ impl XForm {
             m11_bytes + m12_bytes + m21_bytes + m22_bytes + dx_bytes + dy_bytes,
         ))
     }
+
+    pub fn transform_point_l(
+        &self,
+        p: wmf_core::parser::PointL,
+    ) -> wmf_core::parser::PointL {
+        wmf_core::parser::PointL {
+            x: (f64::from(self.m11) * f64::from(p.x)
+                + f64::from(self.m21) * f64::from(p.y)
+                + f64::from(self.dx)) as i32,
+            y: (f64::from(self.m12) * f64::from(p.x)
+                + f64::from(self.m22) * f64::from(p.y)
+                + f64::from(self.dy)) as i32,
+        }
+    }
+
+    pub fn transform_point_s(
+        &self,
+        p: wmf_core::parser::PointS,
+    ) -> wmf_core::parser::PointS {
+        wmf_core::parser::PointS {
+            x: (self.m11 * f32::from(p.x) + self.m21 * f32::from(p.y) + self.dx)
+                as i16,
+            y: (self.m12 * f32::from(p.x) + self.m22 * f32::from(p.y) + self.dy)
+                as i16,
+        }
+    }
+}
+
+impl Default for XForm {
+    fn default() -> Self {
+        Self { m11: 1.0, m12: 0.0, m21: 0.0, m22: 1.0, dx: 0.0, dy: 0.0 }
+    }
 }

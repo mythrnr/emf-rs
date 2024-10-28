@@ -1,16 +1,24 @@
 mod node;
+mod util;
 
 use wmf_core::parser::{PointL, SizeL};
 
 use crate::{
     converter::{
         playback_device_context::{
-            EmfObjectTable, GraphicsEnvironment, GraphicsObject,
-            PlaybackDeviceContext, PlaybackStateColors, PlaybackStateDrawing,
-            PlaybackStateRegions, PlaybackStateText, SelectedObject, Viewport,
-            Window,
+            point_s_to_point_l, EmfObjectTable, GraphicsEnvironment,
+            GraphicsObject, PlaybackDeviceContext, PlaybackStateColors,
+            PlaybackStateDrawing, PlaybackStateRegions, PlaybackStateText,
+            SelectedObject, Viewport, Window,
         },
-        svg::node::{Data, Node},
+        svg::{
+            node::{Data, Node},
+            util::{
+                as_point_string_from_point_l, as_point_string_from_point_s,
+                color_from_color_ref, polygon_fill_rule, text_align,
+                url_string, Fill, Stroke,
+            },
+        },
         PlayError,
     },
     imports::*,
@@ -24,6 +32,8 @@ pub struct SVGPlayer {
     elements: Vec<Node>,
     emf_object_table: EmfObjectTable,
     selected_emf_object: SelectedObject,
+    path: Data,
+    xform: XForm,
 }
 
 impl Default for SVGPlayer {
@@ -35,6 +45,8 @@ impl Default for SVGPlayer {
             elements: vec![],
             emf_object_table: EmfObjectTable::new(0),
             selected_emf_object: SelectedObject::default(),
+            path: Data::new(),
+            xform: XForm::default(),
         }
     }
 }
@@ -42,6 +54,11 @@ impl Default for SVGPlayer {
 impl SVGPlayer {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    #[inline]
+    fn issue_id(&self) -> String {
+        format!("defs{}", self.definitions.len())
     }
 }
 
@@ -52,13 +69,23 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn generate(self) -> Result<Vec<u8>, PlayError> {
-        let Self { definitions, elements, .. } = self;
+        let Self { context, definitions, elements, .. } = self;
 
+        let window = context.graphics_environment.regions.window;
         let mut document =
-            Node::node("svg").set("xmlns", "http://www.w3.org/2000/svg");
+            Node::new("svg").set("xmlns", "http://www.w3.org/2000/svg").set(
+                "viewBox",
+                format!(
+                    "{} {} {} {}",
+                    window.origin.x,
+                    window.origin.y,
+                    window.extent.cx,
+                    window.extent.cy,
+                ),
+            );
 
         if !definitions.is_empty() {
-            let mut defs = Node::node("defs");
+            let mut defs = Node::new("defs");
             for v in definitions {
                 defs = defs.add(v);
             }
@@ -154,9 +181,39 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn stretch_dibits(
         &mut self,
-        _record: EMR_STRETCHDIBITS,
+        record: EMR_STRETCHDIBITS,
     ) -> Result<(), PlayError> {
-        info!("EMR_STRETCHDIBITS: not implemented");
+        let mut buf = &record.bmi_src[..];
+        let (dib_header_info, _) = wmf_core::parser::BitmapInfoHeader::parse(
+            &mut buf,
+        )
+        .map_err(|err| PlayError::InvalidRecord { cause: err.to_string() })?;
+        let point = self.xform.transform_point_l(wmf_core::parser::PointL {
+            x: record.x_dest,
+            y: record.y_dest,
+        });
+        let (width, height) =
+            (dib_header_info.width(), dib_header_info.height());
+        let bitmap: wmf_core::converter::Bitmap =
+            wmf_core::parser::DeviceIndependentBitmap {
+                dib_header_info,
+                colors: wmf_core::parser::Colors::Null,
+                bitmap_buffer: wmf_core::parser::BitmapBuffer {
+                    undefined_space: vec![],
+                    a_data: record.bits_src,
+                },
+            }
+            .into();
+
+        let image = Node::new("image")
+            .set("x", point.x.to_string())
+            .set("y", point.y.to_string())
+            .set("width", width.to_string())
+            .set("height", height.to_string())
+            .set("href", bitmap.as_data_url());
+
+        self.elements.push(image);
+
         Ok(())
     }
 
@@ -267,6 +324,7 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn comment(&mut self, _record: EMR_COMMENT) -> Result<(), PlayError> {
+        info!("EMR_SETMETARGN: not supported");
         Ok(())
     }
 
@@ -374,8 +432,51 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn ellipse(&mut self, _record: EMR_ELLIPSE) -> Result<(), PlayError> {
-        info!("EMR_ELLIPSE: not implemented");
+    fn ellipse(&mut self, record: EMR_ELLIPSE) -> Result<(), PlayError> {
+        let r = self.xform.transform_point_l(wmf_core::parser::PointL {
+            x: (record.bx.right - record.bx.left) / 2,
+            y: (record.bx.bottom - record.bx.top) / 2,
+        });
+
+        if r.x == 0 || r.y == 0 {
+            info!(
+                %r.x, %r.y,
+                "EMR_ELLIPSE is skipped because rx or ry is zero.",
+            );
+
+            return Ok(());
+        }
+
+        let pen = &self.selected_emf_object.pen;
+        let brush = &self.selected_emf_object.brush;
+        let stroke = Stroke::from(pen.clone());
+        let fill = match Fill::from(&self.context, brush.clone()) {
+            Fill::Pattern { pattern } => {
+                let id = self.issue_id();
+                self.definitions.push(pattern.set("id", id.as_str()));
+                url_string(format!("#{id}").as_str())
+            }
+            Fill::Value { value } => value,
+        };
+        let fill_rule = polygon_fill_rule(
+            &self.context.graphics_environment.drawing.polyfill_mode,
+        );
+        let c = self.xform.transform_point_l(wmf_core::parser::PointL {
+            x: record.bx.left,
+            y: record.bx.top,
+        });
+
+        let ellipse = Node::new("ellipse")
+            .set("fill", fill.as_str())
+            .set("fill-rule", fill_rule.as_str())
+            .set("cx", (c.x + r.x).to_string())
+            .set("cy", (c.y + r.y).to_string())
+            .set("rx", r.x.to_string())
+            .set("ry", r.y.to_string());
+        let ellipse = stroke.set_props(ellipse);
+
+        self.elements.push(ellipse);
+
         Ok(())
     }
 
@@ -412,9 +513,35 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn ext_text_out_w(
         &mut self,
-        _record: EMR_EXTTEXTOUTW,
+        record: EMR_EXTTEXTOUTW,
     ) -> Result<(), PlayError> {
-        info!("EMR_EXTTEXTOUTW: not implemented");
+        let font = if let Some(ref font) = self.selected_emf_object.font_ex_dv {
+            &font.log_font_ex.log_font
+        } else if let Some(ref font) = self.selected_emf_object.font {
+            font
+        } else {
+            return Err(PlayError::UnexpectedGraphicsObject {
+                cause: format!("font is not selected"),
+            });
+        };
+        let color = color_from_color_ref(
+            &self.context.graphics_environment.drawing.text_color,
+        );
+        let text_align =
+            text_align(self.context.graphics_environment.text.text_alignment);
+        let point = self.xform.transform_point_l(record.w_emr_text.reference);
+
+        let text = Node::new("text")
+            .set("x", point.x.to_string())
+            .set("y", point.y.to_string())
+            .set("text-anchor", text_align)
+            .set("fill", color)
+            .add(Node::new_text(record.w_emr_text.string_buffer));
+        let (text, styles) = font.set_props(text, &point);
+        let text = text.set("style", styles.join(""));
+
+        self.elements.push(text);
+
         Ok(())
     }
 
@@ -424,7 +551,33 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn fill_path(&mut self, _record: EMR_FILLPATH) -> Result<(), PlayError> {
-        info!("EMR_FILLPATH: not implemented");
+        self.context.graphics_environment.drawing.path_bracket = false;
+        if self.path.is_empty() {
+            return Ok(());
+        }
+
+        self.path = self.path.clone().close();
+
+        let brush = &self.selected_emf_object.brush;
+        let fill = match Fill::from(&self.context, brush.clone()) {
+            Fill::Pattern { pattern } => {
+                let id = self.issue_id();
+                self.definitions.push(pattern.set("id", id.as_str()));
+                url_string(format!("#{id}").as_str())
+            }
+            Fill::Value { value } => value,
+        };
+        let fill_rule = polygon_fill_rule(
+            &self.context.graphics_environment.drawing.polyfill_mode,
+        );
+
+        let path = Node::new("path")
+            .set("fill", fill.as_str())
+            .set("fill-rule", fill_rule.as_str())
+            .set("d", self.path.to_string());
+
+        self.elements.push(path);
+
         Ok(())
     }
 
@@ -466,8 +619,12 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn line_to(&mut self, _record: EMR_LINETO) -> Result<(), PlayError> {
-        info!("EMR_LINETO: not implemented");
+    fn line_to(&mut self, record: EMR_LINETO) -> Result<(), PlayError> {
+        let point = self.xform.transform_point_l(record.point);
+
+        self.path =
+            self.path.clone().line_to(format!("{} {}", point.x, point.y));
+
         Ok(())
     }
 
@@ -496,11 +653,58 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn poly_bezier(
-        &mut self,
-        _record: EMR_POLYBEZIER,
-    ) -> Result<(), PlayError> {
-        info!("EMR_POLYBEZIER: not implemented");
+    fn poly_bezier(&mut self, record: EMR_POLYBEZIER) -> Result<(), PlayError> {
+        if record.count == 0 {
+            info!(%record.count, "polyline has no points");
+            return Ok(());
+        }
+
+        let pen = &self.selected_emf_object.pen;
+        let stroke = Stroke::from(pen.clone());
+
+        let Some(point) = record.a_points.first() else {
+            return Err(PlayError::InvalidRecord {
+                cause: "aPoints[0] is not defined".to_owned(),
+            });
+        };
+
+        let point = self.xform.transform_point_l(point.clone());
+        let mut data = Data::new().move_to(format!("{} {}", point.x, point.y));
+        let mut c = vec![];
+
+        for i in 1..record.count {
+            let Some(point) = record.a_points.get(i as usize) else {
+                return Err(PlayError::InvalidRecord {
+                    cause: format!("aPoints[{i}] is not defined"),
+                });
+            };
+
+            self.context.drawing_position = point.clone();
+
+            let point = self.xform.transform_point_l(point.clone());
+            c.extend([point.x, point.y]);
+
+            if c.len() == 3 {
+                data = data
+                    .curve_to(
+                        c.iter()
+                            .map(ToString::to_string)
+                            .collect::<Vec<_>>()
+                            .join(" "),
+                    )
+                    .move_to(format!("{} {}", point.x, point.y));
+
+                // reset for next curve.
+                c = vec![];
+            }
+        }
+
+        let path =
+            Node::new("path").set("fill", "none").set("d", data.to_string());
+        let path = stroke.set_props(path);
+
+        self.elements.push(path);
+
         Ok(())
     }
 
@@ -511,9 +715,57 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn poly_bezier_16(
         &mut self,
-        _record: EMR_POLYBEZIER16,
+        record: EMR_POLYBEZIER16,
     ) -> Result<(), PlayError> {
-        info!("EMR_POLYBEZIER16: not implemented");
+        if record.count == 0 {
+            info!(%record.count, "polyline has no points");
+            return Ok(());
+        }
+
+        let pen = &self.selected_emf_object.pen;
+        let stroke = Stroke::from(pen.clone());
+
+        let Some(point) = record.a_points.first() else {
+            return Err(PlayError::InvalidRecord {
+                cause: "aPoints[0] is not defined".to_owned(),
+            });
+        };
+
+        let point = self.xform.transform_point_s(point.clone());
+        let mut data = Data::new().move_to(format!("{} {}", point.x, point.y));
+        let mut c = vec![];
+
+        for i in 1..record.count {
+            let Some(point) = record.a_points.get(i as usize) else {
+                return Err(PlayError::InvalidRecord {
+                    cause: format!("aPoints[{i}] is not defined"),
+                });
+            };
+
+            self.context.drawing_position = point_s_to_point_l(&point);
+
+            let point = self.xform.transform_point_s(point.clone());
+            c.extend([point.x, point.y]);
+
+            if c.len() == 3 {
+                data = data
+                    .curve_to(
+                        c.iter()
+                            .map(ToString::to_string)
+                            .collect::<Vec<_>>()
+                            .join(" "),
+                    )
+                    .move_to(format!("{} {}", point.x, point.y));
+                c = vec![];
+            }
+        }
+
+        let path =
+            Node::new("path").set("fill", "none").set("d", data.to_string());
+        let path = stroke.set_props(path);
+
+        self.elements.push(path);
+
         Ok(())
     }
 
@@ -524,9 +776,52 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn poly_bezier_to(
         &mut self,
-        _record: EMR_POLYBEZIERTO,
+        record: EMR_POLYBEZIERTO,
     ) -> Result<(), PlayError> {
-        info!("EMR_POLYBEZIERTO: not implemented");
+        if record.count == 0 {
+            info!(%record.count, "polyline has no points");
+            return Ok(());
+        }
+
+        let pen = &self.selected_emf_object.pen;
+        let stroke = Stroke::from(pen.clone());
+        let mut data = Data::new().move_to(format!(
+            "{} {}",
+            self.context.drawing_position.x, self.context.drawing_position.y
+        ));
+        let mut c = vec![];
+
+        for i in 0..record.count {
+            let Some(point) = record.a_points.get(i as usize) else {
+                return Err(PlayError::InvalidRecord {
+                    cause: format!("aPoints[{i}] is not defined"),
+                });
+            };
+
+            self.context.drawing_position = point.clone();
+
+            let point = self.xform.transform_point_l(point.clone());
+            c.extend([point.x, point.y]);
+
+            if c.len() == 3 {
+                data = data
+                    .curve_to(
+                        c.iter()
+                            .map(ToString::to_string)
+                            .collect::<Vec<_>>()
+                            .join(" "),
+                    )
+                    .move_to(format!("{} {}", point.x, point.y));
+                c = vec![];
+            }
+        }
+
+        let path =
+            Node::new("path").set("fill", "none").set("d", data.to_string());
+        let path = stroke.set_props(path);
+
+        self.elements.push(path);
+
         Ok(())
     }
 
@@ -537,9 +832,52 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn poly_bezier_to_16(
         &mut self,
-        _record: EMR_POLYBEZIERTO16,
+        record: EMR_POLYBEZIERTO16,
     ) -> Result<(), PlayError> {
-        info!("EMR_POLYBEZIERTO16: not implemented");
+        if record.count == 0 {
+            info!(%record.count, "polyline has no points");
+            return Ok(());
+        }
+
+        let pen = &self.selected_emf_object.pen;
+        let stroke = Stroke::from(pen.clone());
+
+        let point =
+            self.xform.transform_point_l(self.context.drawing_position.clone());
+        let mut data = Data::new().move_to(format!("{} {}", point.x, point.y));
+        let mut c = vec![];
+
+        for i in 0..record.count {
+            let Some(point) = record.a_points.get(i as usize) else {
+                return Err(PlayError::InvalidRecord {
+                    cause: format!("aPoints[{i}] is not defined"),
+                });
+            };
+
+            self.context.drawing_position = point_s_to_point_l(&point);
+
+            let point = self.xform.transform_point_s(point.clone());
+            c.extend([point.x, point.y]);
+
+            if c.len() == 3 {
+                data = data
+                    .curve_to(
+                        c.iter()
+                            .map(ToString::to_string)
+                            .collect::<Vec<_>>()
+                            .join(" "),
+                    )
+                    .move_to(format!("{} {}", point.x, point.y));
+                c = vec![];
+            }
+        }
+
+        let path =
+            Node::new("path").set("fill", "none").set("d", data.to_string());
+        let path = stroke.set_props(path);
+
+        self.elements.push(path);
+
         Ok(())
     }
 
@@ -573,7 +911,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn poly_polygon(
         &mut self,
-        _record: EMR_POLYPOLYGON,
+        record: EMR_POLYPOLYGON,
     ) -> Result<(), PlayError> {
         info!("EMR_POLYPOLYGON: not implemented");
         Ok(())
@@ -649,8 +987,50 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn polygon(&mut self, _record: EMR_POLYGON) -> Result<(), PlayError> {
-        info!("EMR_POLYGON: not implemented");
+    fn polygon(&mut self, record: EMR_POLYGON) -> Result<(), PlayError> {
+        if record.count == 0 {
+            info!(%record.count, "polygon has no points");
+            return Ok(());
+        }
+
+        let pen = &self.selected_emf_object.pen;
+        let brush = &self.selected_emf_object.brush;
+        let stroke = Stroke::from(pen.clone());
+        let fill = match Fill::from(&self.context, brush.clone()) {
+            Fill::Pattern { pattern } => {
+                let id = self.issue_id();
+                self.definitions.push(pattern.set("id", id.as_str()));
+                url_string(format!("#{id}").as_str())
+            }
+            Fill::Value { value } => value,
+        };
+        let fill_rule = polygon_fill_rule(
+            &self.context.graphics_environment.drawing.polyfill_mode,
+        );
+
+        let mut points = vec![];
+
+        for i in 0..record.count {
+            let Some(point) = record.a_points.get(i as usize) else {
+                return Err(PlayError::InvalidRecord {
+                    cause: format!("aPoints[{i}] is not defined"),
+                });
+            };
+
+            self.context.drawing_position = point.clone();
+
+            let point = self.xform.transform_point_l(point.clone());
+            points.push(as_point_string_from_point_l(&point));
+        }
+
+        let polygon = Node::new("polygon")
+            .set("fill", fill.as_str())
+            .set("fill-rule", fill_rule.as_str())
+            .set("points", points.join(" "));
+        let polygon = stroke.set_props(polygon);
+
+        self.elements.push(polygon);
+
         Ok(())
     }
 
@@ -659,8 +1039,50 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn polygon_16(&mut self, _record: EMR_POLYGON16) -> Result<(), PlayError> {
-        info!("EMR_POLYGON16: not implemented");
+    fn polygon_16(&mut self, record: EMR_POLYGON16) -> Result<(), PlayError> {
+        if record.count == 0 {
+            info!(%record.count, "polygon has no points");
+            return Ok(());
+        }
+
+        let pen = &self.selected_emf_object.pen;
+        let brush = &self.selected_emf_object.brush;
+        let stroke = Stroke::from(pen.clone());
+        let fill = match Fill::from(&self.context, brush.clone()) {
+            Fill::Pattern { pattern } => {
+                let id = self.issue_id();
+                self.definitions.push(pattern.set("id", id.as_str()));
+                url_string(format!("#{id}").as_str())
+            }
+            Fill::Value { value } => value,
+        };
+        let fill_rule = polygon_fill_rule(
+            &self.context.graphics_environment.drawing.polyfill_mode,
+        );
+
+        let mut points = vec![];
+
+        for i in 0..record.count {
+            let Some(point) = record.a_points.get(i as usize) else {
+                return Err(PlayError::InvalidRecord {
+                    cause: format!("aPoints[{i}] is not defined"),
+                });
+            };
+
+            self.context.drawing_position = point_s_to_point_l(&point);
+
+            let point = self.xform.transform_point_s(point.clone());
+            points.push(as_point_string_from_point_s(&point));
+        }
+
+        let polygon = Node::new("polygon")
+            .set("fill", fill.as_str())
+            .set("fill-rule", fill_rule.as_str())
+            .set("points", points.join(" "));
+        let polygon = stroke.set_props(polygon);
+
+        self.elements.push(polygon);
+
         Ok(())
     }
 
@@ -669,8 +1091,43 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn polyline(&mut self, _record: EMR_POLYLINE) -> Result<(), PlayError> {
-        info!("EMR_POLYLINE: not implemented");
+    fn polyline(&mut self, record: EMR_POLYLINE) -> Result<(), PlayError> {
+        if record.count == 0 {
+            info!(%record.count, "polyline has no points");
+            return Ok(());
+        }
+
+        let pen = &self.selected_emf_object.pen;
+        let stroke = Stroke::from(pen.clone());
+
+        let Some(point) = record.a_points.first() else {
+            return Err(PlayError::InvalidRecord {
+                cause: "aPoints[0] is not defined".to_owned(),
+            });
+        };
+
+        let point = self.xform.transform_point_l(point.clone());
+        let mut data = Data::new().move_to(format!("{} {}", point.x, point.y));
+
+        for i in 1..record.count {
+            let Some(point) = record.a_points.get(i as usize) else {
+                return Err(PlayError::InvalidRecord {
+                    cause: format!("aPoints[{i}] is not defined"),
+                });
+            };
+
+            self.context.drawing_position = point.clone();
+
+            let point = self.xform.transform_point_l(point.clone());
+            data = data.line_to(format!("{} {}", point.x, point.y));
+        }
+
+        let path =
+            Node::new("path").set("fill", "none").set("d", data.to_string());
+        let path = stroke.set_props(path);
+
+        self.elements.push(path);
+
         Ok(())
     }
 
@@ -679,11 +1136,42 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn polyline_16(
-        &mut self,
-        _record: EMR_POLYLINE16,
-    ) -> Result<(), PlayError> {
-        info!("EMR_POLYLINE16: not implemented");
+    fn polyline_16(&mut self, record: EMR_POLYLINE16) -> Result<(), PlayError> {
+        if record.count == 0 {
+            info!(%record.count, "polyline has no points");
+            return Ok(());
+        }
+
+        let pen = &self.selected_emf_object.pen;
+        let stroke = Stroke::from(pen.clone());
+
+        let Some(point) = record.a_points.first() else {
+            return Err(PlayError::InvalidRecord {
+                cause: "aPoints[0] is not defined".to_owned(),
+            });
+        };
+
+        let mut data = Data::new().move_to(format!("{} {}", point.x, point.y));
+
+        for i in 1..record.count {
+            let Some(point) = record.a_points.get(i as usize) else {
+                return Err(PlayError::InvalidRecord {
+                    cause: format!("aPoints[{i}] is not defined"),
+                });
+            };
+
+            self.context.drawing_position = point_s_to_point_l(point);
+
+            let point = self.xform.transform_point_s(point.clone());
+            data = data.line_to(format!("{} {}", point.x, point.y));
+        }
+
+        let path =
+            Node::new("path").set("fill", "none").set("d", data.to_string());
+        let path = stroke.set_props(path);
+
+        self.elements.push(path);
+
         Ok(())
     }
 
@@ -692,11 +1180,37 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn polyline_to(
-        &mut self,
-        _record: EMR_POLYLINETO,
-    ) -> Result<(), PlayError> {
-        info!("EMR_POLYLINETO: not implemented");
+    fn polyline_to(&mut self, record: EMR_POLYLINETO) -> Result<(), PlayError> {
+        if record.count == 0 {
+            info!(%record.count, "polyline has no points");
+            return Ok(());
+        }
+
+        let pen = &self.selected_emf_object.pen;
+        let stroke = Stroke::from(pen.clone());
+        let point =
+            self.xform.transform_point_l(self.context.drawing_position.clone());
+        let mut data = Data::new().move_to(format!("{} {}", point.x, point.y));
+
+        for i in 0..record.count {
+            let Some(point) = record.a_points.get(i as usize) else {
+                return Err(PlayError::InvalidRecord {
+                    cause: format!("aPoints[{i}] is not defined"),
+                });
+            };
+
+            self.context.drawing_position = point.clone();
+
+            let point = self.xform.transform_point_l(point.clone());
+            data = data.line_to(format!("{} {}", point.x, point.y));
+        }
+
+        let path =
+            Node::new("path").set("fill", "none").set("d", data.to_string());
+        let path = stroke.set_props(path);
+
+        self.elements.push(path);
+
         Ok(())
     }
 
@@ -707,9 +1221,38 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn polyline_to_16(
         &mut self,
-        _record: EMR_POLYLINETO16,
+        record: EMR_POLYLINETO16,
     ) -> Result<(), PlayError> {
-        info!("EMR_POLYLINETO16: not implemented");
+        if record.count == 0 {
+            info!(%record.count, "polyline has no points");
+            return Ok(());
+        }
+
+        let pen = &self.selected_emf_object.pen;
+        let stroke = Stroke::from(pen.clone());
+        let point =
+            self.xform.transform_point_l(self.context.drawing_position.clone());
+        let mut data = Data::new().move_to(format!("{} {}", point.x, point.y));
+
+        for i in 0..record.count {
+            let Some(point) = record.a_points.get(i as usize) else {
+                return Err(PlayError::InvalidRecord {
+                    cause: format!("aPoints[{i}] is not defined"),
+                });
+            };
+
+            self.context.drawing_position = point_s_to_point_l(point);
+
+            let point = self.xform.transform_point_s(point.clone());
+            data = data.line_to(format!("{} {}", point.x, point.y));
+        }
+
+        let path =
+            Node::new("path").set("fill", "none").set("d", data.to_string());
+        let path = stroke.set_props(path);
+
+        self.elements.push(path);
+
         Ok(())
     }
 
@@ -718,8 +1261,43 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn rectangle(&mut self, _record: EMR_RECTANGLE) -> Result<(), PlayError> {
-        info!("EMR_RECTANGLE: not implemented");
+    fn rectangle(&mut self, record: EMR_RECTANGLE) -> Result<(), PlayError> {
+        let pen = &self.selected_emf_object.pen;
+        let brush = &self.selected_emf_object.brush;
+        let stroke = Stroke::from(pen.clone());
+        let fill = match Fill::from(&self.context, brush.clone()) {
+            Fill::Pattern { pattern } => {
+                let id = self.issue_id();
+                self.definitions.push(pattern.set("id", id.as_str()));
+                url_string(format!("#{id}").as_str())
+            }
+            Fill::Value { value } => value,
+        };
+        let fill_rule = polygon_fill_rule(
+            &self.context.graphics_environment.drawing.polyfill_mode,
+        );
+
+        let top_left = self.xform.transform_point_l(wmf_core::parser::PointL {
+            x: record.bx.left,
+            y: record.bx.top,
+        });
+        let bottom_right =
+            self.xform.transform_point_l(wmf_core::parser::PointL {
+                x: record.bx.right,
+                y: record.bx.bottom,
+            });
+
+        let rect = Node::new("rect")
+            .set("fill", fill.as_str())
+            .set("fill-rule", fill_rule.as_str())
+            .set("x", top_left.x)
+            .set("y", top_left.y)
+            .set("height", (bottom_right.x - top_left.x).to_string())
+            .set("width", (bottom_right.y - top_left.y).to_string());
+        let rect = stroke.set_props(rect);
+
+        self.elements.push(rect);
+
         Ok(())
     }
 
@@ -763,9 +1341,37 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn stroke_and_fill_path(
         &mut self,
-        _record: EMR_STROKEANDFILLPATH,
+        record: EMR_STROKEANDFILLPATH,
     ) -> Result<(), PlayError> {
-        info!("EMR_STROKEANDFILLPATH: not implemented");
+        if self.path.is_empty() {
+            return Ok(());
+        }
+
+        self.path = self.path.clone().close();
+
+        let pen = &self.selected_emf_object.pen;
+        let brush = &self.selected_emf_object.brush;
+        let stroke = Stroke::from(pen.clone());
+        let fill = match Fill::from(&self.context, brush.clone()) {
+            Fill::Pattern { pattern } => {
+                let id = self.issue_id();
+                self.definitions.push(pattern.set("id", id.as_str()));
+                url_string(format!("#{id}").as_str())
+            }
+            Fill::Value { value } => value,
+        };
+        let fill_rule = polygon_fill_rule(
+            &self.context.graphics_environment.drawing.polyfill_mode,
+        );
+
+        let path = Node::new("path")
+            .set("fill", fill.as_str())
+            .set("fill-rule", fill_rule.as_str())
+            .set("d", self.path.to_string());
+        let path = stroke.set_props(path);
+
+        self.elements.push(path);
+
         Ok(())
     }
 
@@ -774,11 +1380,20 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn stroke_path(
-        &mut self,
-        _record: EMR_STROKEPATH,
-    ) -> Result<(), PlayError> {
-        info!("EMR_STROKEPATH: not implemented");
+    fn stroke_path(&mut self, record: EMR_STROKEPATH) -> Result<(), PlayError> {
+        if self.path.is_empty() {
+            return Ok(());
+        }
+
+        let pen = &self.selected_emf_object.pen;
+        let stroke = Stroke::from(pen.clone());
+        let path = Node::new("path")
+            .set("fill", "none")
+            .set("d", self.path.to_string());
+        let path = stroke.set_props(path);
+
+        self.elements.push(path);
+
         Ok(())
     }
 
@@ -1151,7 +1766,9 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn abort_path(&mut self, _record: EMR_ABORTPATH) -> Result<(), PlayError> {
-        info!("EMR_ABORTPATH: not implemented");
+        self.path = Data::new();
+        self.context.graphics_environment.drawing.path_bracket = false;
+
         Ok(())
     }
 
@@ -1161,7 +1778,16 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn begin_path(&mut self, _record: EMR_BEGINPATH) -> Result<(), PlayError> {
-        info!("EMR_BEGINPATH: not implemented");
+        if self.context.graphics_environment.drawing.path_bracket {
+            return Err(PlayError::InvalidRecord {
+                cause: "Path bracket construction MUST be closed by an \
+                        EMR_ABORTPATH or EMR_ENDPATH record."
+                    .to_owned(),
+            });
+        }
+
+        self.context.graphics_environment.drawing.path_bracket = true;
+
         Ok(())
     }
 
@@ -1174,7 +1800,9 @@ impl crate::converter::Player for SVGPlayer {
         &mut self,
         _record: EMR_CLOSEFIGURE,
     ) -> Result<(), PlayError> {
-        info!("EMR_CLOSEFIGURE: not implemented");
+        self.context.graphics_environment.drawing.path_bracket = false;
+        self.path = self.path.clone().close();
+
         Ok(())
     }
 
@@ -1184,7 +1812,7 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn end_path(&mut self, _record: EMR_ENDPATH) -> Result<(), PlayError> {
-        info!("EMR_ENDPATH: not implemented");
+        self.context.graphics_environment.drawing.path_bracket = false;
         Ok(())
     }
 
@@ -1197,7 +1825,19 @@ impl crate::converter::Player for SVGPlayer {
         &mut self,
         _record: EMR_FLATTENPATH,
     ) -> Result<(), PlayError> {
-        info!("EMR_FLATTENPATH: not implemented");
+        if self.path.is_empty() {
+            return Ok(());
+        }
+
+        let pen = &self.selected_emf_object.pen;
+        let stroke = Stroke::from(pen.clone());
+        let path = Node::new("path")
+            .set("fill", "none")
+            .set("d", self.path.to_string());
+        let path = stroke.set_props(path);
+
+        self.elements.push(path);
+
         Ok(())
     }
 
@@ -1257,8 +1897,12 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn move_to_ex(&mut self, _record: EMR_MOVETOEX) -> Result<(), PlayError> {
-        info!("EMR_MOVETOEX: not implemented");
+    fn move_to_ex(&mut self, record: EMR_MOVETOEX) -> Result<(), PlayError> {
+        let point = self.xform.transform_point_l(record.offset);
+
+        self.path =
+            self.path.clone().move_to(format!("{} {}", point.x, point.y));
+
         Ok(())
     }
 
@@ -1504,9 +2148,11 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_miter_limit(
         &mut self,
-        _record: EMR_SETMITERLIMIT,
+        record: EMR_SETMITERLIMIT,
     ) -> Result<(), PlayError> {
-        info!("EMR_SETMITERLIMIT: not implemented");
+        self.context.graphics_environment.drawing.miter_limit =
+            record.miter_limit;
+
         Ok(())
     }
 
@@ -1540,9 +2186,11 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_stretch_blt_mode(
         &mut self,
-        _record: EMR_SETSTRETCHBLTMODE,
+        record: EMR_SETSTRETCHBLTMODE,
     ) -> Result<(), PlayError> {
-        info!("EMR_SETSTRETCHBLTMODE: not implemented");
+        self.context.graphics_environment.drawing.stretch_blt_mode =
+            record.stretch_mode;
+
         Ok(())
     }
 
@@ -1657,9 +2305,34 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn modify_world_transform(
         &mut self,
-        _record: EMR_MODIFYWORLDTRANSFORM,
+        record: EMR_MODIFYWORLDTRANSFORM,
     ) -> Result<(), PlayError> {
-        info!("EMR_MODIFYWORLDTRANSFORM: not implemented");
+        let (a, b) = match record.modify_world_transform_mode {
+            ModifyWorldTransformMode::MWT_IDENTITY => {
+                // NOOP
+                return Ok(());
+            }
+            ModifyWorldTransformMode::MWT_LEFTMULTIPLY => {
+                (record.x_form, self.xform.clone())
+            }
+            ModifyWorldTransformMode::MWT_RIGHTMULTIPLY => {
+                (self.xform.clone(), record.x_form)
+            }
+            ModifyWorldTransformMode::MWT_SET => {
+                self.xform = record.x_form;
+                return Ok(());
+            }
+        };
+
+        self.xform = XForm {
+            m11: a.m11 * b.m11 + a.m12 * b.m21,
+            m12: a.m11 * b.m12 + a.m12 * b.m22,
+            m21: a.m21 * b.m11 + a.m22 * b.m21,
+            m22: a.m21 * b.m12 + a.m22 * b.m22,
+            dx: a.dx * b.m11 + a.dy * b.m21 + b.dx,
+            dy: a.dy * b.m12 + a.dy * b.m22 + b.dy,
+        };
+
         Ok(())
     }
 
@@ -1670,9 +2343,10 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_world_transform(
         &mut self,
-        _record: EMR_SETWORLDTRANSFORM,
+        record: EMR_SETWORLDTRANSFORM,
     ) -> Result<(), PlayError> {
-        info!("EMR_SETWORLDTRANSFORM: not implemented");
+        self.xform = record.x_form;
+
         Ok(())
     }
 }

@@ -75,4 +75,12 @@ impl LogBrushEx {
 
         Ok((v, consumed_bytes))
     }
+
+    pub fn black_brush() -> Self {
+        Self::Solid { color: wmf_core::parser::ColorRef::black() }
+    }
+
+    pub fn white_brush() -> Self {
+        Self::Solid { color: wmf_core::parser::ColorRef::white() }
+    }
 }

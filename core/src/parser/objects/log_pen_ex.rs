@@ -113,6 +113,40 @@ impl LogPenEx {
                 + style_entry_bytes,
         ))
     }
+
+    pub fn black_pen() -> Self {
+        Self {
+            pen_style: BTreeSet::from_iter([crate::parser::PenStyle::PS_SOLID]),
+            width: 1,
+            brush: LogPenExBrush::Solid {
+                color_ref: wmf_core::parser::ColorRef::black(),
+            },
+            num_style_entries: 0,
+            style_entry: vec![],
+        }
+    }
+
+    pub fn white_pen() -> Self {
+        Self {
+            pen_style: BTreeSet::from_iter([crate::parser::PenStyle::PS_SOLID]),
+            width: 1,
+            brush: LogPenExBrush::Solid {
+                color_ref: wmf_core::parser::ColorRef::white(),
+            },
+            num_style_entries: 0,
+            style_entry: vec![],
+        }
+    }
+
+    pub fn null_pen() -> Self {
+        Self {
+            pen_style: BTreeSet::from_iter([crate::parser::PenStyle::PS_NULL]),
+            width: 0,
+            brush: LogPenExBrush::Null,
+            num_style_entries: 0,
+            style_entry: vec![],
+        }
+    }
 }
 
 #[derive(Clone, Debug)]

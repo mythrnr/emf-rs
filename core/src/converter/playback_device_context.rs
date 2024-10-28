@@ -2,13 +2,23 @@ use crate::imports::*;
 
 #[derive(Clone, Debug)]
 pub struct PlaybackDeviceContext {
+    pub drawing_position: wmf_core::parser::PointL,
     pub graphics_environment: GraphicsEnvironment,
 }
 
 impl Default for PlaybackDeviceContext {
     fn default() -> Self {
-        Self { graphics_environment: GraphicsEnvironment::default() }
+        Self {
+            drawing_position: wmf_core::parser::PointL { x: 0, y: 0 },
+            graphics_environment: GraphicsEnvironment::default(),
+        }
     }
+}
+
+pub fn point_s_to_point_l(
+    v: &wmf_core::parser::PointS,
+) -> wmf_core::parser::PointL {
+    wmf_core::parser::PointL { x: v.x.into(), y: v.y.into() }
 }
 
 /// The EMF object table is an element of the state maintained during EMF
@@ -60,26 +70,26 @@ impl EmfObjectTable {
 #[derive(Clone, Debug)]
 pub struct SelectedObject {
     pub dib: Option<wmf_core::parser::DeviceIndependentBitmap>,
-    pub brush: Option<crate::parser::LogBrushEx>,
+    pub brush: crate::parser::LogBrushEx,
     pub color_space: Option<wmf_core::parser::LogColorSpace>,
     pub color_space_w: Option<wmf_core::parser::LogColorSpaceW>,
     pub font: Option<crate::parser::LogFont>,
     pub font_ex_dv: Option<crate::parser::LogFontExDv>,
     pub palette: Option<crate::parser::LogPalette>,
-    pub pen: Option<crate::parser::LogPenEx>,
+    pub pen: crate::parser::LogPenEx,
 }
 
 impl Default for SelectedObject {
     fn default() -> Self {
         Self {
             dib: None,
-            brush: None,
+            brush: crate::parser::LogBrushEx::black_brush(),
             color_space: None,
             color_space_w: None,
             font: None,
             font_ex_dv: None,
             palette: None,
-            pen: None,
+            pen: crate::parser::LogPenEx::black_pen(),
         }
     }
 }
@@ -105,21 +115,10 @@ impl GraphicsObject {
     ) -> Self {
         use crate::parser::StockObject::*;
 
-        let white_brush = crate::parser::LogBrushEx::Solid {
-            color: wmf_core::parser::ColorRef::white(),
-        };
-        let black_pen = crate::parser::LogPenEx {
-            pen_style: BTreeSet::from_iter([crate::parser::PenStyle::PS_SOLID]),
-            width: 1,
-            brush: crate::parser::LogPenExBrush::Solid {
-                color_ref: wmf_core::parser::ColorRef::black(),
-            },
-            num_style_entries: 0,
-            style_entry: vec![],
-        };
-
         match v {
-            WHITE_BRUSH => Self::LogBrushEx(white_brush),
+            WHITE_BRUSH => {
+                Self::LogBrushEx(crate::parser::LogBrushEx::white_brush())
+            }
             LTGRAY_BRUSH => {
                 Self::LogBrushEx(crate::parser::LogBrushEx::Solid {
                     color: wmf_core::parser::ColorRef {
@@ -148,31 +147,13 @@ impl GraphicsObject {
                     },
                 })
             }
-            BLACK_BRUSH => Self::LogBrushEx(crate::parser::LogBrushEx::Solid {
-                color: wmf_core::parser::ColorRef::black(),
-            }),
+            BLACK_BRUSH => {
+                Self::LogBrushEx(crate::parser::LogBrushEx::black_brush())
+            }
             NULL_BRUSH => Self::LogBrushEx(crate::parser::LogBrushEx::Null),
-            WHITE_PEN => Self::LogPenEx(crate::parser::LogPenEx {
-                pen_style: BTreeSet::from_iter([
-                    crate::parser::PenStyle::PS_SOLID,
-                ]),
-                width: 1,
-                brush: crate::parser::LogPenExBrush::Solid {
-                    color_ref: wmf_core::parser::ColorRef::white(),
-                },
-                num_style_entries: 0,
-                style_entry: vec![],
-            }),
-            BLACK_PEN => Self::LogPenEx(black_pen),
-            NULL_PEN => Self::LogPenEx(crate::parser::LogPenEx {
-                pen_style: BTreeSet::from_iter([
-                    crate::parser::PenStyle::PS_NULL,
-                ]),
-                width: 0,
-                brush: crate::parser::LogPenExBrush::Null,
-                num_style_entries: 0,
-                style_entry: vec![],
-            }),
+            WHITE_PEN => Self::LogPenEx(crate::parser::LogPenEx::white_pen()),
+            BLACK_PEN => Self::LogPenEx(crate::parser::LogPenEx::black_pen()),
+            NULL_PEN => Self::LogPenEx(crate::parser::LogPenEx::null_pen()),
             OEM_FIXED_FONT => Self::LogFont(crate::parser::LogFont {
                 height: 0,
                 width: 0,
@@ -300,12 +281,8 @@ impl GraphicsObject {
                 },
                 facename: "serif".to_owned(),
             }),
-            DC_BRUSH => Self::LogBrushEx(
-                selected_object.brush.clone().unwrap_or(white_brush),
-            ),
-            DC_PEN => {
-                Self::LogPenEx(selected_object.pen.clone().unwrap_or(black_pen))
-            }
+            DC_BRUSH => Self::LogBrushEx(selected_object.brush.clone()),
+            DC_PEN => Self::LogPenEx(selected_object.pen.clone()),
         }
     }
 }
@@ -469,7 +446,6 @@ pub struct PlaybackStateDrawing {
     pub line_join: u32,
     pub mapping_mode: crate::parser::MapMode,
     pub miter_limit: u32,
-    pub path: Vec<wmf_core::parser::PointL>,
     pub path_bracket: bool,
     pub polyfill_mode: crate::parser::PolygonFillMode,
     pub rop2: wmf_core::parser::BinaryRasterOperation,
@@ -490,7 +466,6 @@ impl Default for PlaybackStateDrawing {
             line_join: 0,
             mapping_mode: crate::parser::MapMode::MM_TEXT,
             miter_limit: 0,
-            path: vec![],
             path_bracket: false,
             polyfill_mode: crate::parser::PolygonFillMode::ALTERNATE,
             rop2: wmf_core::parser::BinaryRasterOperation::R2_BLACK,
