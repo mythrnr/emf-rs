@@ -22,7 +22,7 @@
     strum::FromRepr,
     strum::EnumIter,
 )]
-#[repr(u8)]
+#[repr(u32)]
 pub enum StretchMode {
     /// Performs a Boolean AND operation using the color values for the
     /// eliminated and existing pixels. If the bitmap is a monochrome bitmap,
@@ -45,4 +45,4 @@ pub enum StretchMode {
     STRETCH_HALFTONE = 0x04,
 }
 
-crate::parser::enums::impl_parser!(StretchMode, u8);
+crate::parser::enums::impl_parser!(StretchMode, u32);

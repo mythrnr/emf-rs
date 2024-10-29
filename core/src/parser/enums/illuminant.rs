@@ -12,7 +12,7 @@
     strum::FromRepr,
     strum::EnumIter,
 )]
-#[repr(u8)]
+#[repr(u16)]
 pub enum Illuminant {
     /// Device's default. Standard used by output devices.
     ILLUMINANT_DEVICE_DEFAULT = 0x00,
@@ -34,4 +34,4 @@ pub enum Illuminant {
     ILLUMINANT_FLUORESCENT = 0x08,
 }
 
-crate::parser::enums::impl_parser!(Illuminant, u8);
+crate::parser::enums::impl_parser!(Illuminant, u16);

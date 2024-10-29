@@ -2,15 +2,15 @@ use crate::imports::*;
 
 #[derive(Clone, Debug)]
 pub struct PlaybackDeviceContext {
-    pub drawing_position: wmf_core::parser::PointL,
     pub graphics_environment: GraphicsEnvironment,
+    pub xform: crate::parser::XForm,
 }
 
 impl Default for PlaybackDeviceContext {
     fn default() -> Self {
         Self {
-            drawing_position: wmf_core::parser::PointL { x: 0, y: 0 },
             graphics_environment: GraphicsEnvironment::default(),
+            xform: crate::parser::XForm::default(),
         }
     }
 }
@@ -445,7 +445,7 @@ pub struct PlaybackStateDrawing {
     pub line_cap: u32,
     pub line_join: u32,
     pub mapping_mode: crate::parser::MapMode,
-    pub miter_limit: u32,
+    pub miter_limit: Option<u32>,
     pub path_bracket: bool,
     pub polyfill_mode: crate::parser::PolygonFillMode,
     pub rop2: wmf_core::parser::BinaryRasterOperation,
@@ -465,7 +465,7 @@ impl Default for PlaybackStateDrawing {
             line_cap: 0,
             line_join: 0,
             mapping_mode: crate::parser::MapMode::MM_TEXT,
-            miter_limit: 0,
+            miter_limit: None,
             path_bracket: false,
             polyfill_mode: crate::parser::PolygonFillMode::ALTERNATE,
             rop2: wmf_core::parser::BinaryRasterOperation::R2_BLACK,

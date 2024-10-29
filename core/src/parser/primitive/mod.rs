@@ -82,21 +82,6 @@ impl Adjustment {
 #[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Size(u32, usize);
 
-impl Size {
-    #[cfg_attr(feature = "tracing", tracing::instrument(
-        level = tracing::Level::TRACE,
-        skip_all,
-        err(level = tracing::Level::ERROR, Display),
-    ))]
-    pub fn parse<R: crate::Read>(
-        buf: &mut R,
-    ) -> Result<Self, crate::parser::ParseError> {
-        let (v, c) = crate::parser::read_u32_from_le_bytes(buf)?;
-
-        Ok(Self(v, c))
-    }
-}
-
 impl From<u32> for Size {
     fn from(v: u32) -> Self {
         Self(v, 0)

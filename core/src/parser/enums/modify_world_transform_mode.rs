@@ -16,7 +16,7 @@
     strum::FromRepr,
     strum::EnumIter,
 )]
-#[repr(u8)]
+#[repr(u32)]
 pub enum ModifyWorldTransformMode {
     /// Reset the current transform using the identity matrix. In this mode,
     /// the specified transform data is ignored.
@@ -33,4 +33,4 @@ pub enum ModifyWorldTransformMode {
     MWT_SET = 0x04,
 }
 
-crate::parser::enums::impl_parser!(ModifyWorldTransformMode, u8);
+crate::parser::enums::impl_parser!(ModifyWorldTransformMode, u32);

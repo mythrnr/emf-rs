@@ -70,30 +70,39 @@ impl Fill {
             }
             LogBrushEx::Null => Fill::Value { value: "none".to_owned() },
             LogBrushEx::Hatched { color, brush_hatch } => {
+                let ten = (10_f32 * ctx.xform.calc_scale()) as i32;
                 let path = match brush_hatch {
                     HatchStyle::HS_HORIZONTAL => {
-                        let data = Data::new().move_to("0 0").line_to("10 0");
+                        let data = Data::new()
+                            .move_to("0 0")
+                            .line_to(format!("{ten} 0"));
 
                         Node::new("path")
                             .set("stroke", color_from_color_ref(&color))
                             .set("data", data.to_string())
                     }
                     HatchStyle::HS_VERTICAL => {
-                        let data = Data::new().move_to("0 0").line_to("0 10");
+                        let data = Data::new()
+                            .move_to("0 0")
+                            .line_to(format!("0 {ten}"));
 
                         Node::new("path")
                             .set("stroke", color_from_color_ref(&color))
                             .set("data", data.to_string())
                     }
                     HatchStyle::HS_FDIAGONAL => {
-                        let data = Data::new().move_to("0 10").line_to("10 0");
+                        let data = Data::new()
+                            .move_to(format!("0 {ten}"))
+                            .line_to(format!("{ten} 0"));
 
                         Node::new("path")
                             .set("stroke", color_from_color_ref(&color))
                             .set("data", data.to_string())
                     }
                     HatchStyle::HS_BDIAGONAL => {
-                        let data = Data::new().move_to("0 0").line_to("10 10");
+                        let data = Data::new()
+                            .move_to("0 0")
+                            .line_to(format!("{ten} {ten}"));
 
                         Node::new("path")
                             .set("stroke", color_from_color_ref(&color))
@@ -102,9 +111,9 @@ impl Fill {
                     HatchStyle::HS_CROSS => {
                         let data = Data::new()
                             .move_to("0 0")
-                            .line_to("10 0")
+                            .line_to(format!("{ten} 0"))
                             .move_to("0 0")
-                            .line_to("0 10");
+                            .line_to(format!("0 {ten}"));
 
                         Node::new("path")
                             .set("stroke", color_from_color_ref(&color))
@@ -113,9 +122,9 @@ impl Fill {
                     HatchStyle::HS_DIAGCROSS => {
                         let data = Data::new()
                             .move_to("0 0")
-                            .line_to("10 10")
-                            .move_to("10 0")
-                            .line_to("0 10");
+                            .line_to(format!("{ten} {ten}"))
+                            .move_to(format!("{ten} 0"))
+                            .line_to(format!("0 {ten}"));
 
                         Node::new("path")
                             .set("stroke", color_from_color_ref(&color))
@@ -176,8 +185,8 @@ impl Fill {
                     .set("patternContentUnits", "userSpaceOnUse")
                     .set("x", 0.to_string())
                     .set("y", 0.to_string())
-                    .set("width", 10.to_string())
-                    .set("height", 10.to_string())
+                    .set("width", ten.to_string())
+                    .set("height", ten.to_string())
                     .add(path);
 
                 Fill::Pattern { pattern }
@@ -217,7 +226,22 @@ impl Default for Stroke {
 
 impl From<LogPenEx> for Stroke {
     fn from(v: LogPenEx) -> Self {
-        let mut stroke = Self::from(v.brush);
+        let mut stroke = match v.brush {
+            LogPenExBrush::DIBPattern { .. }
+            | LogPenExBrush::DIBPatternPT { .. } => {
+                Self { opacity: 0_f32, ..Default::default() }
+            }
+            LogPenExBrush::Hatched { color_ref, .. }
+            | LogPenExBrush::Solid { color_ref } => {
+                Self { color: color_ref, ..Default::default() }
+            }
+            LogPenExBrush::Pattern { .. } => Self::default(),
+            LogPenExBrush::Null => {
+                Self { width: 0, opacity: 0_f32, ..Default::default() }
+            }
+        };
+
+        stroke.width = v.width as i16;
 
         for style in v.pen_style {
             stroke = match style {
@@ -285,25 +309,6 @@ impl From<LogPenEx> for Stroke {
     }
 }
 
-impl From<LogPenExBrush> for Stroke {
-    fn from(v: LogPenExBrush) -> Self {
-        match v {
-            LogPenExBrush::DIBPattern { .. }
-            | LogPenExBrush::DIBPatternPT { .. } => {
-                Self { opacity: 0_f32, ..Default::default() }
-            }
-            LogPenExBrush::Hatched { color_ref, .. }
-            | LogPenExBrush::Solid { color_ref } => {
-                Self { color: color_ref, ..Default::default() }
-            }
-            LogPenExBrush::Pattern { .. } => Self::default(),
-            LogPenExBrush::Null => {
-                Self { width: 0, opacity: 0_f32, ..Default::default() }
-            }
-        }
-    }
-}
-
 impl Stroke {
     pub fn color(&self) -> String {
         color_from_color_ref(&self.color)
@@ -329,17 +334,29 @@ impl Stroke {
         self.width
     }
 
-    pub fn set_props(&self, elem: Node) -> Node {
+    pub fn set_props(&self, ctx: &PlaybackDeviceContext, elem: Node) -> Node {
         if self.opacity == 0_f32 {
             return elem.set("stroke", "none");
         }
 
-        elem.set("stroke", self.color())
+        let scale = ctx.xform.calc_scale();
+        let width = core::cmp::max((f32::from(self.width()) * scale) as i32, 1);
+        let mut elem = elem
+            .set("stroke", self.color())
             .set("stroke-dasharray", self.dash_array())
             .set("stroke-linecap", self.line_cap())
             .set("stroke-linejoin", self.line_join())
             .set("stroke-opacity", self.opacity())
-            .set("stroke-width", self.width().to_string())
+            .set("stroke-width", width.to_string());
+
+        if let Some(ref limit) = ctx.graphics_environment.drawing.miter_limit {
+            elem = elem.set(
+                "stroke-miterlimit",
+                ((*limit as f32) * scale).to_string(),
+            );
+        }
+
+        elem
     }
 }
 

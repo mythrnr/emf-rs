@@ -13,7 +13,7 @@
     strum::FromRepr,
     strum::EnumIter,
 )]
-#[repr(u16)]
+#[repr(u32)]
 pub enum BackgroundMode {
     /// Background remains untouched.
     TRANSPARENT = 0x0001,
@@ -22,4 +22,4 @@ pub enum BackgroundMode {
     OPAQUE = 0x0002,
 }
 
-crate::parser::enums::impl_parser!(BackgroundMode, u16);
+crate::parser::enums::impl_parser!(BackgroundMode, u32);

@@ -11,7 +11,7 @@
     strum::FromRepr,
     strum::EnumIter,
 )]
-#[repr(u8)]
+#[repr(u32)]
 pub enum PolygonFillMode {
     /// Selects alternate mode (fills the area between odd-numbered and
     /// even-numbered polygon sides on each scan line).
@@ -20,4 +20,4 @@ pub enum PolygonFillMode {
     WINDING = 0x02,
 }
 
-crate::parser::enums::impl_parser!(PolygonFillMode, u8);
+crate::parser::enums::impl_parser!(PolygonFillMode, u32);

@@ -12,7 +12,7 @@
     strum::FromRepr,
     strum::EnumIter,
 )]
-#[repr(u8)]
+#[repr(u32)]
 pub enum MapMode {
     /// Each logical unit is mapped to one device pixel. Positive x is to the
     /// right; positive y is down.
@@ -50,4 +50,4 @@ pub enum MapMode {
     MM_ANISOTROPIC = 0x08,
 }
 
-crate::parser::enums::impl_parser!(MapMode, u8);
+crate::parser::enums::impl_parser!(MapMode, u32);

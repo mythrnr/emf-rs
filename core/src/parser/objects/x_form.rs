@@ -81,6 +81,10 @@ impl XForm {
                 as i16,
         }
     }
+
+    pub fn calc_scale(&self) -> f32 {
+        (self.m11 * self.m22 - self.m12 * self.m21).sqrt()
+    }
 }
 
 impl Default for XForm {

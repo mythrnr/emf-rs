@@ -194,10 +194,13 @@ impl LogPenExBrush {
     ) -> Result<(Self, usize), crate::parser::ParseError> {
         let (
             (brush_style, brush_style_bytes),
+            (_, ignore_bytes),
             (color, color_bytes),
             (brush_hatch, brush_hatch_bytes),
         ) = (
             wmf_core::parser::BrushStyle::parse(buf)?,
+            // Ignore 2 bytes because wmf_core::parser::BrushStyle is 2 byte.
+            crate::parser::read::<_, 2>(buf)?,
             crate::parser::read::<_, 4>(buf)?,
             crate::parser::read::<_, 4>(buf)?,
         );
@@ -264,7 +267,10 @@ impl LogPenExBrush {
             }
         };
 
-        Ok((v, brush_style_bytes + color_bytes + brush_hatch_bytes))
+        Ok((
+            v,
+            brush_style_bytes + ignore_bytes + color_bytes + brush_hatch_bytes,
+        ))
     }
 }
 

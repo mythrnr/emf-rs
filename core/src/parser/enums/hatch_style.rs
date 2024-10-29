@@ -11,7 +11,7 @@
     strum::FromRepr,
     strum::EnumIter,
 )]
-#[repr(u16)]
+#[repr(u32)]
 pub enum HatchStyle {
     /// A horizontal hatch.
     HS_HORIZONTAL = 0x0000,
@@ -43,4 +43,4 @@ pub enum HatchStyle {
     HS_DITHEREDBKCLR = 0x000B,
 }
 
-crate::parser::enums::impl_parser!(HatchStyle, u16);
+crate::parser::enums::impl_parser!(HatchStyle, u32);

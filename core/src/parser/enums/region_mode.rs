@@ -13,7 +13,7 @@
     strum::FromRepr,
     strum::EnumIter,
 )]
-#[repr(u8)]
+#[repr(u32)]
 pub enum RegionMode {
     /// The new clipping region includes the intersection (overlapping areas)
     /// of the current clipping region and the current path bracket (or new
@@ -34,4 +34,4 @@ pub enum RegionMode {
     RGN_COPY = 0x05,
 }
 
-crate::parser::enums::impl_parser!(RegionMode, u8);
+crate::parser::enums::impl_parser!(RegionMode, u32);

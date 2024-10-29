@@ -33,7 +33,6 @@ pub struct SVGPlayer {
     emf_object_table: EmfObjectTable,
     selected_emf_object: SelectedObject,
     path: Data,
-    xform: XForm,
 }
 
 impl Default for SVGPlayer {
@@ -46,7 +45,6 @@ impl Default for SVGPlayer {
             emf_object_table: EmfObjectTable::new(0),
             selected_emf_object: SelectedObject::default(),
             path: Data::new(),
-            xform: XForm::default(),
         }
     }
 }
@@ -188,10 +186,11 @@ impl crate::converter::Player for SVGPlayer {
             &mut buf,
         )
         .map_err(|err| PlayError::InvalidRecord { cause: err.to_string() })?;
-        let point = self.xform.transform_point_l(wmf_core::parser::PointL {
-            x: record.x_dest,
-            y: record.y_dest,
-        });
+        let point =
+            self.context.xform.transform_point_l(wmf_core::parser::PointL {
+                x: record.x_dest,
+                y: record.y_dest,
+            });
         let (width, height) =
             (dib_header_info.width(), dib_header_info.height());
         let bitmap: wmf_core::converter::Bitmap =
@@ -324,7 +323,7 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn comment(&mut self, _record: EMR_COMMENT) -> Result<(), PlayError> {
-        info!("EMR_SETMETARGN: not supported");
+        info!("EMR_COMMENT: not implemented");
         Ok(())
     }
 
@@ -364,6 +363,25 @@ impl crate::converter::Player for SVGPlayer {
             },
         );
 
+        let color = if let Some(record_buffer) = record.emf_header_record_buffer
+        {
+            let pixel_format = match record_buffer {
+                EmfHeaderRecordBuffer::EmfMetafileHeader { .. } => None,
+                EmfHeaderRecordBuffer::EmfMetafileHeaderExtension1 {
+                    emf_pixel_format,
+                    ..
+                }
+                | EmfHeaderRecordBuffer::EmfMetafileHeaderExtension2 {
+                    emf_pixel_format,
+                    ..
+                } => emf_pixel_format,
+            };
+
+            PlaybackStateColors { pixel_format, ..Default::default() }
+        } else {
+            PlaybackStateColors::default()
+        };
+
         self.context.graphics_environment = GraphicsEnvironment {
             regions: PlaybackStateRegions {
                 clipping: None,
@@ -374,7 +392,7 @@ impl crate::converter::Player for SVGPlayer {
                 },
                 window: Window { extent, origin },
             },
-            color: PlaybackStateColors::default(),
+            color,
             text: PlaybackStateText::default(),
             drawing: PlaybackStateDrawing::default(),
         };
@@ -433,10 +451,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn ellipse(&mut self, record: EMR_ELLIPSE) -> Result<(), PlayError> {
-        let r = self.xform.transform_point_l(wmf_core::parser::PointL {
-            x: (record.bx.right - record.bx.left) / 2,
-            y: (record.bx.bottom - record.bx.top) / 2,
-        });
+        let r =
+            self.context.xform.transform_point_l(wmf_core::parser::PointL {
+                x: (record.bx.right - record.bx.left) / 2,
+                y: (record.bx.bottom - record.bx.top) / 2,
+            });
 
         if r.x == 0 || r.y == 0 {
             info!(
@@ -461,10 +480,11 @@ impl crate::converter::Player for SVGPlayer {
         let fill_rule = polygon_fill_rule(
             &self.context.graphics_environment.drawing.polyfill_mode,
         );
-        let c = self.xform.transform_point_l(wmf_core::parser::PointL {
-            x: record.bx.left,
-            y: record.bx.top,
-        });
+        let c =
+            self.context.xform.transform_point_l(wmf_core::parser::PointL {
+                x: record.bx.left,
+                y: record.bx.top,
+            });
 
         let ellipse = Node::new("ellipse")
             .set("fill", fill.as_str())
@@ -473,7 +493,7 @@ impl crate::converter::Player for SVGPlayer {
             .set("cy", (c.y + r.y).to_string())
             .set("rx", r.x.to_string())
             .set("ry", r.y.to_string());
-        let ellipse = stroke.set_props(ellipse);
+        let ellipse = stroke.set_props(&self.context, ellipse);
 
         self.elements.push(ellipse);
 
@@ -529,7 +549,8 @@ impl crate::converter::Player for SVGPlayer {
         );
         let text_align =
             text_align(self.context.graphics_environment.text.text_alignment);
-        let point = self.xform.transform_point_l(record.w_emr_text.reference);
+        let point =
+            self.context.xform.transform_point_l(record.w_emr_text.reference);
 
         let text = Node::new("text")
             .set("x", point.x.to_string())
@@ -556,7 +577,7 @@ impl crate::converter::Player for SVGPlayer {
             return Ok(());
         }
 
-        self.path = self.path.clone().close();
+        self.path = self.path.clone();
 
         let brush = &self.selected_emf_object.brush;
         let fill = match Fill::from(&self.context, brush.clone()) {
@@ -577,6 +598,7 @@ impl crate::converter::Player for SVGPlayer {
             .set("d", self.path.to_string());
 
         self.elements.push(path);
+        self.path = Data::new();
 
         Ok(())
     }
@@ -620,7 +642,7 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn line_to(&mut self, record: EMR_LINETO) -> Result<(), PlayError> {
-        let point = self.xform.transform_point_l(record.point);
+        let point = self.context.xform.transform_point_l(record.point);
 
         self.path =
             self.path.clone().line_to(format!("{} {}", point.x, point.y));
@@ -659,17 +681,17 @@ impl crate::converter::Player for SVGPlayer {
             return Ok(());
         }
 
-        let pen = &self.selected_emf_object.pen;
-        let stroke = Stroke::from(pen.clone());
+        // NOTE: ignore move to first point for SVG.
+        // let Some(point) = record.a_points.first() else {
+        //     return Err(PlayError::InvalidRecord {
+        //         cause: "aPoints[0] is not defined".to_owned(),
+        //     });
+        // };
+        // let point = self.context.xform.transform_point_l(point.clone());
+        // let mut data =
+        //     self.path.clone().move_to(format!("{} {}", point.x, point.y));
 
-        let Some(point) = record.a_points.first() else {
-            return Err(PlayError::InvalidRecord {
-                cause: "aPoints[0] is not defined".to_owned(),
-            });
-        };
-
-        let point = self.xform.transform_point_l(point.clone());
-        let mut data = Data::new().move_to(format!("{} {}", point.x, point.y));
+        let mut data = self.path.clone();
         let mut c = vec![];
 
         for i in 1..record.count {
@@ -679,31 +701,26 @@ impl crate::converter::Player for SVGPlayer {
                 });
             };
 
-            self.context.drawing_position = point.clone();
+            self.context.graphics_environment.drawing.current_position =
+                point.clone();
 
-            let point = self.xform.transform_point_l(point.clone());
+            let point = self.context.xform.transform_point_l(point.clone());
             c.extend([point.x, point.y]);
 
-            if c.len() == 3 {
-                data = data
-                    .curve_to(
-                        c.iter()
-                            .map(ToString::to_string)
-                            .collect::<Vec<_>>()
-                            .join(" "),
-                    )
-                    .move_to(format!("{} {}", point.x, point.y));
+            if c.len() % 3 == 0 {
+                data = data.curve_to(
+                    c.iter()
+                        .map(ToString::to_string)
+                        .collect::<Vec<_>>()
+                        .join(" "),
+                );
 
                 // reset for next curve.
                 c = vec![];
             }
         }
 
-        let path =
-            Node::new("path").set("fill", "none").set("d", data.to_string());
-        let path = stroke.set_props(path);
-
-        self.elements.push(path);
+        self.path = data;
 
         Ok(())
     }
@@ -722,17 +739,17 @@ impl crate::converter::Player for SVGPlayer {
             return Ok(());
         }
 
-        let pen = &self.selected_emf_object.pen;
-        let stroke = Stroke::from(pen.clone());
+        // NOTE: ignore move to first point for SVG.
+        // let Some(point) = record.a_points.first() else {
+        //     return Err(PlayError::InvalidRecord {
+        //         cause: "aPoints[0] is not defined".to_owned(),
+        //     });
+        // };
+        // let point = self.context.xform.transform_point_s(point.clone());
+        // let mut data =
+        //     self.path.clone().move_to(format!("{} {}", point.x, point.y));
 
-        let Some(point) = record.a_points.first() else {
-            return Err(PlayError::InvalidRecord {
-                cause: "aPoints[0] is not defined".to_owned(),
-            });
-        };
-
-        let point = self.xform.transform_point_s(point.clone());
-        let mut data = Data::new().move_to(format!("{} {}", point.x, point.y));
+        let mut data = self.path.clone();
         let mut c = vec![];
 
         for i in 1..record.count {
@@ -742,29 +759,24 @@ impl crate::converter::Player for SVGPlayer {
                 });
             };
 
-            self.context.drawing_position = point_s_to_point_l(&point);
+            self.context.graphics_environment.drawing.current_position =
+                point_s_to_point_l(&point);
 
-            let point = self.xform.transform_point_s(point.clone());
+            let point = self.context.xform.transform_point_s(point.clone());
             c.extend([point.x, point.y]);
 
-            if c.len() == 3 {
-                data = data
-                    .curve_to(
-                        c.iter()
-                            .map(ToString::to_string)
-                            .collect::<Vec<_>>()
-                            .join(" "),
-                    )
-                    .move_to(format!("{} {}", point.x, point.y));
+            if c.len() % 3 == 0 {
+                data = data.curve_to(
+                    c.iter()
+                        .map(ToString::to_string)
+                        .collect::<Vec<_>>()
+                        .join(" "),
+                );
                 c = vec![];
             }
         }
 
-        let path =
-            Node::new("path").set("fill", "none").set("d", data.to_string());
-        let path = stroke.set_props(path);
-
-        self.elements.push(path);
+        self.path = data;
 
         Ok(())
     }
@@ -783,12 +795,14 @@ impl crate::converter::Player for SVGPlayer {
             return Ok(());
         }
 
-        let pen = &self.selected_emf_object.pen;
-        let stroke = Stroke::from(pen.clone());
-        let mut data = Data::new().move_to(format!(
-            "{} {}",
-            self.context.drawing_position.x, self.context.drawing_position.y
-        ));
+        // NOTE: ignore move to first point for SVG.
+        // let mut data = self.path.clone().move_to(format!(
+        //     "{} {}",
+        //     self.context.graphics_environment.drawing.current_position.x,
+        //     self.context.graphics_environment.drawing.current_position.y
+        // ));
+
+        let mut data = self.path.clone();
         let mut c = vec![];
 
         for i in 0..record.count {
@@ -798,29 +812,24 @@ impl crate::converter::Player for SVGPlayer {
                 });
             };
 
-            self.context.drawing_position = point.clone();
+            self.context.graphics_environment.drawing.current_position =
+                point.clone();
 
-            let point = self.xform.transform_point_l(point.clone());
+            let point = self.context.xform.transform_point_l(point.clone());
             c.extend([point.x, point.y]);
 
-            if c.len() == 3 {
-                data = data
-                    .curve_to(
-                        c.iter()
-                            .map(ToString::to_string)
-                            .collect::<Vec<_>>()
-                            .join(" "),
-                    )
-                    .move_to(format!("{} {}", point.x, point.y));
+            if c.len() % 3 == 0 {
+                data = data.curve_to(
+                    c.iter()
+                        .map(ToString::to_string)
+                        .collect::<Vec<_>>()
+                        .join(" "),
+                );
                 c = vec![];
             }
         }
 
-        let path =
-            Node::new("path").set("fill", "none").set("d", data.to_string());
-        let path = stroke.set_props(path);
-
-        self.elements.push(path);
+        self.path = data;
 
         Ok(())
     }
@@ -839,12 +848,14 @@ impl crate::converter::Player for SVGPlayer {
             return Ok(());
         }
 
-        let pen = &self.selected_emf_object.pen;
-        let stroke = Stroke::from(pen.clone());
+        // NOTE: ignore move to first point for SVG.
+        // let point = self.context.xform.transform_point_l(
+        //     self.context.graphics_environment.drawing.current_position.
+        // clone(), );
+        // let mut data =
+        //     self.path.clone().move_to(format!("{} {}", point.x, point.y));
 
-        let point =
-            self.xform.transform_point_l(self.context.drawing_position.clone());
-        let mut data = Data::new().move_to(format!("{} {}", point.x, point.y));
+        let mut data = self.path.clone();
         let mut c = vec![];
 
         for i in 0..record.count {
@@ -854,29 +865,24 @@ impl crate::converter::Player for SVGPlayer {
                 });
             };
 
-            self.context.drawing_position = point_s_to_point_l(&point);
+            self.context.graphics_environment.drawing.current_position =
+                point_s_to_point_l(&point);
 
-            let point = self.xform.transform_point_s(point.clone());
+            let point = self.context.xform.transform_point_s(point.clone());
             c.extend([point.x, point.y]);
 
-            if c.len() == 3 {
-                data = data
-                    .curve_to(
-                        c.iter()
-                            .map(ToString::to_string)
-                            .collect::<Vec<_>>()
-                            .join(" "),
-                    )
-                    .move_to(format!("{} {}", point.x, point.y));
+            if c.len() % 3 == 0 {
+                data = data.curve_to(
+                    c.iter()
+                        .map(ToString::to_string)
+                        .collect::<Vec<_>>()
+                        .join(" "),
+                );
                 c = vec![];
             }
         }
 
-        let path =
-            Node::new("path").set("fill", "none").set("d", data.to_string());
-        let path = stroke.set_props(path);
-
-        self.elements.push(path);
+        self.path = data;
 
         Ok(())
     }
@@ -1017,9 +1023,10 @@ impl crate::converter::Player for SVGPlayer {
                 });
             };
 
-            self.context.drawing_position = point.clone();
+            self.context.graphics_environment.drawing.current_position =
+                point.clone();
 
-            let point = self.xform.transform_point_l(point.clone());
+            let point = self.context.xform.transform_point_l(point.clone());
             points.push(as_point_string_from_point_l(&point));
         }
 
@@ -1027,7 +1034,7 @@ impl crate::converter::Player for SVGPlayer {
             .set("fill", fill.as_str())
             .set("fill-rule", fill_rule.as_str())
             .set("points", points.join(" "));
-        let polygon = stroke.set_props(polygon);
+        let polygon = stroke.set_props(&self.context, polygon);
 
         self.elements.push(polygon);
 
@@ -1069,9 +1076,10 @@ impl crate::converter::Player for SVGPlayer {
                 });
             };
 
-            self.context.drawing_position = point_s_to_point_l(&point);
+            self.context.graphics_environment.drawing.current_position =
+                point_s_to_point_l(&point);
 
-            let point = self.xform.transform_point_s(point.clone());
+            let point = self.context.xform.transform_point_s(point.clone());
             points.push(as_point_string_from_point_s(&point));
         }
 
@@ -1079,7 +1087,7 @@ impl crate::converter::Player for SVGPlayer {
             .set("fill", fill.as_str())
             .set("fill-rule", fill_rule.as_str())
             .set("points", points.join(" "));
-        let polygon = stroke.set_props(polygon);
+        let polygon = stroke.set_props(&self.context, polygon);
 
         self.elements.push(polygon);
 
@@ -1097,17 +1105,15 @@ impl crate::converter::Player for SVGPlayer {
             return Ok(());
         }
 
-        let pen = &self.selected_emf_object.pen;
-        let stroke = Stroke::from(pen.clone());
-
         let Some(point) = record.a_points.first() else {
             return Err(PlayError::InvalidRecord {
                 cause: "aPoints[0] is not defined".to_owned(),
             });
         };
 
-        let point = self.xform.transform_point_l(point.clone());
-        let mut data = Data::new().move_to(format!("{} {}", point.x, point.y));
+        let point = self.context.xform.transform_point_l(point.clone());
+        let mut data =
+            self.path.clone().move_to(format!("{} {}", point.x, point.y));
 
         for i in 1..record.count {
             let Some(point) = record.a_points.get(i as usize) else {
@@ -1116,17 +1122,14 @@ impl crate::converter::Player for SVGPlayer {
                 });
             };
 
-            self.context.drawing_position = point.clone();
+            self.context.graphics_environment.drawing.current_position =
+                point.clone();
 
-            let point = self.xform.transform_point_l(point.clone());
+            let point = self.context.xform.transform_point_l(point.clone());
             data = data.line_to(format!("{} {}", point.x, point.y));
         }
 
-        let path =
-            Node::new("path").set("fill", "none").set("d", data.to_string());
-        let path = stroke.set_props(path);
-
-        self.elements.push(path);
+        self.path = data;
 
         Ok(())
     }
@@ -1142,16 +1145,14 @@ impl crate::converter::Player for SVGPlayer {
             return Ok(());
         }
 
-        let pen = &self.selected_emf_object.pen;
-        let stroke = Stroke::from(pen.clone());
-
         let Some(point) = record.a_points.first() else {
             return Err(PlayError::InvalidRecord {
                 cause: "aPoints[0] is not defined".to_owned(),
             });
         };
 
-        let mut data = Data::new().move_to(format!("{} {}", point.x, point.y));
+        let mut data =
+            self.path.clone().move_to(format!("{} {}", point.x, point.y));
 
         for i in 1..record.count {
             let Some(point) = record.a_points.get(i as usize) else {
@@ -1160,17 +1161,14 @@ impl crate::converter::Player for SVGPlayer {
                 });
             };
 
-            self.context.drawing_position = point_s_to_point_l(point);
+            self.context.graphics_environment.drawing.current_position =
+                point_s_to_point_l(point);
 
-            let point = self.xform.transform_point_s(point.clone());
+            let point = self.context.xform.transform_point_s(point.clone());
             data = data.line_to(format!("{} {}", point.x, point.y));
         }
 
-        let path =
-            Node::new("path").set("fill", "none").set("d", data.to_string());
-        let path = stroke.set_props(path);
-
-        self.elements.push(path);
+        self.path = data;
 
         Ok(())
     }
@@ -1186,11 +1184,7 @@ impl crate::converter::Player for SVGPlayer {
             return Ok(());
         }
 
-        let pen = &self.selected_emf_object.pen;
-        let stroke = Stroke::from(pen.clone());
-        let point =
-            self.xform.transform_point_l(self.context.drawing_position.clone());
-        let mut data = Data::new().move_to(format!("{} {}", point.x, point.y));
+        let mut data = self.path.clone();
 
         for i in 0..record.count {
             let Some(point) = record.a_points.get(i as usize) else {
@@ -1199,17 +1193,14 @@ impl crate::converter::Player for SVGPlayer {
                 });
             };
 
-            self.context.drawing_position = point.clone();
+            self.context.graphics_environment.drawing.current_position =
+                point.clone();
 
-            let point = self.xform.transform_point_l(point.clone());
+            let point = self.context.xform.transform_point_l(point.clone());
             data = data.line_to(format!("{} {}", point.x, point.y));
         }
 
-        let path =
-            Node::new("path").set("fill", "none").set("d", data.to_string());
-        let path = stroke.set_props(path);
-
-        self.elements.push(path);
+        self.path = data;
 
         Ok(())
     }
@@ -1228,11 +1219,7 @@ impl crate::converter::Player for SVGPlayer {
             return Ok(());
         }
 
-        let pen = &self.selected_emf_object.pen;
-        let stroke = Stroke::from(pen.clone());
-        let point =
-            self.xform.transform_point_l(self.context.drawing_position.clone());
-        let mut data = Data::new().move_to(format!("{} {}", point.x, point.y));
+        let mut data = self.path.clone();
 
         for i in 0..record.count {
             let Some(point) = record.a_points.get(i as usize) else {
@@ -1241,17 +1228,14 @@ impl crate::converter::Player for SVGPlayer {
                 });
             };
 
-            self.context.drawing_position = point_s_to_point_l(point);
+            self.context.graphics_environment.drawing.current_position =
+                point_s_to_point_l(point);
 
-            let point = self.xform.transform_point_s(point.clone());
+            let point = self.context.xform.transform_point_s(point.clone());
             data = data.line_to(format!("{} {}", point.x, point.y));
         }
 
-        let path =
-            Node::new("path").set("fill", "none").set("d", data.to_string());
-        let path = stroke.set_props(path);
-
-        self.elements.push(path);
+        self.path = data;
 
         Ok(())
     }
@@ -1277,12 +1261,13 @@ impl crate::converter::Player for SVGPlayer {
             &self.context.graphics_environment.drawing.polyfill_mode,
         );
 
-        let top_left = self.xform.transform_point_l(wmf_core::parser::PointL {
-            x: record.bx.left,
-            y: record.bx.top,
-        });
+        let top_left =
+            self.context.xform.transform_point_l(wmf_core::parser::PointL {
+                x: record.bx.left,
+                y: record.bx.top,
+            });
         let bottom_right =
-            self.xform.transform_point_l(wmf_core::parser::PointL {
+            self.context.xform.transform_point_l(wmf_core::parser::PointL {
                 x: record.bx.right,
                 y: record.bx.bottom,
             });
@@ -1294,7 +1279,7 @@ impl crate::converter::Player for SVGPlayer {
             .set("y", top_left.y)
             .set("height", (bottom_right.x - top_left.x).to_string())
             .set("width", (bottom_right.y - top_left.y).to_string());
-        let rect = stroke.set_props(rect);
+        let rect = stroke.set_props(&self.context, rect);
 
         self.elements.push(rect);
 
@@ -1347,8 +1332,6 @@ impl crate::converter::Player for SVGPlayer {
             return Ok(());
         }
 
-        self.path = self.path.clone().close();
-
         let pen = &self.selected_emf_object.pen;
         let brush = &self.selected_emf_object.brush;
         let stroke = Stroke::from(pen.clone());
@@ -1368,9 +1351,10 @@ impl crate::converter::Player for SVGPlayer {
             .set("fill", fill.as_str())
             .set("fill-rule", fill_rule.as_str())
             .set("d", self.path.to_string());
-        let path = stroke.set_props(path);
+        let path = stroke.set_props(&self.context, path);
 
         self.elements.push(path);
+        self.path = Data::new();
 
         Ok(())
     }
@@ -1390,9 +1374,10 @@ impl crate::converter::Player for SVGPlayer {
         let path = Node::new("path")
             .set("fill", "none")
             .set("d", self.path.to_string());
-        let path = stroke.set_props(path);
+        let path = stroke.set_props(&self.context, path);
 
         self.elements.push(path);
+        self.path = Data::new();
 
         Ok(())
     }
@@ -1834,7 +1819,7 @@ impl crate::converter::Player for SVGPlayer {
         let path = Node::new("path")
             .set("fill", "none")
             .set("d", self.path.to_string());
-        let path = stroke.set_props(path);
+        let path = stroke.set_props(&self.context, path);
 
         self.elements.push(path);
 
@@ -1876,9 +1861,11 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn force_ufi_mapping(
         &mut self,
-        _record: EMR_FORCEUFIMAPPING,
+        record: EMR_FORCEUFIMAPPING,
     ) -> Result<(), PlayError> {
-        info!("EMR_FORCEUFIMAPPING: not implemented");
+        self.context.graphics_environment.text.force_ufi_mapping =
+            record.ufi.into();
+
         Ok(())
     }
 
@@ -1898,7 +1885,10 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn move_to_ex(&mut self, record: EMR_MOVETOEX) -> Result<(), PlayError> {
-        let point = self.xform.transform_point_l(record.offset);
+        self.context.graphics_environment.drawing.current_position =
+            record.offset.clone();
+
+        let point = self.context.xform.transform_point_l(record.offset);
 
         self.path =
             self.path.clone().move_to(format!("{} {}", point.x, point.y));
@@ -1913,9 +1903,11 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn pixel_format(
         &mut self,
-        _record: EMR_PIXELFORMAT,
+        record: EMR_PIXELFORMAT,
     ) -> Result<(), PlayError> {
-        info!("EMR_PIXELFORMAT: not implemented");
+        self.context.graphics_environment.color.pixel_format =
+            record.pfd.into();
+
         Ok(())
     }
 
@@ -1998,9 +1990,11 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_arc_direction(
         &mut self,
-        _record: EMR_SETARCDIRECTION,
+        record: EMR_SETARCDIRECTION,
     ) -> Result<(), PlayError> {
-        info!("EMR_SETARCDIRECTION: not implemented");
+        self.context.graphics_environment.drawing.arc_direction =
+            record.arc_direction;
+
         Ok(())
     }
 
@@ -2011,9 +2005,11 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_bk_color(
         &mut self,
-        _record: EMR_SETBKCOLOR,
+        record: EMR_SETBKCOLOR,
     ) -> Result<(), PlayError> {
-        info!("EMR_SETBKCOLOR: not implemented");
+        self.context.graphics_environment.drawing.background_color =
+            record.color;
+
         Ok(())
     }
 
@@ -2022,8 +2018,10 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn set_bk_mode(&mut self, _record: EMR_SETBKMODE) -> Result<(), PlayError> {
-        info!("EMR_SETBKMODE: not implemented");
+    fn set_bk_mode(&mut self, record: EMR_SETBKMODE) -> Result<(), PlayError> {
+        self.context.graphics_environment.drawing.background_mode =
+            record.background_mode;
+
         Ok(())
     }
 
@@ -2034,9 +2032,9 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_brush_org_ex(
         &mut self,
-        _record: EMR_SETBRUSHORGEX,
+        record: EMR_SETBRUSHORGEX,
     ) -> Result<(), PlayError> {
-        info!("EMR_SETBRUSHORGEX: not implemented");
+        self.context.graphics_environment.drawing.brush_origin = record.origin;
         Ok(())
     }
 
@@ -2047,9 +2045,11 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_color_adjustment(
         &mut self,
-        _record: EMR_SETCOLORADJUSTMENT,
+        record: EMR_SETCOLORADJUSTMENT,
     ) -> Result<(), PlayError> {
-        info!("EMR_SETCOLORADJUSTMENT: not implemented");
+        self.context.graphics_environment.color.color_adjustment =
+            record.color_adjustment;
+
         Ok(())
     }
 
@@ -2060,9 +2060,9 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_icm_mode(
         &mut self,
-        _record: EMR_SETICMMODE,
+        record: EMR_SETICMMODE,
     ) -> Result<(), PlayError> {
-        info!("EMR_SETICMMODE: not implemented");
+        self.context.graphics_environment.color.icm_mode = record.icm_mode;
         Ok(())
     }
 
@@ -2097,8 +2097,10 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn set_layout(&mut self, _record: EMR_SETLAYOUT) -> Result<(), PlayError> {
-        info!("EMR_SETLAYOUT: not implemented");
+    fn set_layout(&mut self, record: EMR_SETLAYOUT) -> Result<(), PlayError> {
+        self.context.graphics_environment.drawing.layout_mode =
+            record.layout_mode;
+
         Ok(())
     }
 
@@ -2109,9 +2111,9 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_linked_ufis(
         &mut self,
-        _record: EMR_SETLINKEDUFIS,
+        record: EMR_SETLINKEDUFIS,
     ) -> Result<(), PlayError> {
-        info!("EMR_SETLINKEDUFIS: not implemented");
+        self.context.graphics_environment.text.linked_ufis = record.ufis;
         Ok(())
     }
 
@@ -2122,9 +2124,11 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_map_mode(
         &mut self,
-        _record: EMR_SETMAPMODE,
+        record: EMR_SETMAPMODE,
     ) -> Result<(), PlayError> {
-        info!("EMR_SETMAPMODE: not implemented");
+        self.context.graphics_environment.drawing.mapping_mode =
+            record.map_mode;
+
         Ok(())
     }
 
@@ -2135,9 +2139,9 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_mapper_flags(
         &mut self,
-        _record: EMR_SETMAPPERFLAGS,
+        record: EMR_SETMAPPERFLAGS,
     ) -> Result<(), PlayError> {
-        info!("EMR_SETMAPPERFLAGS: not implemented");
+        self.context.graphics_environment.text.font_mapper_flags = record.flags;
         Ok(())
     }
 
@@ -2151,7 +2155,7 @@ impl crate::converter::Player for SVGPlayer {
         record: EMR_SETMITERLIMIT,
     ) -> Result<(), PlayError> {
         self.context.graphics_environment.drawing.miter_limit =
-            record.miter_limit;
+            record.miter_limit.into();
 
         Ok(())
     }
@@ -2163,9 +2167,11 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_polyfill_mode(
         &mut self,
-        _record: EMR_SETPOLYFILLMODE,
+        record: EMR_SETPOLYFILLMODE,
     ) -> Result<(), PlayError> {
-        info!("EMR_SETPOLYFILLMODE: not implemented");
+        self.context.graphics_environment.drawing.polyfill_mode =
+            record.polygon_fill_mode;
+
         Ok(())
     }
 
@@ -2174,8 +2180,9 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn set_rop2(&mut self, _record: EMR_SETROP2) -> Result<(), PlayError> {
-        info!("EMR_SETROP2: not implemented");
+    fn set_rop2(&mut self, record: EMR_SETROP2) -> Result<(), PlayError> {
+        self.context.graphics_environment.drawing.rop2 = record.rop2_mode;
+
         Ok(())
     }
 
@@ -2229,9 +2236,11 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_text_justification(
         &mut self,
-        _record: EMR_SETTEXTJUSTIFICATION,
+        record: EMR_SETTEXTJUSTIFICATION,
     ) -> Result<(), PlayError> {
-        info!("EMR_SETTEXTJUSTIFICATION: not implemented");
+        self.context.graphics_environment.text.text_justification =
+            (record.n_break_extra, record.n_break_count);
+
         Ok(())
     }
 
@@ -2313,18 +2322,18 @@ impl crate::converter::Player for SVGPlayer {
                 return Ok(());
             }
             ModifyWorldTransformMode::MWT_LEFTMULTIPLY => {
-                (record.x_form, self.xform.clone())
+                (record.x_form, self.context.xform.clone())
             }
             ModifyWorldTransformMode::MWT_RIGHTMULTIPLY => {
-                (self.xform.clone(), record.x_form)
+                (self.context.xform.clone(), record.x_form)
             }
             ModifyWorldTransformMode::MWT_SET => {
-                self.xform = record.x_form;
+                self.context.xform = record.x_form;
                 return Ok(());
             }
         };
 
-        self.xform = XForm {
+        self.context.xform = XForm {
             m11: a.m11 * b.m11 + a.m12 * b.m21,
             m12: a.m11 * b.m12 + a.m12 * b.m22,
             m21: a.m21 * b.m11 + a.m22 * b.m21,
@@ -2345,7 +2354,7 @@ impl crate::converter::Player for SVGPlayer {
         &mut self,
         record: EMR_SETWORLDTRANSFORM,
     ) -> Result<(), PlayError> {
-        self.xform = record.x_form;
+        self.context.xform = record.x_form;
 
         Ok(())
     }

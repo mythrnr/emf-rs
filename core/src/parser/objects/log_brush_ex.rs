@@ -34,12 +34,16 @@ impl LogBrushEx {
     ) -> Result<(Self, usize), crate::parser::ParseError> {
         let (brush_style, mut consumed_bytes) =
             wmf_core::parser::BrushStyle::parse(buf)?;
+        // Ignore 2 bytes because wmf_core::parser::BrushStyle is 2 byte.
+        let (_, ignore_bytes) = crate::parser::read::<_, 2>(buf)?;
+
+        consumed_bytes += ignore_bytes;
 
         let v = match brush_style {
             wmf_core::parser::BrushStyle::BS_SOLID => {
                 let ((color, color_bytes), (_, brush_hatch_bytes)) = (
                     wmf_core::parser::ColorRef::parse(buf)?,
-                    crate::parser::read::<_, 2>(buf)?,
+                    crate::parser::read::<_, 4>(buf)?,
                 );
 
                 consumed_bytes += color_bytes + brush_hatch_bytes;
@@ -49,7 +53,7 @@ impl LogBrushEx {
             wmf_core::parser::BrushStyle::BS_NULL => {
                 let ((_, color_bytes), (_, brush_hatch_bytes)) = (
                     crate::parser::read::<_, 4>(buf)?,
-                    crate::parser::read::<_, 2>(buf)?,
+                    crate::parser::read::<_, 4>(buf)?,
                 );
 
                 consumed_bytes += color_bytes + brush_hatch_bytes;
