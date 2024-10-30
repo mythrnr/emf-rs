@@ -278,7 +278,7 @@ impl From<crate::parser::LogPen> for LogPenEx {
     fn from(v: crate::parser::LogPen) -> Self {
         Self {
             pen_style: BTreeSet::from_iter([v.pen_style]),
-            width: v.width.x.abs() as u32,
+            width: v.width.x.unsigned_abs(),
             brush: LogPenExBrush::Solid { color_ref: v.color_ref },
             num_style_entries: 0,
             style_entry: vec![],

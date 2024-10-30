@@ -59,6 +59,6 @@ impl EMR_EXTFLOODFILL {
             size.remaining_bytes(),
         )?;
 
-        Ok(Self { record_type, size, color, start, flood_fill_mode })
+        Ok(Self { record_type, size, start, color, flood_fill_mode })
     }
 }

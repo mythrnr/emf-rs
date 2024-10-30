@@ -83,8 +83,7 @@ where
         let mut b = &buffer[0..4];
 
         match RecordType::parse(&mut b) {
-            Ok((record_type, _))
-                if matches!(record_type, RecordType::EMR_HEADER) => {}
+            Ok((RecordType::EMR_HEADER, _)) => {}
             Ok((record_type, _)) => {
                 return Err(ConvertError::ParseError {
                     source: ParseError::UnexpectedPattern {

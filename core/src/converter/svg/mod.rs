@@ -150,7 +150,7 @@ impl crate::converter::Player for SVGPlayer {
             }
             .into();
 
-        let point = self.context.transform_point_l(wmf_core::parser::PointL {
+        let point = self.context.transform_point_l(&wmf_core::parser::PointL {
             x: record.x_dest,
             y: record.y_dest,
         });
@@ -269,7 +269,7 @@ impl crate::converter::Player for SVGPlayer {
             }
             .into();
 
-        let point = self.context.transform_point_l(wmf_core::parser::PointL {
+        let point = self.context.transform_point_l(&wmf_core::parser::PointL {
             x: record.x_dest,
             y: record.y_dest,
         });
@@ -455,8 +455,8 @@ impl crate::converter::Player for SVGPlayer {
         self.window = Window { extent: extent.clone(), origin: origin.clone() };
         self.context.graphics_environment = GraphicsEnvironment {
             regions: PlaybackStateRegions {
-                clipping: None,
-                meta_clipping: None,
+                // clipping: None,
+                // meta_clipping: None,
                 viewport: Viewport {
                     extent: extent.clone(),
                     origin: origin.clone(),
@@ -522,7 +522,7 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn ellipse(&mut self, record: EMR_ELLIPSE) -> Result<(), PlayError> {
-        let r = self.context.transform_point_l(wmf_core::parser::PointL {
+        let r = self.context.transform_point_l(&wmf_core::parser::PointL {
             x: (record.bx.right - record.bx.left) / 2,
             y: (record.bx.bottom - record.bx.top) / 2,
         });
@@ -548,9 +548,9 @@ impl crate::converter::Player for SVGPlayer {
             Fill::Value { value } => value,
         };
         let fill_rule = polygon_fill_rule(
-            &self.context.graphics_environment.drawing.polyfill_mode,
+            self.context.graphics_environment.drawing.polyfill_mode,
         );
-        let c = self.context.transform_point_l(wmf_core::parser::PointL {
+        let c = self.context.transform_point_l(&wmf_core::parser::PointL {
             x: record.bx.left,
             y: record.bx.top,
         });
@@ -610,7 +610,7 @@ impl crate::converter::Player for SVGPlayer {
             font
         } else {
             return Err(PlayError::UnexpectedGraphicsObject {
-                cause: format!("font is not selected"),
+                cause: "font is not selected".to_owned(),
             });
         };
         let color = color_from_color_ref(
@@ -618,7 +618,8 @@ impl crate::converter::Player for SVGPlayer {
         );
         let text_align =
             text_align(self.context.graphics_environment.text.text_alignment);
-        let point = self.context.transform_point_l(record.w_emr_text.reference);
+        let point =
+            self.context.transform_point_l(&record.w_emr_text.reference);
 
         let text = Node::new("text")
             .set("x", point.x.to_string())
@@ -657,7 +658,7 @@ impl crate::converter::Player for SVGPlayer {
             Fill::Value { value } => value,
         };
         let fill_rule = polygon_fill_rule(
-            &self.context.graphics_environment.drawing.polyfill_mode,
+            self.context.graphics_environment.drawing.polyfill_mode,
         );
 
         let path = Node::new("path")
@@ -710,7 +711,7 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn line_to(&mut self, record: EMR_LINETO) -> Result<(), PlayError> {
-        let point = self.context.transform_point_l(record.point);
+        let point = self.context.transform_point_l(&record.point);
 
         self.path =
             self.path.clone().line_to(format!("{} {}", point.x, point.y));
@@ -755,7 +756,7 @@ impl crate::converter::Player for SVGPlayer {
         //         cause: "aPoints[0] is not defined".to_owned(),
         //     });
         // };
-        // let point = self.context.transform_point_l(point.clone());
+        // let point = self.context.transform_point_l(point);
         // let mut data =
         //     self.path.clone().move_to(format!("{} {}", point.x, point.y));
 
@@ -772,7 +773,7 @@ impl crate::converter::Player for SVGPlayer {
             self.context.graphics_environment.drawing.current_position =
                 point.clone();
 
-            let point = self.context.transform_point_l(point.clone());
+            let point = self.context.transform_point_l(point);
             c.extend([point.x, point.y]);
 
             if c.len() % 3 == 0 {
@@ -813,7 +814,7 @@ impl crate::converter::Player for SVGPlayer {
         //         cause: "aPoints[0] is not defined".to_owned(),
         //     });
         // };
-        // let point = self.context.transform_point_s(point.clone());
+        // let point = self.context.transform_point_s(point);
         // let mut data =
         //     self.path.clone().move_to(format!("{} {}", point.x, point.y));
 
@@ -828,9 +829,9 @@ impl crate::converter::Player for SVGPlayer {
             };
 
             self.context.graphics_environment.drawing.current_position =
-                point_s_to_point_l(&point);
+                point_s_to_point_l(point);
 
-            let point = self.context.transform_point_s(point.clone());
+            let point = self.context.transform_point_s(point);
             c.extend([point.x, point.y]);
 
             if c.len() % 3 == 0 {
@@ -883,7 +884,7 @@ impl crate::converter::Player for SVGPlayer {
             self.context.graphics_environment.drawing.current_position =
                 point.clone();
 
-            let point = self.context.transform_point_l(point.clone());
+            let point = self.context.transform_point_l(point);
             c.extend([point.x, point.y]);
 
             if c.len() % 3 == 0 {
@@ -917,7 +918,7 @@ impl crate::converter::Player for SVGPlayer {
         }
 
         // NOTE: ignore move to first point for SVG.
-        // let point = self.context.transform_point_l(
+        // let point = self.context.transform_point_l(&
         //     self.context.graphics_environment.drawing.current_position.
         // clone(), );
         // let mut data =
@@ -934,9 +935,9 @@ impl crate::converter::Player for SVGPlayer {
             };
 
             self.context.graphics_environment.drawing.current_position =
-                point_s_to_point_l(&point);
+                point_s_to_point_l(point);
 
-            let point = self.context.transform_point_s(point.clone());
+            let point = self.context.transform_point_s(point);
             c.extend([point.x, point.y]);
 
             if c.len() % 3 == 0 {
@@ -1017,7 +1018,7 @@ impl crate::converter::Player for SVGPlayer {
             Fill::Value { value } => value,
         };
         let fill_rule = polygon_fill_rule(
-            &self.context.graphics_environment.drawing.polyfill_mode,
+            self.context.graphics_environment.drawing.polyfill_mode,
         );
 
         let mut a_point: VecDeque<_> = record.a_points.into();
@@ -1046,7 +1047,7 @@ impl crate::converter::Player for SVGPlayer {
                 self.context.graphics_environment.drawing.current_position =
                     point_s_to_point_l(&point);
 
-                let point = self.context.transform_point_s(point);
+                let point = self.context.transform_point_s(&point);
                 points.push(as_point_string_from_point_s(&point));
                 current_point_index += 1;
             }
@@ -1138,7 +1139,7 @@ impl crate::converter::Player for SVGPlayer {
             Fill::Value { value } => value,
         };
         let fill_rule = polygon_fill_rule(
-            &self.context.graphics_environment.drawing.polyfill_mode,
+            self.context.graphics_environment.drawing.polyfill_mode,
         );
 
         let mut points = vec![];
@@ -1153,7 +1154,7 @@ impl crate::converter::Player for SVGPlayer {
             self.context.graphics_environment.drawing.current_position =
                 point.clone();
 
-            let point = self.context.transform_point_l(point.clone());
+            let point = self.context.transform_point_l(point);
             points.push(as_point_string_from_point_l(&point));
         }
 
@@ -1191,7 +1192,7 @@ impl crate::converter::Player for SVGPlayer {
             Fill::Value { value } => value,
         };
         let fill_rule = polygon_fill_rule(
-            &self.context.graphics_environment.drawing.polyfill_mode,
+            self.context.graphics_environment.drawing.polyfill_mode,
         );
 
         let mut points = vec![];
@@ -1204,9 +1205,9 @@ impl crate::converter::Player for SVGPlayer {
             };
 
             self.context.graphics_environment.drawing.current_position =
-                point_s_to_point_l(&point);
+                point_s_to_point_l(point);
 
-            let point = self.context.transform_point_s(point.clone());
+            let point = self.context.transform_point_s(point);
             points.push(as_point_string_from_point_s(&point));
         }
 
@@ -1238,7 +1239,7 @@ impl crate::converter::Player for SVGPlayer {
             });
         };
 
-        let point = self.context.transform_point_l(point.clone());
+        let point = self.context.transform_point_l(point);
         let mut data =
             self.path.clone().move_to(format!("{} {}", point.x, point.y));
 
@@ -1252,7 +1253,7 @@ impl crate::converter::Player for SVGPlayer {
             self.context.graphics_environment.drawing.current_position =
                 point.clone();
 
-            let point = self.context.transform_point_l(point.clone());
+            let point = self.context.transform_point_l(point);
             data = data.line_to(format!("{} {}", point.x, point.y));
         }
 
@@ -1291,7 +1292,7 @@ impl crate::converter::Player for SVGPlayer {
             self.context.graphics_environment.drawing.current_position =
                 point_s_to_point_l(point);
 
-            let point = self.context.transform_point_s(point.clone());
+            let point = self.context.transform_point_s(point);
             data = data.line_to(format!("{} {}", point.x, point.y));
         }
 
@@ -1323,7 +1324,7 @@ impl crate::converter::Player for SVGPlayer {
             self.context.graphics_environment.drawing.current_position =
                 point.clone();
 
-            let point = self.context.transform_point_l(point.clone());
+            let point = self.context.transform_point_l(point);
             data = data.line_to(format!("{} {}", point.x, point.y));
         }
 
@@ -1358,7 +1359,7 @@ impl crate::converter::Player for SVGPlayer {
             self.context.graphics_environment.drawing.current_position =
                 point_s_to_point_l(point);
 
-            let point = self.context.transform_point_s(point.clone());
+            let point = self.context.transform_point_s(point);
             data = data.line_to(format!("{} {}", point.x, point.y));
         }
 
@@ -1385,16 +1386,16 @@ impl crate::converter::Player for SVGPlayer {
             Fill::Value { value } => value,
         };
         let fill_rule = polygon_fill_rule(
-            &self.context.graphics_environment.drawing.polyfill_mode,
+            self.context.graphics_environment.drawing.polyfill_mode,
         );
 
         let top_left =
-            self.context.transform_point_l(wmf_core::parser::PointL {
+            self.context.transform_point_l(&wmf_core::parser::PointL {
                 x: record.bx.left,
                 y: record.bx.top,
             });
         let bottom_right =
-            self.context.transform_point_l(wmf_core::parser::PointL {
+            self.context.transform_point_l(&wmf_core::parser::PointL {
                 x: record.bx.right,
                 y: record.bx.bottom,
             });
@@ -1402,8 +1403,8 @@ impl crate::converter::Player for SVGPlayer {
         let rect = Node::new("rect")
             .set("fill", fill.as_str())
             .set("fill-rule", fill_rule.as_str())
-            .set("x", top_left.x)
-            .set("y", top_left.y)
+            .set("x", top_left.x.to_string())
+            .set("y", top_left.y.to_string())
             .set("height", (bottom_right.x - top_left.x).to_string())
             .set("width", (bottom_right.y - top_left.y).to_string());
         let rect = stroke.set_props(&self.context, rect);
@@ -1471,7 +1472,7 @@ impl crate::converter::Player for SVGPlayer {
             Fill::Value { value } => value,
         };
         let fill_rule = polygon_fill_rule(
-            &self.context.graphics_environment.drawing.polyfill_mode,
+            self.context.graphics_environment.drawing.polyfill_mode,
         );
 
         let path = Node::new("path")
@@ -1662,7 +1663,7 @@ impl crate::converter::Player for SVGPlayer {
     ) -> Result<(), PlayError> {
         let font = match record.elw {
             crate::parser::ELW::LogFontExDv(v) => {
-                v.get(0).expect("should be set").clone()
+                v.first().expect("should be set").clone()
             }
             crate::parser::ELW::LogFontPanose(v) => v.into(),
         };
@@ -1763,18 +1764,18 @@ impl crate::converter::Player for SVGPlayer {
         };
 
         match emf_object {
-            GraphicsObject::DeviceIndependentBitmap(v) => {
-                self.selected_emf_object.dib = v.into();
-            }
+            // GraphicsObject::DeviceIndependentBitmap(v) => {
+            //     self.selected_emf_object.dib = v.into();
+            // }
             GraphicsObject::LogBrushEx(v) => {
-                self.selected_emf_object.brush = v.into();
+                self.selected_emf_object.brush = v;
             }
-            GraphicsObject::LogColorSpace(v) => {
-                self.selected_emf_object.color_space = v.into();
-            }
-            GraphicsObject::LogColorSpaceW(v) => {
-                self.selected_emf_object.color_space_w = v.into();
-            }
+            // GraphicsObject::LogColorSpace(v) => {
+            //     self.selected_emf_object.color_space = v.into();
+            // }
+            // GraphicsObject::LogColorSpaceW(v) => {
+            //     self.selected_emf_object.color_space_w = v.into();
+            // }
             GraphicsObject::LogFont(v) => {
                 self.selected_emf_object.font = v.into();
             }
@@ -1785,7 +1786,7 @@ impl crate::converter::Player for SVGPlayer {
                 self.selected_emf_object.palette = v.into();
             }
             GraphicsObject::LogPenEx(v) => {
-                self.selected_emf_object.pen = v.into();
+                self.selected_emf_object.pen = v;
             }
             _ => {
                 return Err(PlayError::UnexpectedGraphicsObject {
@@ -2015,7 +2016,7 @@ impl crate::converter::Player for SVGPlayer {
         self.context.graphics_environment.drawing.current_position =
             record.offset.clone();
 
-        let point = self.context.transform_point_l(record.offset);
+        let point = self.context.transform_point_l(&record.offset);
 
         self.path =
             self.path.clone().move_to(format!("{} {}", point.x, point.y));
@@ -2098,8 +2099,10 @@ impl crate::converter::Player for SVGPlayer {
 
         self.context.graphics_environment.regions.viewport.extent =
             wmf_core::parser::SizeL {
-                cx: ((cx as i32 * record.x_num) / record.x_denom).abs() as u32,
-                cy: ((cy as i32 * record.y_num) / record.y_denom).abs() as u32,
+                cx: ((cx as i32 * record.x_num) / record.x_denom)
+                    .unsigned_abs(),
+                cy: ((cy as i32 * record.y_num) / record.y_denom)
+                    .unsigned_abs(),
             };
 
         Ok(())
@@ -2119,8 +2122,10 @@ impl crate::converter::Player for SVGPlayer {
 
         self.context.graphics_environment.regions.window.extent =
             wmf_core::parser::SizeL {
-                cx: ((cx as i32 * record.x_num) / record.x_denom).abs() as u32,
-                cy: ((cy as i32 * record.y_num) / record.y_denom).abs() as u32,
+                cx: ((cx as i32 * record.x_num) / record.x_denom)
+                    .unsigned_abs(),
+                cy: ((cy as i32 * record.y_num) / record.y_denom)
+                    .unsigned_abs(),
             };
 
         Ok(())
@@ -2465,7 +2470,6 @@ impl crate::converter::Player for SVGPlayer {
             MapMode::MM_ISOTROPIC | MapMode::MM_ANISOTROPIC
         ) {
             self.window.origin = record.origin;
-        } else {
         }
 
         Ok(())

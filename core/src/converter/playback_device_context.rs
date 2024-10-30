@@ -1,18 +1,9 @@
 use crate::imports::*;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct PlaybackDeviceContext {
     pub graphics_environment: GraphicsEnvironment,
     pub xform: crate::parser::XForm,
-}
-
-impl Default for PlaybackDeviceContext {
-    fn default() -> Self {
-        Self {
-            graphics_environment: GraphicsEnvironment::default(),
-            xform: crate::parser::XForm::default(),
-        }
-    }
 }
 
 impl PlaybackDeviceContext {
@@ -40,7 +31,7 @@ impl PlaybackDeviceContext {
 
     pub fn transform_point_l(
         &self,
-        p: wmf_core::parser::PointL,
+        p: &wmf_core::parser::PointL,
     ) -> wmf_core::parser::PointL {
         wmf_core::parser::PointL {
             x: (f64::from(self.xform.m11) * f64::from(p.x)
@@ -54,7 +45,7 @@ impl PlaybackDeviceContext {
 
     pub fn transform_point_s(
         &self,
-        p: wmf_core::parser::PointS,
+        p: &wmf_core::parser::PointS,
     ) -> wmf_core::parser::PointS {
         wmf_core::parser::PointS {
             x: (self.xform.m11 * f32::from(p.x)
@@ -121,10 +112,10 @@ impl EmfObjectTable {
 
 #[derive(Clone, Debug)]
 pub struct SelectedObject {
-    pub dib: Option<wmf_core::parser::DeviceIndependentBitmap>,
+    // pub dib: Option<wmf_core::parser::DeviceIndependentBitmap>,
     pub brush: crate::parser::LogBrushEx,
-    pub color_space: Option<wmf_core::parser::LogColorSpace>,
-    pub color_space_w: Option<wmf_core::parser::LogColorSpaceW>,
+    // pub color_space: Option<wmf_core::parser::LogColorSpace>,
+    // pub color_space_w: Option<wmf_core::parser::LogColorSpaceW>,
     pub font: Option<crate::parser::LogFont>,
     pub font_ex_dv: Option<crate::parser::LogFontExDv>,
     pub palette: Option<crate::parser::LogPalette>,
@@ -134,10 +125,10 @@ pub struct SelectedObject {
 impl Default for SelectedObject {
     fn default() -> Self {
         Self {
-            dib: None,
+            // dib: None,
             brush: crate::parser::LogBrushEx::black_brush(),
-            color_space: None,
-            color_space_w: None,
+            // color_space: None,
+            // color_space_w: None,
             font: None,
             font_ex_dv: None,
             palette: None,
@@ -148,10 +139,10 @@ impl Default for SelectedObject {
 
 #[derive(Clone, Debug)]
 pub enum GraphicsObject {
-    DeviceIndependentBitmap(wmf_core::parser::DeviceIndependentBitmap),
+    // DeviceIndependentBitmap(wmf_core::parser::DeviceIndependentBitmap),
     LogBrushEx(crate::parser::LogBrushEx),
-    LogColorSpace(wmf_core::parser::LogColorSpace),
-    LogColorSpaceW(wmf_core::parser::LogColorSpaceW),
+    // LogColorSpace(wmf_core::parser::LogColorSpace),
+    // LogColorSpaceW(wmf_core::parser::LogColorSpaceW),
     LogFont(crate::parser::LogFont),
     LogFontExDv(crate::parser::LogFontExDv),
     LogPalette(crate::parser::LogPalette),
@@ -165,13 +156,13 @@ impl GraphicsObject {
         selected_object: &SelectedObject,
         v: crate::parser::StockObject,
     ) -> Self {
-        use crate::parser::StockObject::*;
+        use crate::parser::StockObject;
 
         match v {
-            WHITE_BRUSH => {
+            StockObject::WHITE_BRUSH => {
                 Self::LogBrushEx(crate::parser::LogBrushEx::white_brush())
             }
-            LTGRAY_BRUSH => {
+            StockObject::LTGRAY_BRUSH => {
                 Self::LogBrushEx(crate::parser::LogBrushEx::Solid {
                     color: wmf_core::parser::ColorRef {
                         red: 0xC0,
@@ -181,15 +172,17 @@ impl GraphicsObject {
                     },
                 })
             }
-            GRAY_BRUSH => Self::LogBrushEx(crate::parser::LogBrushEx::Solid {
-                color: wmf_core::parser::ColorRef {
-                    red: 0x80,
-                    green: 0x80,
-                    blue: 0x80,
-                    reserved: 0x00,
-                },
-            }),
-            DKGRAY_BRUSH => {
+            StockObject::GRAY_BRUSH => {
+                Self::LogBrushEx(crate::parser::LogBrushEx::Solid {
+                    color: wmf_core::parser::ColorRef {
+                        red: 0x80,
+                        green: 0x80,
+                        blue: 0x80,
+                        reserved: 0x00,
+                    },
+                })
+            }
+            StockObject::DKGRAY_BRUSH => {
                 Self::LogBrushEx(crate::parser::LogBrushEx::Solid {
                     color: wmf_core::parser::ColorRef {
                         red: 0x40,
@@ -199,74 +192,90 @@ impl GraphicsObject {
                     },
                 })
             }
-            BLACK_BRUSH => {
+            StockObject::BLACK_BRUSH => {
                 Self::LogBrushEx(crate::parser::LogBrushEx::black_brush())
             }
-            NULL_BRUSH => Self::LogBrushEx(crate::parser::LogBrushEx::Null),
-            WHITE_PEN => Self::LogPenEx(crate::parser::LogPenEx::white_pen()),
-            BLACK_PEN => Self::LogPenEx(crate::parser::LogPenEx::black_pen()),
-            NULL_PEN => Self::LogPenEx(crate::parser::LogPenEx::null_pen()),
-            OEM_FIXED_FONT => Self::LogFont(crate::parser::LogFont {
-                height: 0,
-                width: 0,
-                escapement: 0,
-                orientation: 0,
-                weight: 400,
-                italic: false,
-                underline: false,
-                strike_out: false,
-                charset: wmf_core::parser::CharacterSet::OEM_CHARSET,
-                out_precision:
-                    wmf_core::parser::OutPrecision::OUT_DEFAULT_PRECIS,
-                clip_precision: BTreeSet::new(),
-                quality: wmf_core::parser::FontQuality::DEFAULT_QUALITY,
-                pitch_and_family: wmf_core::parser::PitchAndFamily {
-                    family: wmf_core::parser::FamilyFont::FF_DONTCARE,
-                    pitch: wmf_core::parser::PitchFont::FIXED_PITCH,
-                },
-                facename: "none".to_owned(),
-            }),
-            ANSI_FIXED_FONT => Self::LogFont(crate::parser::LogFont {
-                height: 0,
-                width: 0,
-                escapement: 0,
-                orientation: 0,
-                weight: 400,
-                italic: false,
-                underline: false,
-                strike_out: false,
-                charset: wmf_core::parser::CharacterSet::ANSI_CHARSET,
-                out_precision:
-                    wmf_core::parser::OutPrecision::OUT_DEFAULT_PRECIS,
-                clip_precision: BTreeSet::new(),
-                quality: wmf_core::parser::FontQuality::DEFAULT_QUALITY,
-                pitch_and_family: wmf_core::parser::PitchAndFamily {
-                    family: wmf_core::parser::FamilyFont::FF_DONTCARE,
-                    pitch: wmf_core::parser::PitchFont::FIXED_PITCH,
-                },
-                facename: "none".to_owned(),
-            }),
-            ANSI_VAR_FONT => Self::LogFont(crate::parser::LogFont {
-                height: 0,
-                width: 0,
-                escapement: 0,
-                orientation: 0,
-                weight: 400,
-                italic: false,
-                underline: false,
-                strike_out: false,
-                charset: wmf_core::parser::CharacterSet::ANSI_CHARSET,
-                out_precision:
-                    wmf_core::parser::OutPrecision::OUT_DEFAULT_PRECIS,
-                clip_precision: BTreeSet::new(),
-                quality: wmf_core::parser::FontQuality::DEFAULT_QUALITY,
-                pitch_and_family: wmf_core::parser::PitchAndFamily {
-                    family: wmf_core::parser::FamilyFont::FF_DONTCARE,
-                    pitch: wmf_core::parser::PitchFont::VARIABLE_PITCH,
-                },
-                facename: "none".to_owned(),
-            }),
-            DEFAULT_GUI_FONT | SYSTEM_FONT => {
+            StockObject::NULL_BRUSH => {
+                Self::LogBrushEx(crate::parser::LogBrushEx::Null)
+            }
+            StockObject::WHITE_PEN => {
+                Self::LogPenEx(crate::parser::LogPenEx::white_pen())
+            }
+            StockObject::BLACK_PEN => {
+                Self::LogPenEx(crate::parser::LogPenEx::black_pen())
+            }
+            StockObject::NULL_PEN => {
+                Self::LogPenEx(crate::parser::LogPenEx::null_pen())
+            }
+            StockObject::OEM_FIXED_FONT => {
+                Self::LogFont(crate::parser::LogFont {
+                    height: 0,
+                    width: 0,
+                    escapement: 0,
+                    orientation: 0,
+                    weight: 400,
+                    italic: false,
+                    underline: false,
+                    strike_out: false,
+                    charset: wmf_core::parser::CharacterSet::OEM_CHARSET,
+                    out_precision:
+                        wmf_core::parser::OutPrecision::OUT_DEFAULT_PRECIS,
+                    clip_precision: BTreeSet::new(),
+                    quality: wmf_core::parser::FontQuality::DEFAULT_QUALITY,
+                    pitch_and_family: wmf_core::parser::PitchAndFamily {
+                        family: wmf_core::parser::FamilyFont::FF_DONTCARE,
+                        pitch: wmf_core::parser::PitchFont::FIXED_PITCH,
+                    },
+                    facename: "none".to_owned(),
+                })
+            }
+            StockObject::ANSI_FIXED_FONT => {
+                Self::LogFont(crate::parser::LogFont {
+                    height: 0,
+                    width: 0,
+                    escapement: 0,
+                    orientation: 0,
+                    weight: 400,
+                    italic: false,
+                    underline: false,
+                    strike_out: false,
+                    charset: wmf_core::parser::CharacterSet::ANSI_CHARSET,
+                    out_precision:
+                        wmf_core::parser::OutPrecision::OUT_DEFAULT_PRECIS,
+                    clip_precision: BTreeSet::new(),
+                    quality: wmf_core::parser::FontQuality::DEFAULT_QUALITY,
+                    pitch_and_family: wmf_core::parser::PitchAndFamily {
+                        family: wmf_core::parser::FamilyFont::FF_DONTCARE,
+                        pitch: wmf_core::parser::PitchFont::FIXED_PITCH,
+                    },
+                    facename: "none".to_owned(),
+                })
+            }
+            StockObject::ANSI_VAR_FONT => {
+                Self::LogFont(crate::parser::LogFont {
+                    height: 0,
+                    width: 0,
+                    escapement: 0,
+                    orientation: 0,
+                    weight: 400,
+                    italic: false,
+                    underline: false,
+                    strike_out: false,
+                    charset: wmf_core::parser::CharacterSet::ANSI_CHARSET,
+                    out_precision:
+                        wmf_core::parser::OutPrecision::OUT_DEFAULT_PRECIS,
+                    clip_precision: BTreeSet::new(),
+                    quality: wmf_core::parser::FontQuality::DEFAULT_QUALITY,
+                    pitch_and_family: wmf_core::parser::PitchAndFamily {
+                        family: wmf_core::parser::FamilyFont::FF_DONTCARE,
+                        pitch: wmf_core::parser::PitchFont::VARIABLE_PITCH,
+                    },
+                    facename: "none".to_owned(),
+                })
+            }
+            StockObject::DEFAULT_GUI_FONT
+            | StockObject::SYSTEM_FONT
+            | StockObject::DEVICE_DEFAULT_FONT => {
                 Self::LogFont(crate::parser::LogFont {
                     height: 0,
                     width: 0,
@@ -288,53 +297,39 @@ impl GraphicsObject {
                     facename: "Tahoma".to_owned(),
                 })
             }
-            DEVICE_DEFAULT_FONT => Self::LogFont(crate::parser::LogFont {
-                height: 0,
-                width: 0,
-                escapement: 0,
-                orientation: 0,
-                weight: 400,
-                italic: false,
-                underline: false,
-                strike_out: false,
-                charset: wmf_core::parser::CharacterSet::ANSI_CHARSET,
-                out_precision:
-                    wmf_core::parser::OutPrecision::OUT_DEFAULT_PRECIS,
-                clip_precision: BTreeSet::new(),
-                quality: wmf_core::parser::FontQuality::DEFAULT_QUALITY,
-                pitch_and_family: wmf_core::parser::PitchAndFamily {
-                    family: wmf_core::parser::FamilyFont::FF_DONTCARE,
-                    pitch: wmf_core::parser::PitchFont::FIXED_PITCH,
-                },
-                facename: "Tahoma".to_owned(),
-            }),
-            DEFAULT_PALETTE => Self::LogPalette(crate::parser::LogPalette {
-                version: 0x0300,
-                number_of_entries: 0,
-                palette_entries: vec![],
-            }),
-            SYSTEM_FIXED_FONT => Self::LogFont(crate::parser::LogFont {
-                height: 0,
-                width: 0,
-                escapement: 0,
-                orientation: 0,
-                weight: 400,
-                italic: false,
-                underline: false,
-                strike_out: false,
-                charset: wmf_core::parser::CharacterSet::ANSI_CHARSET,
-                out_precision:
-                    wmf_core::parser::OutPrecision::OUT_DEFAULT_PRECIS,
-                clip_precision: BTreeSet::new(),
-                quality: wmf_core::parser::FontQuality::DEFAULT_QUALITY,
-                pitch_and_family: wmf_core::parser::PitchAndFamily {
-                    family: wmf_core::parser::FamilyFont::FF_DONTCARE,
-                    pitch: wmf_core::parser::PitchFont::FIXED_PITCH,
-                },
-                facename: "serif".to_owned(),
-            }),
-            DC_BRUSH => Self::LogBrushEx(selected_object.brush.clone()),
-            DC_PEN => Self::LogPenEx(selected_object.pen.clone()),
+            StockObject::DEFAULT_PALETTE => {
+                Self::LogPalette(crate::parser::LogPalette {
+                    version: 0x0300,
+                    number_of_entries: 0,
+                    palette_entries: vec![],
+                })
+            }
+            StockObject::SYSTEM_FIXED_FONT => {
+                Self::LogFont(crate::parser::LogFont {
+                    height: 0,
+                    width: 0,
+                    escapement: 0,
+                    orientation: 0,
+                    weight: 400,
+                    italic: false,
+                    underline: false,
+                    strike_out: false,
+                    charset: wmf_core::parser::CharacterSet::ANSI_CHARSET,
+                    out_precision:
+                        wmf_core::parser::OutPrecision::OUT_DEFAULT_PRECIS,
+                    clip_precision: BTreeSet::new(),
+                    quality: wmf_core::parser::FontQuality::DEFAULT_QUALITY,
+                    pitch_and_family: wmf_core::parser::PitchAndFamily {
+                        family: wmf_core::parser::FamilyFont::FF_DONTCARE,
+                        pitch: wmf_core::parser::PitchFont::FIXED_PITCH,
+                    },
+                    facename: "serif".to_owned(),
+                })
+            }
+            StockObject::DC_BRUSH => {
+                Self::LogBrushEx(selected_object.brush.clone())
+            }
+            StockObject::DC_PEN => Self::LogPenEx(selected_object.pen.clone()),
         }
     }
 }
@@ -360,8 +355,8 @@ impl Default for GraphicsEnvironment {
 
         Self {
             regions: PlaybackStateRegions {
-                clipping: None,
-                meta_clipping: None,
+                // clipping: None,
+                // meta_clipping: None,
                 viewport: Viewport {
                     extent: extent.clone(),
                     origin: origin.clone(),
@@ -382,10 +377,10 @@ pub struct PlaybackStateRegions {
     /// Clipping: The current clipping region, which with MetaClipping defines
     /// the bounds of the drawing area. The default value for the Clipping
     /// element is implementation-specific.
-    pub clipping: Option<crate::parser::RegionData>,
+    // pub clipping: Option<crate::parser::RegionData>,
     /// MetaClipping: The current metaregion, which with the Clipping region
     /// defines the bounds of the drawing area.
-    pub meta_clipping: Option<crate::parser::RegionData>,
+    // pub meta_clipping: Option<crate::parser::RegionData>,
     /// Viewport: A rectangular drawing area using coordinates in the device
     /// space.
     pub viewport: Viewport,
@@ -421,10 +416,10 @@ pub struct PlaybackStateColors {
     pub color_adjustment: crate::parser::ColorAdjustment,
     /// Data field in `EMR_COLORMATCHTOTARGETW`, `EMR_SETICMPROFILEA`,
     /// `EMR_SETICMPROFILEW`.
-    pub color_profile: Vec<u8>,
-    pub color_profile_embedded: bool,
-    pub color_proofing: u32,
-    pub color_transform: Vec<u8>,
+    // pub color_profile: Vec<u8>,
+    // pub color_profile_embedded: bool,
+    // pub color_proofing: u32,
+    // pub color_transform: Vec<u8>,
     pub icm_mode: crate::parser::ICMMode,
     pub pixel_format: Option<crate::parser::PixelFormatDescriptor>,
 }
@@ -433,10 +428,10 @@ impl Default for PlaybackStateColors {
     fn default() -> Self {
         Self {
             color_adjustment: crate::parser::ColorAdjustment::default(),
-            color_profile: vec![],
-            color_profile_embedded: false,
-            color_proofing: 0,
-            color_transform: vec![],
+            // color_profile: vec![],
+            // color_profile_embedded: false,
+            // color_proofing: 0,
+            // color_transform: vec![],
             icm_mode: crate::parser::ICMMode::ICM_DONE_OUTSIDEDC,
             pixel_format: None,
         }
@@ -453,25 +448,13 @@ impl Default for PlaybackStateColors {
 /// - EMR_POLYTEXTOUTA
 /// - EMR_POLYTEXTOUTW
 /// - EMR_SMALLTEXTOUT
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct PlaybackStateText {
     pub font_mapper_flags: u32,
     pub force_ufi_mapping: Option<crate::parser::UniversalFontId>,
     pub linked_ufis: Vec<crate::parser::UniversalFontId>,
     pub text_alignment: u32,
     pub text_justification: (i32, i32),
-}
-
-impl Default for PlaybackStateText {
-    fn default() -> Self {
-        Self {
-            font_mapper_flags: 0,
-            force_ufi_mapping: None,
-            linked_ufis: vec![],
-            text_alignment: 0,
-            text_justification: (0, 0),
-        }
-    }
 }
 
 /// The Drawing group of elements define various graphics flags and other
@@ -494,8 +477,8 @@ pub struct PlaybackStateDrawing {
     pub brush_origin: wmf_core::parser::PointL,
     pub current_position: wmf_core::parser::PointL,
     pub layout_mode: crate::parser::LayoutMode,
-    pub line_cap: u32,
-    pub line_join: u32,
+    // pub line_cap: u32,
+    // pub line_join: u32,
     pub mapping_mode: crate::parser::MapMode,
     pub miter_limit: Option<u32>,
     pub path_bracket: bool,
@@ -514,8 +497,8 @@ impl Default for PlaybackStateDrawing {
             brush_origin: wmf_core::parser::PointL { x: 0, y: 0 },
             current_position: wmf_core::parser::PointL { x: 0, y: 0 },
             layout_mode: crate::parser::LayoutMode::LAYOUT_LTR,
-            line_cap: 0,
-            line_join: 0,
+            // line_cap: 0,
+            // line_join: 0,
             mapping_mode: crate::parser::MapMode::MM_TEXT,
             miter_limit: None,
             path_bracket: false,

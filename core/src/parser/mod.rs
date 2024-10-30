@@ -26,19 +26,19 @@ impl From<ReadError> for ParseError {
 
 impl From<wmf_core::parser::ParseError> for ParseError {
     fn from(err: wmf_core::parser::ParseError) -> Self {
-        use wmf_core::parser::ParseError::*;
+        use wmf_core::parser::ParseError;
 
         match err {
-            FailedReadBuffer { cause } => {
+            ParseError::FailedReadBuffer { cause } => {
                 Self::FailedReadBuffer { cause: cause.into() }
             }
-            NotSupported { .. } => {
+            ParseError::NotSupported { .. } => {
                 Self::NotSupported { cause: err.to_string() }
             }
-            UnexpectedEnumValue { .. } => {
+            ParseError::UnexpectedEnumValue { .. } => {
                 Self::UnexpectedEnumValue { cause: err.to_string() }
             }
-            UnexpectedPattern { .. } => {
+            ParseError::UnexpectedPattern { .. } => {
                 Self::UnexpectedPattern { cause: err.to_string() }
             }
         }

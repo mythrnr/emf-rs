@@ -22,7 +22,7 @@ impl Gamma {
     ) -> Result<(Self, usize), crate::parser::ParseError> {
         let (value, value_bytes) = crate::parser::read_u16_from_le_bytes(buf)?;
 
-        if value < 2_500 || 65_000 < value {
+        if !(2_500..=65_000).contains(&value) {
             return Err(crate::parser::ParseError::UnexpectedPattern {
                 cause: format!(
                     "Gamma value should be in the range from `2,500` to \
@@ -42,14 +42,8 @@ impl Gamma {
 /// A signed integer that specifies the amount to be applied to the source
 /// object. This value SHOULD be in the range from –100 to 100. A value of zero
 /// means adjustment MUST NOT be performed.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Adjustment(i16);
-
-impl Default for Adjustment {
-    fn default() -> Self {
-        Adjustment(0)
-    }
-}
 
 impl Adjustment {
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -62,7 +56,7 @@ impl Adjustment {
     ) -> Result<(Self, usize), crate::parser::ParseError> {
         let (value, value_bytes) = crate::parser::read_i16_from_le_bytes(buf)?;
 
-        if value < -100 || 100 < value {
+        if !(-100..=100).contains(&value) {
             return Err(crate::parser::ParseError::UnexpectedPattern {
                 cause: format!(
                     "Gamma value should be in the range from `-100` to `100`, \

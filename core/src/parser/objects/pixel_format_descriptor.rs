@@ -229,6 +229,7 @@ impl PixelFormatDescriptor {
     }
 }
 
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Clone, Debug)]
 pub struct DwFlags {
     /// The buffer uses RGBA pixels on a palette-managed device. A LogPalette

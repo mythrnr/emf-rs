@@ -57,7 +57,7 @@ impl EMR_RESIZEPALETTE {
 
         size.consume(ih_pal_bytes + number_of_entries_bytes);
 
-        if number_of_entries <= 0x00000000 && number_of_entries > 0x00000400 {
+        if number_of_entries > 0x00000400 {
             return Err(crate::parser::ParseError::UnexpectedPattern {
                 cause: format!(
                     "number_of_entries must be greater than zero and lte \

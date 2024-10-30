@@ -7,6 +7,7 @@
     clippy::too_many_lines,
     clippy::unreadable_literal,
     clippy::upper_case_acronyms,
+    clippy::used_underscore_binding,
     clippy::wildcard_imports,
     non_camel_case_types,
     non_snake_case
@@ -50,7 +51,6 @@ pub mod parser;
 mod imports {
     pub use alloc::{
         borrow::ToOwned,
-        boxed::Box,
         collections::{BTreeMap, BTreeSet, VecDeque},
         str,
         string::{String, ToString},

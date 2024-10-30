@@ -145,7 +145,7 @@ impl ColorAdjustment {
             });
         }
 
-        if reference_white < 6_000 || 10_000 < reference_white {
+        if !(6_000..=10_000).contains(&reference_white) {
             return Err(crate::parser::ParseError::UnexpectedPattern {
                 cause: format!(
                     "reference_white field in ColorAdjustment must be range \

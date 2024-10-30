@@ -53,7 +53,7 @@ impl From<crate::parser::LogFontPanose> for LogFontExDv {
                 log_font: v.log_font,
                 full_name: v.full_name,
                 style: v.style,
-                script: "".to_owned(),
+                script: String::new(),
             },
             design_vector: crate::parser::DesignVector {
                 signature: 0x08007664,

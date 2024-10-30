@@ -25,7 +25,7 @@ pub struct LogFontPanose {
     /// LogFont object in the LogFont field.
     pub style_size: u32,
     /// Match (4 bytes): This field MUST be ignored.
-    pub _match: [u8; 4],
+    _match: [u8; 4],
     /// Reserved (4 bytes): An unsigned integer that MUST be set to zero and
     /// MUST be ignored.
     pub reserved: u32,

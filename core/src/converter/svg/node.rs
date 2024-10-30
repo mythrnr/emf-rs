@@ -3,7 +3,7 @@ use crate::imports::*;
 #[derive(Clone, Debug)]
 pub struct Node {
     typ: NodeType,
-    inner: Vec<Box<Node>>,
+    inner: Vec<Node>,
     attrs: BTreeMap<String, String>,
 }
 
@@ -14,17 +14,17 @@ enum NodeType {
 }
 
 impl Node {
-    pub fn new(name: impl ToString) -> Self {
+    pub fn new(name: impl Into<String>) -> Self {
         Self {
-            typ: NodeType::Node(name.to_string()),
+            typ: NodeType::Node(name.into()),
             inner: vec![],
             attrs: BTreeMap::new(),
         }
     }
 
-    pub fn new_text(value: impl ToString) -> Self {
+    pub fn new_text(value: impl Into<String>) -> Self {
         Self {
-            typ: NodeType::Text(value.to_string()),
+            typ: NodeType::Text(value.into()),
             inner: vec![],
             attrs: BTreeMap::new(),
         }
@@ -32,15 +32,19 @@ impl Node {
 
     pub fn add(mut self, node: Node) -> Self {
         if matches!(self.typ, NodeType::Node(_)) {
-            self.inner.push(Box::new(node));
+            self.inner.push(node);
         }
 
         self
     }
 
-    pub fn set(mut self, name: impl ToString, value: impl ToString) -> Self {
+    pub fn set(
+        mut self,
+        name: impl Into<String>,
+        value: impl Into<String>,
+    ) -> Self {
         if matches!(self.typ, NodeType::Node(_)) {
-            self.attrs.insert(name.to_string(), value.to_string());
+            self.attrs.insert(name.into(), value.into());
         }
 
         self
@@ -75,9 +79,8 @@ impl core::fmt::Display for Node {
                         .join(" "),
                     self.inner
                         .iter()
-                        .map(|v| v.to_string())
-                        .collect::<Vec<_>>()
-                        .join("")
+                        .map(ToString::to_string)
+                        .collect::<String>()
                 )
             }
             NodeType::Text(value) => {
@@ -87,15 +90,9 @@ impl core::fmt::Display for Node {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Data {
     commands: Vec<String>,
-}
-
-impl Default for Data {
-    fn default() -> Self {
-        Self { commands: vec![] }
-    }
 }
 
 impl Data {
@@ -132,7 +129,7 @@ impl Data {
     }
 
     /// https://www.w3.org/TR/SVG/paths.html#PathDataEllipticalArcCommands
-    pub fn elliptical_arc_to(mut self, param: impl Into<Parameters>) -> Self {
+    pub fn _elliptical_arc_to(mut self, param: impl Into<Parameters>) -> Self {
         self.commands.push(format!("L {}", param.into().0));
         self
     }

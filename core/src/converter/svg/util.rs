@@ -402,7 +402,7 @@ pub fn url_string(link: &str) -> String {
 }
 
 #[inline]
-pub fn polygon_fill_rule(polyfill_mode: &PolygonFillMode) -> String {
+pub fn polygon_fill_rule(polyfill_mode: PolygonFillMode) -> String {
     match polyfill_mode {
         PolygonFillMode::ALTERNATE => "evenodd",
         PolygonFillMode::WINDING => "nonzero",
