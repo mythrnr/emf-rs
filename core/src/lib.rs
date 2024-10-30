@@ -51,7 +51,7 @@ mod imports {
     pub use alloc::{
         borrow::ToOwned,
         boxed::Box,
-        collections::{BTreeMap, BTreeSet},
+        collections::{BTreeMap, BTreeSet, VecDeque},
         str,
         string::{String, ToString},
         vec::Vec,

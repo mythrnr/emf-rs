@@ -28,3 +28,13 @@ pub enum DIBColors {
 }
 
 crate::parser::enums::impl_parser!(DIBColors, u32);
+
+impl From<DIBColors> for wmf_core::parser::ColorUsage {
+    fn from(v: DIBColors) -> Self {
+        match v {
+            DIBColors::DIB_RGB_COLORS => Self::DIB_RGB_COLORS,
+            DIBColors::DIB_PAL_COLORS => Self::DIB_PAL_COLORS,
+            DIBColors::DIB_PAL_INDICES => Self::DIB_PAL_INDICES,
+        }
+    }
+}

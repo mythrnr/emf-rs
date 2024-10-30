@@ -15,6 +15,58 @@ impl Default for PlaybackDeviceContext {
     }
 }
 
+impl PlaybackDeviceContext {
+    pub fn apply_transformation(&mut self) {
+        let wmf_core::parser::SizeL { cx: ve_cx, cy: ve_cy } =
+            &self.graphics_environment.regions.viewport.extent;
+        let wmf_core::parser::SizeL { cx: we_cx, cy: we_cy } =
+            &self.graphics_environment.regions.window.extent;
+        let (sx, sy) =
+            (*ve_cx as f32 / *we_cx as f32, *ve_cy as f32 / *we_cy as f32);
+
+        self.set_scale(sx, sy);
+    }
+
+    pub fn set_scale(&mut self, sx: f32, sy: f32) {
+        self.xform = crate::parser::XForm {
+            m11: 1.0 * sx,
+            m12: 0.0,
+            m21: 0.0,
+            m22: 1.0 * sy,
+            dx: 0.0,
+            dy: 0.0,
+        };
+    }
+
+    pub fn transform_point_l(
+        &self,
+        p: wmf_core::parser::PointL,
+    ) -> wmf_core::parser::PointL {
+        wmf_core::parser::PointL {
+            x: (f64::from(self.xform.m11) * f64::from(p.x)
+                + f64::from(self.xform.m21) * f64::from(p.y)
+                + f64::from(self.xform.dx)) as i32,
+            y: (f64::from(self.xform.m12) * f64::from(p.x)
+                + f64::from(self.xform.m22) * f64::from(p.y)
+                + f64::from(self.xform.dy)) as i32,
+        }
+    }
+
+    pub fn transform_point_s(
+        &self,
+        p: wmf_core::parser::PointS,
+    ) -> wmf_core::parser::PointS {
+        wmf_core::parser::PointS {
+            x: (self.xform.m11 * f32::from(p.x)
+                + self.xform.m21 * f32::from(p.y)
+                + self.xform.dx) as i16,
+            y: (self.xform.m12 * f32::from(p.x)
+                + self.xform.m22 * f32::from(p.y)
+                + self.xform.dy) as i16,
+        }
+    }
+}
+
 pub fn point_s_to_point_l(
     v: &wmf_core::parser::PointS,
 ) -> wmf_core::parser::PointL {

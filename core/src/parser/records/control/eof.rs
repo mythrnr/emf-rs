@@ -97,13 +97,13 @@ impl EMR_EOF {
 
         size.consume(size_last_bytes);
 
-        if size.byte_count() as u32 != size_last {
-            warn!(
-                size = %size.byte_count(),
-                %size_last,
-                "size and size_last must be same value",
-            );
-        }
+        // if size.byte_count() as u32 != size_last {
+        //     warn!(
+        //         size = %size.byte_count(),
+        //         %size_last,
+        //         "size and size_last must be same value",
+        //     );
+        // }
 
         crate::parser::records::consume_remaining_bytes(
             buf,

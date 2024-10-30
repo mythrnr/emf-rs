@@ -33,6 +33,7 @@ pub struct SVGPlayer {
     emf_object_table: EmfObjectTable,
     selected_emf_object: SelectedObject,
     path: Data,
+    window: Window,
 }
 
 impl Default for SVGPlayer {
@@ -45,6 +46,10 @@ impl Default for SVGPlayer {
             emf_object_table: EmfObjectTable::new(0),
             selected_emf_object: SelectedObject::default(),
             path: Data::new(),
+            window: Window {
+                extent: wmf_core::parser::SizeL { cx: 0, cy: 0 },
+                origin: wmf_core::parser::PointL { x: 0, y: 0 },
+            },
         }
     }
 }
@@ -67,9 +72,8 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn generate(self) -> Result<Vec<u8>, PlayError> {
-        let Self { context, definitions, elements, .. } = self;
+        let Self { window, definitions, elements, .. } = self;
 
-        let window = context.graphics_environment.regions.window;
         let mut document =
             Node::new("svg").set("xmlns", "http://www.w3.org/2000/svg").set(
                 "viewBox",
@@ -108,11 +112,58 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn alpha_blend(
-        &mut self,
-        _record: EMR_ALPHABLEND,
-    ) -> Result<(), PlayError> {
-        info!("EMR_ALPHABLEND: not implemented");
+    fn alpha_blend(&mut self, record: EMR_ALPHABLEND) -> Result<(), PlayError> {
+        let dib_header_info = {
+            let mut buf = &record.bmi_src[..];
+            let (dib_header_info, _) =
+                wmf_core::parser::BitmapInfoHeader::parse(&mut buf).map_err(
+                    |err| PlayError::InvalidRecord { cause: err.to_string() },
+                )?;
+
+            dib_header_info
+        };
+        let colors = {
+            let mut buf =
+                &record.bmi_src[dib_header_info.header_size() as usize..];
+            let (colors, _) = wmf_core::parser::Colors::parse(
+                &mut buf,
+                record.usage_src.into(),
+                &dib_header_info,
+            )
+            .map_err(|err| PlayError::InvalidRecord {
+                cause: err.to_string(),
+            })?;
+
+            colors
+        };
+
+        let (width, height) =
+            (dib_header_info.width(), dib_header_info.height());
+        let bitmap: wmf_core::converter::Bitmap =
+            wmf_core::parser::DeviceIndependentBitmap {
+                dib_header_info,
+                colors,
+                bitmap_buffer: wmf_core::parser::BitmapBuffer {
+                    undefined_space: vec![],
+                    a_data: record.bits_src,
+                },
+            }
+            .into();
+
+        let point = self.context.transform_point_l(wmf_core::parser::PointL {
+            x: record.x_dest,
+            y: record.y_dest,
+        });
+
+        let image = Node::new("image")
+            .set("x", point.x.to_string())
+            .set("y", point.y.to_string())
+            .set("width", width.to_string())
+            .set("height", height.to_string())
+            .set("href", bitmap.as_data_url());
+
+        self.elements.push(image);
+
         Ok(())
     }
 
@@ -181,28 +232,47 @@ impl crate::converter::Player for SVGPlayer {
         &mut self,
         record: EMR_STRETCHDIBITS,
     ) -> Result<(), PlayError> {
-        let mut buf = &record.bmi_src[..];
-        let (dib_header_info, _) = wmf_core::parser::BitmapInfoHeader::parse(
-            &mut buf,
-        )
-        .map_err(|err| PlayError::InvalidRecord { cause: err.to_string() })?;
-        let point =
-            self.context.xform.transform_point_l(wmf_core::parser::PointL {
-                x: record.x_dest,
-                y: record.y_dest,
-            });
+        let dib_header_info = {
+            let mut buf = &record.bmi_src[..];
+            let (dib_header_info, _) =
+                wmf_core::parser::BitmapInfoHeader::parse(&mut buf).map_err(
+                    |err| PlayError::InvalidRecord { cause: err.to_string() },
+                )?;
+
+            dib_header_info
+        };
+        let colors = {
+            let mut buf =
+                &record.bmi_src[dib_header_info.header_size() as usize..];
+            let (colors, _) = wmf_core::parser::Colors::parse(
+                &mut buf,
+                record.usage_src.into(),
+                &dib_header_info,
+            )
+            .map_err(|err| PlayError::InvalidRecord {
+                cause: err.to_string(),
+            })?;
+
+            colors
+        };
+
         let (width, height) =
             (dib_header_info.width(), dib_header_info.height());
         let bitmap: wmf_core::converter::Bitmap =
             wmf_core::parser::DeviceIndependentBitmap {
                 dib_header_info,
-                colors: wmf_core::parser::Colors::Null,
+                colors,
                 bitmap_buffer: wmf_core::parser::BitmapBuffer {
                     undefined_space: vec![],
                     a_data: record.bits_src,
                 },
             }
             .into();
+
+        let point = self.context.transform_point_l(wmf_core::parser::PointL {
+            x: record.x_dest,
+            y: record.y_dest,
+        });
 
         let image = Node::new("image")
             .set("x", point.x.to_string())
@@ -382,6 +452,7 @@ impl crate::converter::Player for SVGPlayer {
             PlaybackStateColors::default()
         };
 
+        self.window = Window { extent: extent.clone(), origin: origin.clone() };
         self.context.graphics_environment = GraphicsEnvironment {
             regions: PlaybackStateRegions {
                 clipping: None,
@@ -451,11 +522,10 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn ellipse(&mut self, record: EMR_ELLIPSE) -> Result<(), PlayError> {
-        let r =
-            self.context.xform.transform_point_l(wmf_core::parser::PointL {
-                x: (record.bx.right - record.bx.left) / 2,
-                y: (record.bx.bottom - record.bx.top) / 2,
-            });
+        let r = self.context.transform_point_l(wmf_core::parser::PointL {
+            x: (record.bx.right - record.bx.left) / 2,
+            y: (record.bx.bottom - record.bx.top) / 2,
+        });
 
         if r.x == 0 || r.y == 0 {
             info!(
@@ -480,11 +550,10 @@ impl crate::converter::Player for SVGPlayer {
         let fill_rule = polygon_fill_rule(
             &self.context.graphics_environment.drawing.polyfill_mode,
         );
-        let c =
-            self.context.xform.transform_point_l(wmf_core::parser::PointL {
-                x: record.bx.left,
-                y: record.bx.top,
-            });
+        let c = self.context.transform_point_l(wmf_core::parser::PointL {
+            x: record.bx.left,
+            y: record.bx.top,
+        });
 
         let ellipse = Node::new("ellipse")
             .set("fill", fill.as_str())
@@ -549,8 +618,7 @@ impl crate::converter::Player for SVGPlayer {
         );
         let text_align =
             text_align(self.context.graphics_environment.text.text_alignment);
-        let point =
-            self.context.xform.transform_point_l(record.w_emr_text.reference);
+        let point = self.context.transform_point_l(record.w_emr_text.reference);
 
         let text = Node::new("text")
             .set("x", point.x.to_string())
@@ -642,7 +710,7 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn line_to(&mut self, record: EMR_LINETO) -> Result<(), PlayError> {
-        let point = self.context.xform.transform_point_l(record.point);
+        let point = self.context.transform_point_l(record.point);
 
         self.path =
             self.path.clone().line_to(format!("{} {}", point.x, point.y));
@@ -687,7 +755,7 @@ impl crate::converter::Player for SVGPlayer {
         //         cause: "aPoints[0] is not defined".to_owned(),
         //     });
         // };
-        // let point = self.context.xform.transform_point_l(point.clone());
+        // let point = self.context.transform_point_l(point.clone());
         // let mut data =
         //     self.path.clone().move_to(format!("{} {}", point.x, point.y));
 
@@ -704,7 +772,7 @@ impl crate::converter::Player for SVGPlayer {
             self.context.graphics_environment.drawing.current_position =
                 point.clone();
 
-            let point = self.context.xform.transform_point_l(point.clone());
+            let point = self.context.transform_point_l(point.clone());
             c.extend([point.x, point.y]);
 
             if c.len() % 3 == 0 {
@@ -745,7 +813,7 @@ impl crate::converter::Player for SVGPlayer {
         //         cause: "aPoints[0] is not defined".to_owned(),
         //     });
         // };
-        // let point = self.context.xform.transform_point_s(point.clone());
+        // let point = self.context.transform_point_s(point.clone());
         // let mut data =
         //     self.path.clone().move_to(format!("{} {}", point.x, point.y));
 
@@ -762,7 +830,7 @@ impl crate::converter::Player for SVGPlayer {
             self.context.graphics_environment.drawing.current_position =
                 point_s_to_point_l(&point);
 
-            let point = self.context.xform.transform_point_s(point.clone());
+            let point = self.context.transform_point_s(point.clone());
             c.extend([point.x, point.y]);
 
             if c.len() % 3 == 0 {
@@ -815,7 +883,7 @@ impl crate::converter::Player for SVGPlayer {
             self.context.graphics_environment.drawing.current_position =
                 point.clone();
 
-            let point = self.context.xform.transform_point_l(point.clone());
+            let point = self.context.transform_point_l(point.clone());
             c.extend([point.x, point.y]);
 
             if c.len() % 3 == 0 {
@@ -849,7 +917,7 @@ impl crate::converter::Player for SVGPlayer {
         }
 
         // NOTE: ignore move to first point for SVG.
-        // let point = self.context.xform.transform_point_l(
+        // let point = self.context.transform_point_l(
         //     self.context.graphics_environment.drawing.current_position.
         // clone(), );
         // let mut data =
@@ -868,7 +936,7 @@ impl crate::converter::Player for SVGPlayer {
             self.context.graphics_environment.drawing.current_position =
                 point_s_to_point_l(&point);
 
-            let point = self.context.xform.transform_point_s(point.clone());
+            let point = self.context.transform_point_s(point.clone());
             c.extend([point.x, point.y]);
 
             if c.len() % 3 == 0 {
@@ -930,9 +998,68 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn poly_polygon_16(
         &mut self,
-        _record: EMR_POLYPOLYGON16,
+        record: EMR_POLYPOLYGON16,
     ) -> Result<(), PlayError> {
-        info!("EMR_POLYPOLYGON16: not implemented");
+        if record.number_of_polygons == 0 || record.count == 0 {
+            info!(%record.number_of_polygons, %record.count, "polygon has no points");
+            return Ok(());
+        }
+
+        let pen = &self.selected_emf_object.pen;
+        let brush = &self.selected_emf_object.brush;
+        let stroke = Stroke::from(pen.clone());
+        let fill = match Fill::from(&self.context, brush.clone()) {
+            Fill::Pattern { pattern } => {
+                let id = self.issue_id();
+                self.definitions.push(pattern.set("id", id.as_str()));
+                url_string(format!("#{id}").as_str())
+            }
+            Fill::Value { value } => value,
+        };
+        let fill_rule = polygon_fill_rule(
+            &self.context.graphics_environment.drawing.polyfill_mode,
+        );
+
+        let mut a_point: VecDeque<_> = record.a_points.into();
+        let mut current_point_index = 0;
+
+        for i in 0..record.number_of_polygons {
+            let Some(points_of_polygon) =
+                record.polygon_point_count.get(i as usize)
+            else {
+                return Err(PlayError::InvalidRecord {
+                    cause: format!("PolygonPointCount[{i}] is not defined"),
+                });
+            };
+
+            let mut points = vec![];
+
+            for _ in 0..*points_of_polygon {
+                let Some(point) = a_point.pop_front() else {
+                    return Err(PlayError::InvalidRecord {
+                        cause: format!(
+                            "aPoints[{current_point_index}] is not defined"
+                        ),
+                    });
+                };
+
+                self.context.graphics_environment.drawing.current_position =
+                    point_s_to_point_l(&point);
+
+                let point = self.context.transform_point_s(point);
+                points.push(as_point_string_from_point_s(&point));
+                current_point_index += 1;
+            }
+
+            let polygon = Node::new("polygon")
+                .set("fill", fill.as_str())
+                .set("fill-rule", fill_rule.as_str())
+                .set("points", points.join(" "));
+            let polygon = stroke.set_props(&self.context, polygon);
+
+            self.elements.push(polygon);
+        }
+
         Ok(())
     }
 
@@ -1026,7 +1153,7 @@ impl crate::converter::Player for SVGPlayer {
             self.context.graphics_environment.drawing.current_position =
                 point.clone();
 
-            let point = self.context.xform.transform_point_l(point.clone());
+            let point = self.context.transform_point_l(point.clone());
             points.push(as_point_string_from_point_l(&point));
         }
 
@@ -1079,7 +1206,7 @@ impl crate::converter::Player for SVGPlayer {
             self.context.graphics_environment.drawing.current_position =
                 point_s_to_point_l(&point);
 
-            let point = self.context.xform.transform_point_s(point.clone());
+            let point = self.context.transform_point_s(point.clone());
             points.push(as_point_string_from_point_s(&point));
         }
 
@@ -1111,7 +1238,7 @@ impl crate::converter::Player for SVGPlayer {
             });
         };
 
-        let point = self.context.xform.transform_point_l(point.clone());
+        let point = self.context.transform_point_l(point.clone());
         let mut data =
             self.path.clone().move_to(format!("{} {}", point.x, point.y));
 
@@ -1125,7 +1252,7 @@ impl crate::converter::Player for SVGPlayer {
             self.context.graphics_environment.drawing.current_position =
                 point.clone();
 
-            let point = self.context.xform.transform_point_l(point.clone());
+            let point = self.context.transform_point_l(point.clone());
             data = data.line_to(format!("{} {}", point.x, point.y));
         }
 
@@ -1164,7 +1291,7 @@ impl crate::converter::Player for SVGPlayer {
             self.context.graphics_environment.drawing.current_position =
                 point_s_to_point_l(point);
 
-            let point = self.context.xform.transform_point_s(point.clone());
+            let point = self.context.transform_point_s(point.clone());
             data = data.line_to(format!("{} {}", point.x, point.y));
         }
 
@@ -1196,7 +1323,7 @@ impl crate::converter::Player for SVGPlayer {
             self.context.graphics_environment.drawing.current_position =
                 point.clone();
 
-            let point = self.context.xform.transform_point_l(point.clone());
+            let point = self.context.transform_point_l(point.clone());
             data = data.line_to(format!("{} {}", point.x, point.y));
         }
 
@@ -1231,7 +1358,7 @@ impl crate::converter::Player for SVGPlayer {
             self.context.graphics_environment.drawing.current_position =
                 point_s_to_point_l(point);
 
-            let point = self.context.xform.transform_point_s(point.clone());
+            let point = self.context.transform_point_s(point.clone());
             data = data.line_to(format!("{} {}", point.x, point.y));
         }
 
@@ -1262,12 +1389,12 @@ impl crate::converter::Player for SVGPlayer {
         );
 
         let top_left =
-            self.context.xform.transform_point_l(wmf_core::parser::PointL {
+            self.context.transform_point_l(wmf_core::parser::PointL {
                 x: record.bx.left,
                 y: record.bx.top,
             });
         let bottom_right =
-            self.context.xform.transform_point_l(wmf_core::parser::PointL {
+            self.context.transform_point_l(wmf_core::parser::PointL {
                 x: record.bx.right,
                 y: record.bx.bottom,
             });
@@ -1888,7 +2015,7 @@ impl crate::converter::Player for SVGPlayer {
         self.context.graphics_environment.drawing.current_position =
             record.offset.clone();
 
-        let point = self.context.xform.transform_point_l(record.offset);
+        let point = self.context.transform_point_l(record.offset);
 
         self.path =
             self.path.clone().move_to(format!("{} {}", point.x, point.y));
@@ -1964,9 +2091,17 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn scale_viewport_ext_ex(
         &mut self,
-        _record: EMR_SCALEVIEWPORTEXTEX,
+        record: EMR_SCALEVIEWPORTEXTEX,
     ) -> Result<(), PlayError> {
-        info!("EMR_SCALEVIEWPORTEXTEX: not implemented");
+        let wmf_core::parser::SizeL { cx, cy } =
+            self.context.graphics_environment.regions.viewport.extent;
+
+        self.context.graphics_environment.regions.viewport.extent =
+            wmf_core::parser::SizeL {
+                cx: ((cx as i32 * record.x_num) / record.x_denom).abs() as u32,
+                cy: ((cy as i32 * record.y_num) / record.y_denom).abs() as u32,
+            };
+
         Ok(())
     }
 
@@ -1977,9 +2112,17 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn scale_window_ext_ex(
         &mut self,
-        _record: EMR_SCALEWINDOWEXTEX,
+        record: EMR_SCALEWINDOWEXTEX,
     ) -> Result<(), PlayError> {
-        info!("EMR_SCALEWINDOWEXTEX: not implemented");
+        let wmf_core::parser::SizeL { cx, cy } =
+            self.context.graphics_environment.regions.window.extent;
+
+        self.context.graphics_environment.regions.window.extent =
+            wmf_core::parser::SizeL {
+                cx: ((cx as i32 * record.x_num) / record.x_denom).abs() as u32,
+                cy: ((cy as i32 * record.y_num) / record.y_denom).abs() as u32,
+            };
+
         Ok(())
     }
 
@@ -2253,8 +2396,15 @@ impl crate::converter::Player for SVGPlayer {
         &mut self,
         record: EMR_SETVIEWPORTEXTEX,
     ) -> Result<(), PlayError> {
-        self.context.graphics_environment.regions.viewport.extent =
-            record.extent;
+        if matches!(
+            self.context.graphics_environment.drawing.mapping_mode,
+            MapMode::MM_ISOTROPIC | MapMode::MM_ANISOTROPIC
+        ) {
+            self.context.graphics_environment.regions.viewport.extent =
+                record.extent;
+
+            self.context.apply_transformation();
+        }
 
         Ok(())
     }
@@ -2283,7 +2433,17 @@ impl crate::converter::Player for SVGPlayer {
         &mut self,
         record: EMR_SETWINDOWEXTEX,
     ) -> Result<(), PlayError> {
-        self.context.graphics_environment.regions.window.extent = record.extent;
+        self.context.graphics_environment.regions.window.extent =
+            record.extent.clone();
+
+        if matches!(
+            self.context.graphics_environment.drawing.mapping_mode,
+            MapMode::MM_ISOTROPIC | MapMode::MM_ANISOTROPIC
+        ) {
+            self.context.apply_transformation();
+        } else {
+            self.window.extent = record.extent;
+        }
 
         Ok(())
     }
@@ -2297,7 +2457,16 @@ impl crate::converter::Player for SVGPlayer {
         &mut self,
         record: EMR_SETWINDOWORGEX,
     ) -> Result<(), PlayError> {
-        self.context.graphics_environment.regions.window.origin = record.origin;
+        self.context.graphics_environment.regions.window.origin =
+            record.origin.clone();
+
+        if !matches!(
+            self.context.graphics_environment.drawing.mapping_mode,
+            MapMode::MM_ISOTROPIC | MapMode::MM_ANISOTROPIC
+        ) {
+            self.window.origin = record.origin;
+        } else {
+        }
 
         Ok(())
     }
