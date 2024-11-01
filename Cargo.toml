@@ -20,7 +20,7 @@ tracing-wasm = "0.2.1"
 unicode-segmentation = "1.12.0"
 wasm-bindgen = "0.2.95"
 wasm-bindgen-test = "0.3.45"
-wmf-core = { git = "https://github.com/mythrnr/wmf-rs.git", tag = "0.0.6", package = "wmf-core", default-features = false }
+wmf-core = { git = "https://github.com/mythrnr/wmf-rs.git", tag = "0.0.7", package = "wmf-core", default-features = false }
 
 # The `console_error_panic_hook` crate provides better debugging of panics by
 # logging them with `console.error`. This is great for development, but requires
