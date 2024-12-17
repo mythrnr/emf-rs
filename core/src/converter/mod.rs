@@ -251,6 +251,9 @@ where
                     player.eof(record)?;
                     break;
                 }
+                RecordType::EMR_HEADER => {
+                    // NOOP
+                }
                 // drawing record
                 RecordType::EMR_ANGLEARC => {
                     let record = EMR_ANGLEARC::parse(buf, record_type, size)?;
@@ -944,12 +947,6 @@ where
 
                     debug!(?record);
                     player.set_world_transform(record)?;
-                }
-                _ => {
-                    info!(
-                        record_type = %format!("{record_type:?}"),
-                        "parsed record type is currently not supported."
-                    );
                 }
             };
         }
