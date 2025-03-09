@@ -112,7 +112,10 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn alpha_blend(&mut self, record: EMR_ALPHABLEND) -> Result<(), PlayError> {
+    fn alpha_blend(
+        mut self,
+        record: EMR_ALPHABLEND,
+    ) -> Result<Self, PlayError> {
         let dib_header_info = {
             let mut buf = &record.bmi_src[..];
             let (dib_header_info, _) =
@@ -164,7 +167,7 @@ impl crate::converter::Player for SVGPlayer {
 
         self.elements.push(image);
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -172,9 +175,9 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn bit_blt(&mut self, _record: EMR_BITBLT) -> Result<(), PlayError> {
+    fn bit_blt(self, _record: EMR_BITBLT) -> Result<Self, PlayError> {
         info!("EMR_BITBLT: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -182,9 +185,9 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn mask_blt(&mut self, _record: EMR_MASKBLT) -> Result<(), PlayError> {
+    fn mask_blt(self, _record: EMR_MASKBLT) -> Result<Self, PlayError> {
         info!("EMR_MASKBLT: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -192,9 +195,9 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn plg_blt(&mut self, _record: EMR_PLGBLT) -> Result<(), PlayError> {
+    fn plg_blt(self, _record: EMR_PLGBLT) -> Result<Self, PlayError> {
         info!("EMR_PLGBLT: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -203,11 +206,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn set_dibits_to_device(
-        &mut self,
+        self,
         _record: EMR_SETDIBITSTODEVICE,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         info!("EMR_SETDIBITSTODEVICE: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -215,12 +218,9 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn stretch_blt(
-        &mut self,
-        _record: EMR_STRETCHBLT,
-    ) -> Result<(), PlayError> {
+    fn stretch_blt(self, _record: EMR_STRETCHBLT) -> Result<Self, PlayError> {
         info!("EMR_STRETCHBLT: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -229,9 +229,9 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn stretch_dibits(
-        &mut self,
+        mut self,
         record: EMR_STRETCHDIBITS,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         let dib_header_info = {
             let mut buf = &record.bmi_src[..];
             let (dib_header_info, _) =
@@ -283,7 +283,7 @@ impl crate::converter::Player for SVGPlayer {
 
         self.elements.push(image);
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -292,11 +292,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn transparent_blt(
-        &mut self,
+        self,
         _record: EMR_TRANSPARENTBLT,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         info!("EMR_TRANSPARENTBLT: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     // .
@@ -310,11 +310,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn exclude_clip_rect(
-        &mut self,
+        self,
         _record: EMR_EXCLUDECLIPRECT,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         info!("EMR_EXCLUDECLIPRECT: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -323,11 +323,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn ext_select_clip_rgn(
-        &mut self,
+        self,
         _record: EMR_EXTSELECTCLIPRGN,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         info!("EMR_EXTSELECTCLIPRGN: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -336,11 +336,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn intersect_clip_rect(
-        &mut self,
+        self,
         _record: EMR_INTERSECTCLIPRECT,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         info!("EMR_INTERSECTCLIPRECT: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -349,11 +349,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn offset_clip_rgn(
-        &mut self,
+        self,
         _record: EMR_OFFSETCLIPRGN,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         info!("EMR_OFFSETCLIPRGN: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -362,11 +362,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn select_clip_path(
-        &mut self,
+        self,
         _record: EMR_SELECTCLIPPATH,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         info!("EMR_SELECTCLIPPATH: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -374,12 +374,9 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn set_meta_rgn(
-        &mut self,
-        _record: EMR_SETMETARGN,
-    ) -> Result<(), PlayError> {
+    fn set_meta_rgn(self, _record: EMR_SETMETARGN) -> Result<Self, PlayError> {
         info!("EMR_SETMETARGN: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     // .
@@ -392,9 +389,9 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn comment(&mut self, _record: EMR_COMMENT) -> Result<(), PlayError> {
+    fn comment(self, _record: EMR_COMMENT) -> Result<Self, PlayError> {
         info!("EMR_COMMENT: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     // .
@@ -407,8 +404,8 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn eof(&mut self, _record: EMR_EOF) -> Result<(), PlayError> {
-        Ok(())
+    fn eof(self, _record: EMR_EOF) -> Result<Self, PlayError> {
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -416,7 +413,7 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn header(&mut self, record: EMR_HEADER) -> Result<(), PlayError> {
+    fn header(mut self, record: EMR_HEADER) -> Result<Self, PlayError> {
         self.emf_object_table =
             EmfObjectTable::new(record.emf_header.handles as usize);
 
@@ -468,7 +465,7 @@ impl crate::converter::Player for SVGPlayer {
             drawing: PlaybackStateDrawing::default(),
         };
 
-        Ok(())
+        Ok(self)
     }
 
     // .
@@ -481,9 +478,9 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn angle_arc(&mut self, _record: EMR_ANGLEARC) -> Result<(), PlayError> {
+    fn angle_arc(self, _record: EMR_ANGLEARC) -> Result<Self, PlayError> {
         info!("EMR_ANGLEARC: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -491,9 +488,9 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn arc(&mut self, _record: EMR_ARC) -> Result<(), PlayError> {
+    fn arc(self, _record: EMR_ARC) -> Result<Self, PlayError> {
         info!("EMR_ARC: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -501,9 +498,9 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn arc_to(&mut self, _record: EMR_ARCTO) -> Result<(), PlayError> {
+    fn arc_to(self, _record: EMR_ARCTO) -> Result<Self, PlayError> {
         info!("EMR_ARCTO: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -511,9 +508,9 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn chord(&mut self, _record: EMR_CHORD) -> Result<(), PlayError> {
+    fn chord(self, _record: EMR_CHORD) -> Result<Self, PlayError> {
         info!("EMR_CHORD: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -521,7 +518,7 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn ellipse(&mut self, record: EMR_ELLIPSE) -> Result<(), PlayError> {
+    fn ellipse(mut self, record: EMR_ELLIPSE) -> Result<Self, PlayError> {
         let r = self.context.transform_point_l(&wmf_core::parser::PointL {
             x: (record.bx.right - record.bx.left) / 2,
             y: (record.bx.bottom - record.bx.top) / 2,
@@ -533,13 +530,14 @@ impl crate::converter::Player for SVGPlayer {
                 "EMR_ELLIPSE is skipped because rx or ry is zero.",
             );
 
-            return Ok(());
+            return Ok(self);
         }
 
-        let pen = &self.selected_emf_object.pen;
-        let brush = &self.selected_emf_object.brush;
-        let stroke = Stroke::from(pen.clone());
-        let fill = match Fill::from(&self.context, brush.clone()) {
+        let stroke = Stroke::from(self.selected_emf_object.pen.clone());
+        let fill = match Fill::from(
+            &self.context,
+            self.selected_emf_object.brush.clone(),
+        ) {
             Fill::Pattern { pattern } => {
                 let id = self.issue_id();
                 self.definitions.push(pattern.set("id", id.as_str()));
@@ -566,7 +564,7 @@ impl crate::converter::Player for SVGPlayer {
 
         self.elements.push(ellipse);
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -575,11 +573,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn ext_flood_fill(
-        &mut self,
+        self,
         _record: EMR_EXTFLOODFILL,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         info!("EMR_EXTFLOODFILL: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -588,11 +586,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn ext_text_out_a(
-        &mut self,
+        self,
         _record: EMR_EXTTEXTOUTA,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         info!("EMR_EXTTEXTOUTA: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -601,9 +599,9 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn ext_text_out_w(
-        &mut self,
+        mut self,
         record: EMR_EXTTEXTOUTW,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         let font = if let Some(ref font) = self.selected_emf_object.font_ex_dv {
             &font.log_font_ex.log_font
         } else if let Some(ref font) = self.selected_emf_object.font {
@@ -627,12 +625,12 @@ impl crate::converter::Player for SVGPlayer {
             .set("text-anchor", text_align)
             .set("fill", color)
             .add(Node::new_text(record.w_emr_text.string_buffer));
-        let (text, styles) = font.set_props(text, &point);
+        let (text, styles) = font.set_props(&self.context, text, &point);
         let text = text.set("style", styles.join(""));
 
         self.elements.push(text);
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -640,16 +638,16 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn fill_path(&mut self, _record: EMR_FILLPATH) -> Result<(), PlayError> {
+    fn fill_path(mut self, _record: EMR_FILLPATH) -> Result<Self, PlayError> {
         self.context.graphics_environment.drawing.path_bracket = false;
         if self.path.is_empty() {
-            return Ok(());
+            return Ok(self);
         }
 
-        self.path = self.path.clone();
-
-        let brush = &self.selected_emf_object.brush;
-        let fill = match Fill::from(&self.context, brush.clone()) {
+        let fill = match Fill::from(
+            &self.context,
+            self.selected_emf_object.brush.clone(),
+        ) {
             Fill::Pattern { pattern } => {
                 let id = self.issue_id();
                 self.definitions.push(pattern.set("id", id.as_str()));
@@ -669,7 +667,7 @@ impl crate::converter::Player for SVGPlayer {
         self.elements.push(path);
         self.path = Data::new();
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -677,9 +675,9 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn fill_rgn(&mut self, _record: EMR_FILLRGN) -> Result<(), PlayError> {
+    fn fill_rgn(self, _record: EMR_FILLRGN) -> Result<Self, PlayError> {
         info!("EMR_FILLRGN: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -687,9 +685,9 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn frame_rgn(&mut self, _record: EMR_FRAMERGN) -> Result<(), PlayError> {
+    fn frame_rgn(self, _record: EMR_FRAMERGN) -> Result<Self, PlayError> {
         info!("EMR_FRAMERGN: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -698,11 +696,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn gradient_fill(
-        &mut self,
+        self,
         _record: EMR_GRADIENTFILL,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         info!("EMR_GRADIENTFILL: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -710,13 +708,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn line_to(&mut self, record: EMR_LINETO) -> Result<(), PlayError> {
+    fn line_to(mut self, record: EMR_LINETO) -> Result<Self, PlayError> {
         let point = self.context.transform_point_l(&record.point);
+        self.path = self.path.line_to(format!("{} {}", point.x, point.y));
 
-        self.path =
-            self.path.clone().line_to(format!("{} {}", point.x, point.y));
-
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -724,9 +720,9 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn paint_rgn(&mut self, _record: EMR_PAINTRGN) -> Result<(), PlayError> {
+    fn paint_rgn(self, _record: EMR_PAINTRGN) -> Result<Self, PlayError> {
         info!("EMR_PAINTRGN: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -734,9 +730,9 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn pie(&mut self, _record: EMR_PIE) -> Result<(), PlayError> {
+    fn pie(self, _record: EMR_PIE) -> Result<Self, PlayError> {
         info!("EMR_PIE: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -744,10 +740,13 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn poly_bezier(&mut self, record: EMR_POLYBEZIER) -> Result<(), PlayError> {
+    fn poly_bezier(
+        mut self,
+        record: EMR_POLYBEZIER,
+    ) -> Result<Self, PlayError> {
         if record.count == 0 {
             info!(%record.count, "polyline has no points");
-            return Ok(());
+            return Ok(self);
         }
 
         // NOTE: ignore move to first point for SVG.
@@ -757,10 +756,9 @@ impl crate::converter::Player for SVGPlayer {
         //     });
         // };
         // let point = self.context.transform_point_l(point);
-        // let mut data =
-        //     self.path.clone().move_to(format!("{} {}", point.x, point.y));
+        // self.path = self.path.clone().move_to(format!("{} {}", point.x,
+        // point.y));
 
-        let mut data = self.path.clone();
         let mut c = vec![];
 
         for i in 1..record.count {
@@ -777,7 +775,7 @@ impl crate::converter::Player for SVGPlayer {
             c.extend([point.x, point.y]);
 
             if c.len() % 3 == 0 {
-                data = data.curve_to(
+                self.path = self.path.curve_to(
                     c.iter()
                         .map(ToString::to_string)
                         .collect::<Vec<_>>()
@@ -789,9 +787,7 @@ impl crate::converter::Player for SVGPlayer {
             }
         }
 
-        self.path = data;
-
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -800,12 +796,12 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn poly_bezier_16(
-        &mut self,
+        mut self,
         record: EMR_POLYBEZIER16,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         if record.count == 0 {
             info!(%record.count, "polyline has no points");
-            return Ok(());
+            return Ok(self);
         }
 
         // NOTE: ignore move to first point for SVG.
@@ -815,10 +811,9 @@ impl crate::converter::Player for SVGPlayer {
         //     });
         // };
         // let point = self.context.transform_point_s(point);
-        // let mut data =
-        //     self.path.clone().move_to(format!("{} {}", point.x, point.y));
+        // self.path = self.path.clone().move_to(format!("{} {}", point.x,
+        // point.y));
 
-        let mut data = self.path.clone();
         let mut c = vec![];
 
         for i in 1..record.count {
@@ -835,7 +830,7 @@ impl crate::converter::Player for SVGPlayer {
             c.extend([point.x, point.y]);
 
             if c.len() % 3 == 0 {
-                data = data.curve_to(
+                self.path = self.path.curve_to(
                     c.iter()
                         .map(ToString::to_string)
                         .collect::<Vec<_>>()
@@ -845,9 +840,7 @@ impl crate::converter::Player for SVGPlayer {
             }
         }
 
-        self.path = data;
-
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -856,22 +849,21 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn poly_bezier_to(
-        &mut self,
+        mut self,
         record: EMR_POLYBEZIERTO,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         if record.count == 0 {
             info!(%record.count, "polyline has no points");
-            return Ok(());
+            return Ok(self);
         }
 
         // NOTE: ignore move to first point for SVG.
-        // let mut data = self.path.clone().move_to(format!(
+        // self.path = self.path.clone().move_to(format!(
         //     "{} {}",
         //     self.context.graphics_environment.drawing.current_position.x,
         //     self.context.graphics_environment.drawing.current_position.y
         // ));
 
-        let mut data = self.path.clone();
         let mut c = vec![];
 
         for i in 0..record.count {
@@ -888,7 +880,7 @@ impl crate::converter::Player for SVGPlayer {
             c.extend([point.x, point.y]);
 
             if c.len() % 3 == 0 {
-                data = data.curve_to(
+                self.path = self.path.curve_to(
                     c.iter()
                         .map(ToString::to_string)
                         .collect::<Vec<_>>()
@@ -898,9 +890,7 @@ impl crate::converter::Player for SVGPlayer {
             }
         }
 
-        self.path = data;
-
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -909,22 +899,20 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn poly_bezier_to_16(
-        &mut self,
+        mut self,
         record: EMR_POLYBEZIERTO16,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         if record.count == 0 {
             info!(%record.count, "polyline has no points");
-            return Ok(());
+            return Ok(self);
         }
 
         // NOTE: ignore move to first point for SVG.
         // let point = self.context.transform_point_l(&
         //     self.context.graphics_environment.drawing.current_position.
         // clone(), );
-        // let mut data =
-        //     self.path.clone().move_to(format!("{} {}", point.x, point.y));
+        // self.path = self.path.move_to(format!("{} {}", point.x, point.y));
 
-        let mut data = self.path.clone();
         let mut c = vec![];
 
         for i in 0..record.count {
@@ -941,7 +929,7 @@ impl crate::converter::Player for SVGPlayer {
             c.extend([point.x, point.y]);
 
             if c.len() % 3 == 0 {
-                data = data.curve_to(
+                self.path = self.path.curve_to(
                     c.iter()
                         .map(ToString::to_string)
                         .collect::<Vec<_>>()
@@ -951,9 +939,7 @@ impl crate::converter::Player for SVGPlayer {
             }
         }
 
-        self.path = data;
-
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -961,9 +947,9 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn poly_draw(&mut self, _record: EMR_POLYDRAW) -> Result<(), PlayError> {
+    fn poly_draw(self, _record: EMR_POLYDRAW) -> Result<Self, PlayError> {
         info!("EMR_POLYDRAW: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -971,12 +957,9 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn poly_draw_16(
-        &mut self,
-        _record: EMR_POLYDRAW16,
-    ) -> Result<(), PlayError> {
+    fn poly_draw_16(self, _record: EMR_POLYDRAW16) -> Result<Self, PlayError> {
         info!("EMR_POLYDRAW16: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -984,12 +967,9 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn poly_polygon(
-        &mut self,
-        record: EMR_POLYPOLYGON,
-    ) -> Result<(), PlayError> {
+    fn poly_polygon(self, record: EMR_POLYPOLYGON) -> Result<Self, PlayError> {
         info!("EMR_POLYPOLYGON: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -998,18 +978,19 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn poly_polygon_16(
-        &mut self,
+        mut self,
         record: EMR_POLYPOLYGON16,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         if record.number_of_polygons == 0 || record.count == 0 {
             info!(%record.number_of_polygons, %record.count, "polygon has no points");
-            return Ok(());
+            return Ok(self);
         }
 
-        let pen = &self.selected_emf_object.pen;
-        let brush = &self.selected_emf_object.brush;
-        let stroke = Stroke::from(pen.clone());
-        let fill = match Fill::from(&self.context, brush.clone()) {
+        let stroke = Stroke::from(self.selected_emf_object.pen.clone());
+        let fill = match Fill::from(
+            &self.context,
+            self.selected_emf_object.brush.clone(),
+        ) {
             Fill::Pattern { pattern } => {
                 let id = self.issue_id();
                 self.definitions.push(pattern.set("id", id.as_str()));
@@ -1061,7 +1042,7 @@ impl crate::converter::Player for SVGPlayer {
             self.elements.push(polygon);
         }
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1070,11 +1051,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn poly_polyline(
-        &mut self,
+        self,
         _record: EMR_POLYPOLYLINE,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         info!("EMR_POLYPOLYLINE: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1083,11 +1064,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn poly_polyline_16(
-        &mut self,
+        self,
         _record: EMR_POLYPOLYLINE16,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         info!("EMR_POLYPOLYLINE16: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1096,11 +1077,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn poly_text_out_a(
-        &mut self,
+        self,
         _record: EMR_POLYTEXTOUTA,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         info!("EMR_POLYTEXTOUTA: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1109,11 +1090,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn poly_text_out_w(
-        &mut self,
+        self,
         _record: EMR_POLYTEXTOUTW,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         info!("EMR_POLYTEXTOUTW: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1121,16 +1102,17 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn polygon(&mut self, record: EMR_POLYGON) -> Result<(), PlayError> {
+    fn polygon(mut self, record: EMR_POLYGON) -> Result<Self, PlayError> {
         if record.count == 0 {
             info!(%record.count, "polygon has no points");
-            return Ok(());
+            return Ok(self);
         }
 
-        let pen = &self.selected_emf_object.pen;
-        let brush = &self.selected_emf_object.brush;
-        let stroke = Stroke::from(pen.clone());
-        let fill = match Fill::from(&self.context, brush.clone()) {
+        let stroke = Stroke::from(self.selected_emf_object.pen.clone());
+        let fill = match Fill::from(
+            &self.context,
+            self.selected_emf_object.brush.clone(),
+        ) {
             Fill::Pattern { pattern } => {
                 let id = self.issue_id();
                 self.definitions.push(pattern.set("id", id.as_str()));
@@ -1166,7 +1148,7 @@ impl crate::converter::Player for SVGPlayer {
 
         self.elements.push(polygon);
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1174,16 +1156,17 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn polygon_16(&mut self, record: EMR_POLYGON16) -> Result<(), PlayError> {
+    fn polygon_16(mut self, record: EMR_POLYGON16) -> Result<Self, PlayError> {
         if record.count == 0 {
             info!(%record.count, "polygon has no points");
-            return Ok(());
+            return Ok(self);
         }
 
-        let pen = &self.selected_emf_object.pen;
-        let brush = &self.selected_emf_object.brush;
-        let stroke = Stroke::from(pen.clone());
-        let fill = match Fill::from(&self.context, brush.clone()) {
+        let stroke = Stroke::from(self.selected_emf_object.pen.clone());
+        let fill = match Fill::from(
+            &self.context,
+            self.selected_emf_object.brush.clone(),
+        ) {
             Fill::Pattern { pattern } => {
                 let id = self.issue_id();
                 self.definitions.push(pattern.set("id", id.as_str()));
@@ -1219,7 +1202,7 @@ impl crate::converter::Player for SVGPlayer {
 
         self.elements.push(polygon);
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1227,10 +1210,10 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn polyline(&mut self, record: EMR_POLYLINE) -> Result<(), PlayError> {
+    fn polyline(mut self, record: EMR_POLYLINE) -> Result<Self, PlayError> {
         if record.count == 0 {
             info!(%record.count, "polyline has no points");
-            return Ok(());
+            return Ok(self);
         }
 
         let Some(point) = record.a_points.first() else {
@@ -1240,8 +1223,7 @@ impl crate::converter::Player for SVGPlayer {
         };
 
         let point = self.context.transform_point_l(point);
-        let mut data =
-            self.path.clone().move_to(format!("{} {}", point.x, point.y));
+        self.path = self.path.move_to(format!("{} {}", point.x, point.y));
 
         for i in 1..record.count {
             let Some(point) = record.a_points.get(i as usize) else {
@@ -1254,12 +1236,10 @@ impl crate::converter::Player for SVGPlayer {
                 point.clone();
 
             let point = self.context.transform_point_l(point);
-            data = data.line_to(format!("{} {}", point.x, point.y));
+            self.path = self.path.line_to(format!("{} {}", point.x, point.y));
         }
 
-        self.path = data;
-
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1267,10 +1247,13 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn polyline_16(&mut self, record: EMR_POLYLINE16) -> Result<(), PlayError> {
+    fn polyline_16(
+        mut self,
+        record: EMR_POLYLINE16,
+    ) -> Result<Self, PlayError> {
         if record.count == 0 {
             info!(%record.count, "polyline has no points");
-            return Ok(());
+            return Ok(self);
         }
 
         let Some(point) = record.a_points.first() else {
@@ -1279,8 +1262,7 @@ impl crate::converter::Player for SVGPlayer {
             });
         };
 
-        let mut data =
-            self.path.clone().move_to(format!("{} {}", point.x, point.y));
+        self.path = self.path.move_to(format!("{} {}", point.x, point.y));
 
         for i in 1..record.count {
             let Some(point) = record.a_points.get(i as usize) else {
@@ -1293,12 +1275,10 @@ impl crate::converter::Player for SVGPlayer {
                 point_s_to_point_l(point);
 
             let point = self.context.transform_point_s(point);
-            data = data.line_to(format!("{} {}", point.x, point.y));
+            self.path = self.path.line_to(format!("{} {}", point.x, point.y));
         }
 
-        self.path = data;
-
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1306,13 +1286,14 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn polyline_to(&mut self, record: EMR_POLYLINETO) -> Result<(), PlayError> {
+    fn polyline_to(
+        mut self,
+        record: EMR_POLYLINETO,
+    ) -> Result<Self, PlayError> {
         if record.count == 0 {
             info!(%record.count, "polyline has no points");
-            return Ok(());
+            return Ok(self);
         }
-
-        let mut data = self.path.clone();
 
         for i in 0..record.count {
             let Some(point) = record.a_points.get(i as usize) else {
@@ -1325,12 +1306,10 @@ impl crate::converter::Player for SVGPlayer {
                 point.clone();
 
             let point = self.context.transform_point_l(point);
-            data = data.line_to(format!("{} {}", point.x, point.y));
+            self.path = self.path.line_to(format!("{} {}", point.x, point.y));
         }
 
-        self.path = data;
-
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1339,12 +1318,12 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn polyline_to_16(
-        &mut self,
+        mut self,
         record: EMR_POLYLINETO16,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         if record.count == 0 {
             info!(%record.count, "polyline has no points");
-            return Ok(());
+            return Ok(self);
         }
 
         let mut data = self.path.clone();
@@ -1365,7 +1344,7 @@ impl crate::converter::Player for SVGPlayer {
 
         self.path = data;
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1373,11 +1352,12 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn rectangle(&mut self, record: EMR_RECTANGLE) -> Result<(), PlayError> {
-        let pen = &self.selected_emf_object.pen;
-        let brush = &self.selected_emf_object.brush;
-        let stroke = Stroke::from(pen.clone());
-        let fill = match Fill::from(&self.context, brush.clone()) {
+    fn rectangle(mut self, record: EMR_RECTANGLE) -> Result<Self, PlayError> {
+        let stroke = Stroke::from(self.selected_emf_object.pen.clone());
+        let fill = match Fill::from(
+            &self.context,
+            self.selected_emf_object.brush.clone(),
+        ) {
             Fill::Pattern { pattern } => {
                 let id = self.issue_id();
                 self.definitions.push(pattern.set("id", id.as_str()));
@@ -1411,7 +1391,7 @@ impl crate::converter::Player for SVGPlayer {
 
         self.elements.push(rect);
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1419,9 +1399,9 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn round_rect(&mut self, _record: EMR_ROUNDRECT) -> Result<(), PlayError> {
+    fn round_rect(self, _record: EMR_ROUNDRECT) -> Result<Self, PlayError> {
         info!("EMR_ROUNDRECT: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1429,9 +1409,9 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn set_pixel_v(&mut self, _record: EMR_SETPIXELV) -> Result<(), PlayError> {
+    fn set_pixel_v(self, _record: EMR_SETPIXELV) -> Result<Self, PlayError> {
         info!("EMR_SETPIXELV: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1440,11 +1420,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn small_text_out(
-        &mut self,
+        self,
         _record: EMR_SMALLTEXTOUT,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         info!("EMR_SMALLTEXTOUT: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1453,16 +1433,15 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn stroke_and_fill_path(
-        &mut self,
+        mut self,
         record: EMR_STROKEANDFILLPATH,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         if self.path.is_empty() {
-            return Ok(());
+            return Ok(self);
         }
 
-        let pen = &self.selected_emf_object.pen;
         let brush = &self.selected_emf_object.brush;
-        let stroke = Stroke::from(pen.clone());
+        let stroke = Stroke::from(self.selected_emf_object.pen.clone());
         let fill = match Fill::from(&self.context, brush.clone()) {
             Fill::Pattern { pattern } => {
                 let id = self.issue_id();
@@ -1484,7 +1463,7 @@ impl crate::converter::Player for SVGPlayer {
         self.elements.push(path);
         self.path = Data::new();
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1492,13 +1471,15 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn stroke_path(&mut self, record: EMR_STROKEPATH) -> Result<(), PlayError> {
+    fn stroke_path(
+        mut self,
+        record: EMR_STROKEPATH,
+    ) -> Result<Self, PlayError> {
         if self.path.is_empty() {
-            return Ok(());
+            return Ok(self);
         }
 
-        let pen = &self.selected_emf_object.pen;
-        let stroke = Stroke::from(pen.clone());
+        let stroke = Stroke::from(self.selected_emf_object.pen.clone());
         let path = Node::new("path")
             .set("fill", "none")
             .set("d", self.path.to_string());
@@ -1507,7 +1488,7 @@ impl crate::converter::Player for SVGPlayer {
         self.elements.push(path);
         self.path = Data::new();
 
-        Ok(())
+        Ok(self)
     }
 
     // .
@@ -1520,12 +1501,9 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn draw_escape(
-        &mut self,
-        _record: EMR_DRAWESCAPE,
-    ) -> Result<(), PlayError> {
+    fn draw_escape(self, _record: EMR_DRAWESCAPE) -> Result<Self, PlayError> {
         info!("EMR_DRAWESCAPE: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1533,9 +1511,9 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn ext_escape(&mut self, _record: EMR_EXTESCAPE) -> Result<(), PlayError> {
+    fn ext_escape(self, _record: EMR_EXTESCAPE) -> Result<Self, PlayError> {
         info!("EMR_EXTESCAPE: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1543,12 +1521,9 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn named_escape(
-        &mut self,
-        _record: EMR_NAMEDESCAPE,
-    ) -> Result<(), PlayError> {
+    fn named_escape(self, _record: EMR_NAMEDESCAPE) -> Result<Self, PlayError> {
         info!("EMR_NAMEDESCAPE: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     // .
@@ -1562,15 +1537,15 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn create_brush_indirect(
-        &mut self,
+        mut self,
         record: EMR_CREATEBRUSHINDIRECT,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         self.emf_object_table.set(
             record.ih_brush as usize,
             GraphicsObject::LogBrushEx(record.log_brush),
         );
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1579,11 +1554,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn create_color_space(
-        &mut self,
+        self,
         _record: EMR_CREATECOLORSPACE,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         info!("EMR_CREATECOLORSPACE: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1592,11 +1567,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn create_color_space_w(
-        &mut self,
+        self,
         _record: EMR_CREATECOLORSPACEW,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         info!("EMR_CREATECOLORSPACEW: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1605,11 +1580,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn create_dib_pattern_brush_pt(
-        &mut self,
+        self,
         _record: EMR_CREATEDIBPATTERNBRUSHPT,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         info!("EMR_CREATEDIBPATTERNBRUSHPT: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1618,11 +1593,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn create_mono_brush(
-        &mut self,
+        self,
         _record: EMR_CREATEMONOBRUSH,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         info!("EMR_CREATEMONOBRUSH: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1631,11 +1606,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn create_palette(
-        &mut self,
+        self,
         _record: EMR_CREATEPALETTE,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         info!("EMR_CREATEPALETTE: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1643,13 +1618,13 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn create_pen(&mut self, record: EMR_CREATEPEN) -> Result<(), PlayError> {
+    fn create_pen(mut self, record: EMR_CREATEPEN) -> Result<Self, PlayError> {
         self.emf_object_table.set(
             record.ih_pen as usize,
             GraphicsObject::LogPenEx(record.log_pen.into()),
         );
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1658,9 +1633,9 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn ext_create_font_indirect_w(
-        &mut self,
+        mut self,
         record: EMR_EXTCREATEFONTINDIRECTW,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         let font = match record.elw {
             crate::parser::ELW::LogFontExDv(v) => {
                 v.first().expect("should be set").clone()
@@ -1671,7 +1646,7 @@ impl crate::converter::Player for SVGPlayer {
         self.emf_object_table
             .set(record.ih_fonts as usize, GraphicsObject::LogFontExDv(font));
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1680,13 +1655,13 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn ext_create_pen(
-        &mut self,
+        mut self,
         record: EMR_EXTCREATEPEN,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         self.emf_object_table
             .set(record.ih_pen as usize, GraphicsObject::LogPenEx(record.elp));
 
-        Ok(())
+        Ok(self)
     }
 
     // .
@@ -1700,11 +1675,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn color_correct_palette(
-        &mut self,
+        self,
         _record: EMR_COLORCORRECTPALETTE,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         info!("EMR_COLORCORRECTPALETTE: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1713,11 +1688,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn delete_color_space(
-        &mut self,
+        self,
         _record: EMR_DELETECOLORSPACE,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         info!("EMR_DELETECOLORSPACE: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1726,11 +1701,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn delete_object(
-        &mut self,
+        mut self,
         record: EMR_DELETEOBJECT,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         self.emf_object_table.delete(record.in_object as usize);
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1739,11 +1714,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn resize_palette(
-        &mut self,
+        self,
         _record: EMR_RESIZEPALETTE,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         info!("EMR_RESIZEPALETTE: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1752,9 +1727,9 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn select_object(
-        &mut self,
+        mut self,
         record: EMR_SELECTOBJECT,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         let emf_object = if let Some(stock_object) =
             StockObject::from_repr(record.in_object)
         {
@@ -1798,7 +1773,7 @@ impl crate::converter::Player for SVGPlayer {
             }
         }
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1807,11 +1782,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn select_palette(
-        &mut self,
+        self,
         _record: EMR_SELECTPALETTE,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         info!("EMR_SELECTPALETTE: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1820,11 +1795,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn set_color_space(
-        &mut self,
+        self,
         _record: EMR_SETCOLORSPACE,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         info!("EMR_SETCOLORSPACE: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1833,11 +1808,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn set_palette_entries(
-        &mut self,
+        self,
         _record: EMR_SETPALETTEENTRIES,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         info!("EMR_SETPALETTEENTRIES: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     // .
@@ -1851,11 +1826,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn gls_bounded_record(
-        &mut self,
+        self,
         _record: EMR_GLSBOUNDEDRECORD,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         info!("EMR_GLSBOUNDEDRECORD: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1863,9 +1838,9 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn gls_record(&mut self, _record: EMR_GLSRECORD) -> Result<(), PlayError> {
+    fn gls_record(self, _record: EMR_GLSRECORD) -> Result<Self, PlayError> {
         info!("EMR_GLSRECORD: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     // .
@@ -1878,11 +1853,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn abort_path(&mut self, _record: EMR_ABORTPATH) -> Result<(), PlayError> {
+    fn abort_path(mut self, _record: EMR_ABORTPATH) -> Result<Self, PlayError> {
         self.path = Data::new();
         self.context.graphics_environment.drawing.path_bracket = false;
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1890,7 +1865,7 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn begin_path(&mut self, _record: EMR_BEGINPATH) -> Result<(), PlayError> {
+    fn begin_path(mut self, _record: EMR_BEGINPATH) -> Result<Self, PlayError> {
         if self.context.graphics_environment.drawing.path_bracket {
             return Err(PlayError::InvalidRecord {
                 cause: "Path bracket construction MUST be closed by an \
@@ -1900,8 +1875,9 @@ impl crate::converter::Player for SVGPlayer {
         }
 
         self.context.graphics_environment.drawing.path_bracket = true;
+        self.path = Data::new();
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1910,13 +1886,13 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn close_figure(
-        &mut self,
+        mut self,
         _record: EMR_CLOSEFIGURE,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         self.context.graphics_environment.drawing.path_bracket = false;
-        self.path = self.path.clone().close();
+        self.path = self.path.close();
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1924,9 +1900,9 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn end_path(&mut self, _record: EMR_ENDPATH) -> Result<(), PlayError> {
+    fn end_path(mut self, _record: EMR_ENDPATH) -> Result<Self, PlayError> {
         self.context.graphics_environment.drawing.path_bracket = false;
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1935,15 +1911,14 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn flatten_path(
-        &mut self,
+        mut self,
         _record: EMR_FLATTENPATH,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         if self.path.is_empty() {
-            return Ok(());
+            return Ok(self);
         }
 
-        let pen = &self.selected_emf_object.pen;
-        let stroke = Stroke::from(pen.clone());
+        let stroke = Stroke::from(self.selected_emf_object.pen.clone());
         let path = Node::new("path")
             .set("fill", "none")
             .set("d", self.path.to_string());
@@ -1951,7 +1926,7 @@ impl crate::converter::Player for SVGPlayer {
 
         self.elements.push(path);
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1959,9 +1934,9 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn widen_path(&mut self, _record: EMR_WIDENPATH) -> Result<(), PlayError> {
+    fn widen_path(self, _record: EMR_WIDENPATH) -> Result<Self, PlayError> {
         info!("EMR_WIDENPATH: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     // .
@@ -1975,11 +1950,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn color_match_to_target_w(
-        &mut self,
+        self,
         _record: EMR_COLORMATCHTOTARGETW,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         info!("EMR_COLORMATCHTOTARGETW: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -1988,13 +1963,13 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn force_ufi_mapping(
-        &mut self,
+        mut self,
         record: EMR_FORCEUFIMAPPING,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         self.context.graphics_environment.text.force_ufi_mapping =
             record.ufi.into();
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -2002,9 +1977,9 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn invert_rgn(&mut self, _record: EMR_INVERTRGN) -> Result<(), PlayError> {
+    fn invert_rgn(self, _record: EMR_INVERTRGN) -> Result<Self, PlayError> {
         info!("EMR_INVERTRGN: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -2012,7 +1987,7 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn move_to_ex(&mut self, record: EMR_MOVETOEX) -> Result<(), PlayError> {
+    fn move_to_ex(mut self, record: EMR_MOVETOEX) -> Result<Self, PlayError> {
         self.context.graphics_environment.drawing.current_position =
             record.offset.clone();
 
@@ -2021,7 +1996,7 @@ impl crate::converter::Player for SVGPlayer {
         self.path =
             self.path.clone().move_to(format!("{} {}", point.x, point.y));
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -2030,13 +2005,13 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn pixel_format(
-        &mut self,
+        mut self,
         record: EMR_PIXELFORMAT,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         self.context.graphics_environment.color.pixel_format =
             record.pfd.into();
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -2045,11 +2020,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn realize_palette(
-        &mut self,
+        self,
         _record: EMR_REALIZEPALETTE,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         info!("EMR_REALIZEPALETTE: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -2057,7 +2032,7 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn restore_dc(&mut self, record: EMR_RESTOREDC) -> Result<(), PlayError> {
+    fn restore_dc(mut self, record: EMR_RESTOREDC) -> Result<Self, PlayError> {
         let mut current = record.saved_dc;
 
         while current < 0 {
@@ -2071,7 +2046,7 @@ impl crate::converter::Player for SVGPlayer {
             current += 1;
         }
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -2079,10 +2054,10 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn save_dc(&mut self, _record: EMR_SAVEDC) -> Result<(), PlayError> {
+    fn save_dc(mut self, _record: EMR_SAVEDC) -> Result<Self, PlayError> {
         self.context_stack.push(self.context.clone());
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -2091,9 +2066,9 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn scale_viewport_ext_ex(
-        &mut self,
+        mut self,
         record: EMR_SCALEVIEWPORTEXTEX,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         let wmf_core::parser::SizeL { cx, cy } =
             self.context.graphics_environment.regions.viewport.extent;
 
@@ -2105,7 +2080,7 @@ impl crate::converter::Player for SVGPlayer {
                     .unsigned_abs(),
             };
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -2114,9 +2089,9 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn scale_window_ext_ex(
-        &mut self,
+        mut self,
         record: EMR_SCALEWINDOWEXTEX,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         let wmf_core::parser::SizeL { cx, cy } =
             self.context.graphics_environment.regions.window.extent;
 
@@ -2128,7 +2103,7 @@ impl crate::converter::Player for SVGPlayer {
                     .unsigned_abs(),
             };
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -2137,13 +2112,13 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn set_arc_direction(
-        &mut self,
+        mut self,
         record: EMR_SETARCDIRECTION,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         self.context.graphics_environment.drawing.arc_direction =
             record.arc_direction;
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -2152,13 +2127,13 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn set_bk_color(
-        &mut self,
+        mut self,
         record: EMR_SETBKCOLOR,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         self.context.graphics_environment.drawing.background_color =
             record.color;
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -2166,11 +2141,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn set_bk_mode(&mut self, record: EMR_SETBKMODE) -> Result<(), PlayError> {
+    fn set_bk_mode(mut self, record: EMR_SETBKMODE) -> Result<Self, PlayError> {
         self.context.graphics_environment.drawing.background_mode =
             record.background_mode;
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -2179,11 +2154,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn set_brush_org_ex(
-        &mut self,
+        mut self,
         record: EMR_SETBRUSHORGEX,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         self.context.graphics_environment.drawing.brush_origin = record.origin;
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -2192,13 +2167,13 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn set_color_adjustment(
-        &mut self,
+        mut self,
         record: EMR_SETCOLORADJUSTMENT,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         self.context.graphics_environment.color.color_adjustment =
             record.color_adjustment;
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -2207,11 +2182,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn set_icm_mode(
-        &mut self,
+        mut self,
         record: EMR_SETICMMODE,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         self.context.graphics_environment.color.icm_mode = record.icm_mode;
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -2220,11 +2195,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn set_icm_profile_a(
-        &mut self,
+        self,
         _record: EMR_SETICMPROFILEA,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         info!("EMR_SETICMPROFILEA: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -2233,11 +2208,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn set_icm_profile_w(
-        &mut self,
+        self,
         _record: EMR_SETICMPROFILEW,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         info!("EMR_SETICMPROFILEW: not implemented");
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -2245,11 +2220,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn set_layout(&mut self, record: EMR_SETLAYOUT) -> Result<(), PlayError> {
+    fn set_layout(mut self, record: EMR_SETLAYOUT) -> Result<Self, PlayError> {
         self.context.graphics_environment.drawing.layout_mode =
             record.layout_mode;
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -2258,11 +2233,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn set_linked_ufis(
-        &mut self,
+        mut self,
         record: EMR_SETLINKEDUFIS,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         self.context.graphics_environment.text.linked_ufis = record.ufis;
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -2271,13 +2246,13 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn set_map_mode(
-        &mut self,
+        mut self,
         record: EMR_SETMAPMODE,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         self.context.graphics_environment.drawing.mapping_mode =
             record.map_mode;
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -2286,11 +2261,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn set_mapper_flags(
-        &mut self,
+        mut self,
         record: EMR_SETMAPPERFLAGS,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         self.context.graphics_environment.text.font_mapper_flags = record.flags;
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -2299,13 +2274,13 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn set_miter_limit(
-        &mut self,
+        mut self,
         record: EMR_SETMITERLIMIT,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         self.context.graphics_environment.drawing.miter_limit =
             record.miter_limit.into();
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -2314,13 +2289,13 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn set_polyfill_mode(
-        &mut self,
+        mut self,
         record: EMR_SETPOLYFILLMODE,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         self.context.graphics_environment.drawing.polyfill_mode =
             record.polygon_fill_mode;
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -2328,10 +2303,10 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn set_rop2(&mut self, record: EMR_SETROP2) -> Result<(), PlayError> {
+    fn set_rop2(mut self, record: EMR_SETROP2) -> Result<Self, PlayError> {
         self.context.graphics_environment.drawing.rop2 = record.rop2_mode;
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -2340,13 +2315,13 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn set_stretch_blt_mode(
-        &mut self,
+        mut self,
         record: EMR_SETSTRETCHBLTMODE,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         self.context.graphics_environment.drawing.stretch_blt_mode =
             record.stretch_mode;
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -2355,13 +2330,13 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn set_text_align(
-        &mut self,
+        mut self,
         record: EMR_SETTEXTALIGN,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         self.context.graphics_environment.text.text_alignment =
             record.text_alignment_mode;
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -2370,11 +2345,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn set_text_color(
-        &mut self,
+        mut self,
         record: EMR_SETTEXTCOLOR,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         self.context.graphics_environment.drawing.text_color = record.color;
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -2383,13 +2358,13 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn set_text_justification(
-        &mut self,
+        mut self,
         record: EMR_SETTEXTJUSTIFICATION,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         self.context.graphics_environment.text.text_justification =
             (record.n_break_extra, record.n_break_count);
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -2398,9 +2373,9 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn set_viewport_ext_ex(
-        &mut self,
+        mut self,
         record: EMR_SETVIEWPORTEXTEX,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         if matches!(
             self.context.graphics_environment.drawing.mapping_mode,
             MapMode::MM_ISOTROPIC | MapMode::MM_ANISOTROPIC
@@ -2411,7 +2386,7 @@ impl crate::converter::Player for SVGPlayer {
             self.context.apply_transformation();
         }
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -2420,13 +2395,13 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn set_viewport_org_ex(
-        &mut self,
+        mut self,
         record: EMR_SETVIEWPORTORGEX,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         self.context.graphics_environment.regions.viewport.origin =
             record.origin;
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -2435,9 +2410,9 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn set_window_ext_ex(
-        &mut self,
+        mut self,
         record: EMR_SETWINDOWEXTEX,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         self.context.graphics_environment.regions.window.extent =
             record.extent.clone();
 
@@ -2450,7 +2425,7 @@ impl crate::converter::Player for SVGPlayer {
             self.window.extent = record.extent;
         }
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -2459,9 +2434,9 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn set_window_org_ex(
-        &mut self,
+        mut self,
         record: EMR_SETWINDOWORGEX,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         self.context.graphics_environment.regions.window.origin =
             record.origin.clone();
 
@@ -2472,7 +2447,7 @@ impl crate::converter::Player for SVGPlayer {
             self.window.origin = record.origin;
         }
 
-        Ok(())
+        Ok(self)
     }
 
     // .
@@ -2486,13 +2461,13 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn modify_world_transform(
-        &mut self,
+        mut self,
         record: EMR_MODIFYWORLDTRANSFORM,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         let (a, b) = match record.modify_world_transform_mode {
             ModifyWorldTransformMode::MWT_IDENTITY => {
                 // NOOP
-                return Ok(());
+                return Ok(self);
             }
             ModifyWorldTransformMode::MWT_LEFTMULTIPLY => {
                 (record.x_form, self.context.xform.clone())
@@ -2502,7 +2477,7 @@ impl crate::converter::Player for SVGPlayer {
             }
             ModifyWorldTransformMode::MWT_SET => {
                 self.context.xform = record.x_form;
-                return Ok(());
+                return Ok(self);
             }
         };
 
@@ -2515,7 +2490,7 @@ impl crate::converter::Player for SVGPlayer {
             dy: a.dy * b.m12 + a.dy * b.m22 + b.dy,
         };
 
-        Ok(())
+        Ok(self)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
@@ -2524,11 +2499,11 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn set_world_transform(
-        &mut self,
+        mut self,
         record: EMR_SETWORLDTRANSFORM,
-    ) -> Result<(), PlayError> {
+    ) -> Result<Self, PlayError> {
         self.context.xform = record.x_form;
 
-        Ok(())
+        Ok(self)
     }
 }

@@ -14,7 +14,7 @@ pub enum PlayError {
     Unknown { cause: String },
 }
 
-pub trait Player {
+pub trait Player: Sized {
     /// Call after converting to write output.
     fn generate(self) -> Result<Vec<u8>, PlayError>;
 
@@ -23,23 +23,23 @@ pub trait Player {
     // Functions to handle Bitmap Record
     // .
     // .
-    fn alpha_blend(&mut self, record: EMR_ALPHABLEND) -> Result<(), PlayError>;
-    fn bit_blt(&mut self, record: EMR_BITBLT) -> Result<(), PlayError>;
-    fn mask_blt(&mut self, record: EMR_MASKBLT) -> Result<(), PlayError>;
-    fn plg_blt(&mut self, record: EMR_PLGBLT) -> Result<(), PlayError>;
+    fn alpha_blend(self, record: EMR_ALPHABLEND) -> Result<Self, PlayError>;
+    fn bit_blt(self, record: EMR_BITBLT) -> Result<Self, PlayError>;
+    fn mask_blt(self, record: EMR_MASKBLT) -> Result<Self, PlayError>;
+    fn plg_blt(self, record: EMR_PLGBLT) -> Result<Self, PlayError>;
     fn set_dibits_to_device(
-        &mut self,
+        self,
         record: EMR_SETDIBITSTODEVICE,
-    ) -> Result<(), PlayError>;
-    fn stretch_blt(&mut self, record: EMR_STRETCHBLT) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
+    fn stretch_blt(self, record: EMR_STRETCHBLT) -> Result<Self, PlayError>;
     fn stretch_dibits(
-        &mut self,
+        self,
         record: EMR_STRETCHDIBITS,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn transparent_blt(
-        &mut self,
+        self,
         record: EMR_TRANSPARENTBLT,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
 
     // .
     // .
@@ -47,148 +47,132 @@ pub trait Player {
     // .
     // .
     fn exclude_clip_rect(
-        &mut self,
+        self,
         record: EMR_EXCLUDECLIPRECT,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn ext_select_clip_rgn(
-        &mut self,
+        self,
         record: EMR_EXTSELECTCLIPRGN,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn intersect_clip_rect(
-        &mut self,
+        self,
         record: EMR_INTERSECTCLIPRECT,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn offset_clip_rgn(
-        &mut self,
+        self,
         record: EMR_OFFSETCLIPRGN,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn select_clip_path(
-        &mut self,
+        self,
         record: EMR_SELECTCLIPPATH,
-    ) -> Result<(), PlayError>;
-    fn set_meta_rgn(&mut self, record: EMR_SETMETARGN)
-        -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
+    fn set_meta_rgn(self, record: EMR_SETMETARGN) -> Result<Self, PlayError>;
 
     // .
     // .
     // Functions to handle Comment Record
     // .
     // .
-    fn comment(&mut self, record: EMR_COMMENT) -> Result<(), PlayError>;
+    fn comment(self, record: EMR_COMMENT) -> Result<Self, PlayError>;
 
     // .
     // .
     // Functions to handle Control Record
     // .
     // .
-    fn eof(&mut self, record: EMR_EOF) -> Result<(), PlayError>;
-    fn header(&mut self, record: EMR_HEADER) -> Result<(), PlayError>;
+    fn eof(self, record: EMR_EOF) -> Result<Self, PlayError>;
+    fn header(self, record: EMR_HEADER) -> Result<Self, PlayError>;
 
     // .
     // .
     // Functions to handle Drawing Record
     // .
     // .
-    fn angle_arc(&mut self, record: EMR_ANGLEARC) -> Result<(), PlayError>;
-    fn arc(&mut self, record: EMR_ARC) -> Result<(), PlayError>;
-    fn arc_to(&mut self, record: EMR_ARCTO) -> Result<(), PlayError>;
-    fn chord(&mut self, record: EMR_CHORD) -> Result<(), PlayError>;
-    fn ellipse(&mut self, record: EMR_ELLIPSE) -> Result<(), PlayError>;
+    fn angle_arc(self, record: EMR_ANGLEARC) -> Result<Self, PlayError>;
+    fn arc(self, record: EMR_ARC) -> Result<Self, PlayError>;
+    fn arc_to(self, record: EMR_ARCTO) -> Result<Self, PlayError>;
+    fn chord(self, record: EMR_CHORD) -> Result<Self, PlayError>;
+    fn ellipse(self, record: EMR_ELLIPSE) -> Result<Self, PlayError>;
     fn ext_flood_fill(
-        &mut self,
+        self,
         record: EMR_EXTFLOODFILL,
-    ) -> Result<(), PlayError>;
-    fn ext_text_out_a(
-        &mut self,
-        record: EMR_EXTTEXTOUTA,
-    ) -> Result<(), PlayError>;
-    fn ext_text_out_w(
-        &mut self,
-        record: EMR_EXTTEXTOUTW,
-    ) -> Result<(), PlayError>;
-    fn fill_path(&mut self, record: EMR_FILLPATH) -> Result<(), PlayError>;
-    fn fill_rgn(&mut self, record: EMR_FILLRGN) -> Result<(), PlayError>;
-    fn frame_rgn(&mut self, record: EMR_FRAMERGN) -> Result<(), PlayError>;
-    fn gradient_fill(
-        &mut self,
-        record: EMR_GRADIENTFILL,
-    ) -> Result<(), PlayError>;
-    fn line_to(&mut self, record: EMR_LINETO) -> Result<(), PlayError>;
-    fn paint_rgn(&mut self, record: EMR_PAINTRGN) -> Result<(), PlayError>;
-    fn pie(&mut self, record: EMR_PIE) -> Result<(), PlayError>;
-    fn poly_bezier(&mut self, record: EMR_POLYBEZIER) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
+    fn ext_text_out_a(self, record: EMR_EXTTEXTOUTA)
+        -> Result<Self, PlayError>;
+    fn ext_text_out_w(self, record: EMR_EXTTEXTOUTW)
+        -> Result<Self, PlayError>;
+    fn fill_path(self, record: EMR_FILLPATH) -> Result<Self, PlayError>;
+    fn fill_rgn(self, record: EMR_FILLRGN) -> Result<Self, PlayError>;
+    fn frame_rgn(self, record: EMR_FRAMERGN) -> Result<Self, PlayError>;
+    fn gradient_fill(self, record: EMR_GRADIENTFILL)
+        -> Result<Self, PlayError>;
+    fn line_to(self, record: EMR_LINETO) -> Result<Self, PlayError>;
+    fn paint_rgn(self, record: EMR_PAINTRGN) -> Result<Self, PlayError>;
+    fn pie(self, record: EMR_PIE) -> Result<Self, PlayError>;
+    fn poly_bezier(self, record: EMR_POLYBEZIER) -> Result<Self, PlayError>;
     fn poly_bezier_16(
-        &mut self,
+        self,
         record: EMR_POLYBEZIER16,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn poly_bezier_to(
-        &mut self,
+        self,
         record: EMR_POLYBEZIERTO,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn poly_bezier_to_16(
-        &mut self,
+        self,
         record: EMR_POLYBEZIERTO16,
-    ) -> Result<(), PlayError>;
-    fn poly_draw(&mut self, record: EMR_POLYDRAW) -> Result<(), PlayError>;
-    fn poly_draw_16(&mut self, record: EMR_POLYDRAW16)
-        -> Result<(), PlayError>;
-    fn poly_polygon(
-        &mut self,
-        record: EMR_POLYPOLYGON,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
+    fn poly_draw(self, record: EMR_POLYDRAW) -> Result<Self, PlayError>;
+    fn poly_draw_16(self, record: EMR_POLYDRAW16) -> Result<Self, PlayError>;
+    fn poly_polygon(self, record: EMR_POLYPOLYGON) -> Result<Self, PlayError>;
     fn poly_polygon_16(
-        &mut self,
+        self,
         record: EMR_POLYPOLYGON16,
-    ) -> Result<(), PlayError>;
-    fn poly_polyline(
-        &mut self,
-        record: EMR_POLYPOLYLINE,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
+    fn poly_polyline(self, record: EMR_POLYPOLYLINE)
+        -> Result<Self, PlayError>;
     fn poly_polyline_16(
-        &mut self,
+        self,
         record: EMR_POLYPOLYLINE16,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn poly_text_out_a(
-        &mut self,
+        self,
         record: EMR_POLYTEXTOUTA,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn poly_text_out_w(
-        &mut self,
+        self,
         record: EMR_POLYTEXTOUTW,
-    ) -> Result<(), PlayError>;
-    fn polygon(&mut self, record: EMR_POLYGON) -> Result<(), PlayError>;
-    fn polygon_16(&mut self, record: EMR_POLYGON16) -> Result<(), PlayError>;
-    fn polyline(&mut self, record: EMR_POLYLINE) -> Result<(), PlayError>;
-    fn polyline_16(&mut self, record: EMR_POLYLINE16) -> Result<(), PlayError>;
-    fn polyline_to(&mut self, record: EMR_POLYLINETO) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
+    fn polygon(self, record: EMR_POLYGON) -> Result<Self, PlayError>;
+    fn polygon_16(self, record: EMR_POLYGON16) -> Result<Self, PlayError>;
+    fn polyline(self, record: EMR_POLYLINE) -> Result<Self, PlayError>;
+    fn polyline_16(self, record: EMR_POLYLINE16) -> Result<Self, PlayError>;
+    fn polyline_to(self, record: EMR_POLYLINETO) -> Result<Self, PlayError>;
     fn polyline_to_16(
-        &mut self,
+        self,
         record: EMR_POLYLINETO16,
-    ) -> Result<(), PlayError>;
-    fn rectangle(&mut self, record: EMR_RECTANGLE) -> Result<(), PlayError>;
-    fn round_rect(&mut self, record: EMR_ROUNDRECT) -> Result<(), PlayError>;
-    fn set_pixel_v(&mut self, record: EMR_SETPIXELV) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
+    fn rectangle(self, record: EMR_RECTANGLE) -> Result<Self, PlayError>;
+    fn round_rect(self, record: EMR_ROUNDRECT) -> Result<Self, PlayError>;
+    fn set_pixel_v(self, record: EMR_SETPIXELV) -> Result<Self, PlayError>;
     fn small_text_out(
-        &mut self,
+        self,
         record: EMR_SMALLTEXTOUT,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn stroke_and_fill_path(
-        &mut self,
+        self,
         record: EMR_STROKEANDFILLPATH,
-    ) -> Result<(), PlayError>;
-    fn stroke_path(&mut self, record: EMR_STROKEPATH) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
+    fn stroke_path(self, record: EMR_STROKEPATH) -> Result<Self, PlayError>;
 
     // .
     // .
     // Functions to handle Escape Record
     // .
     // .
-    fn draw_escape(&mut self, record: EMR_DRAWESCAPE) -> Result<(), PlayError>;
-    fn ext_escape(&mut self, record: EMR_EXTESCAPE) -> Result<(), PlayError>;
-    fn named_escape(
-        &mut self,
-        record: EMR_NAMEDESCAPE,
-    ) -> Result<(), PlayError>;
+    fn draw_escape(self, record: EMR_DRAWESCAPE) -> Result<Self, PlayError>;
+    fn ext_escape(self, record: EMR_EXTESCAPE) -> Result<Self, PlayError>;
+    fn named_escape(self, record: EMR_NAMEDESCAPE) -> Result<Self, PlayError>;
 
     // .
     // .
@@ -196,38 +180,38 @@ pub trait Player {
     // .
     // .
     fn create_brush_indirect(
-        &mut self,
+        self,
         record: EMR_CREATEBRUSHINDIRECT,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn create_color_space(
-        &mut self,
+        self,
         record: EMR_CREATECOLORSPACE,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn create_color_space_w(
-        &mut self,
+        self,
         record: EMR_CREATECOLORSPACEW,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn create_dib_pattern_brush_pt(
-        &mut self,
+        self,
         record: EMR_CREATEDIBPATTERNBRUSHPT,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn create_mono_brush(
-        &mut self,
+        self,
         record: EMR_CREATEMONOBRUSH,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn create_palette(
-        &mut self,
+        self,
         record: EMR_CREATEPALETTE,
-    ) -> Result<(), PlayError>;
-    fn create_pen(&mut self, record: EMR_CREATEPEN) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
+    fn create_pen(self, record: EMR_CREATEPEN) -> Result<Self, PlayError>;
     fn ext_create_font_indirect_w(
-        &mut self,
+        self,
         record: EMR_EXTCREATEFONTINDIRECTW,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn ext_create_pen(
-        &mut self,
+        self,
         record: EMR_EXTCREATEPEN,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
 
     // .
     // .
@@ -235,37 +219,33 @@ pub trait Player {
     // .
     // .
     fn color_correct_palette(
-        &mut self,
+        self,
         record: EMR_COLORCORRECTPALETTE,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn delete_color_space(
-        &mut self,
+        self,
         record: EMR_DELETECOLORSPACE,
-    ) -> Result<(), PlayError>;
-    fn delete_object(
-        &mut self,
-        record: EMR_DELETEOBJECT,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
+    fn delete_object(self, record: EMR_DELETEOBJECT)
+        -> Result<Self, PlayError>;
     fn resize_palette(
-        &mut self,
+        self,
         record: EMR_RESIZEPALETTE,
-    ) -> Result<(), PlayError>;
-    fn select_object(
-        &mut self,
-        record: EMR_SELECTOBJECT,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
+    fn select_object(self, record: EMR_SELECTOBJECT)
+        -> Result<Self, PlayError>;
     fn select_palette(
-        &mut self,
+        self,
         record: EMR_SELECTPALETTE,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn set_color_space(
-        &mut self,
+        self,
         record: EMR_SETCOLORSPACE,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn set_palette_entries(
-        &mut self,
+        self,
         record: EMR_SETPALETTEENTRIES,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
 
     // .
     // .
@@ -273,28 +253,22 @@ pub trait Player {
     // .
     // .
     fn gls_bounded_record(
-        &mut self,
+        self,
         record: EMR_GLSBOUNDEDRECORD,
-    ) -> Result<(), PlayError>;
-    fn gls_record(&mut self, record: EMR_GLSRECORD) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
+    fn gls_record(self, record: EMR_GLSRECORD) -> Result<Self, PlayError>;
 
     // .
     // .
     // Functions to handle Path Bracket Record
     // .
     // .
-    fn abort_path(&mut self, record: EMR_ABORTPATH) -> Result<(), PlayError>;
-    fn begin_path(&mut self, record: EMR_BEGINPATH) -> Result<(), PlayError>;
-    fn close_figure(
-        &mut self,
-        record: EMR_CLOSEFIGURE,
-    ) -> Result<(), PlayError>;
-    fn end_path(&mut self, record: EMR_ENDPATH) -> Result<(), PlayError>;
-    fn flatten_path(
-        &mut self,
-        record: EMR_FLATTENPATH,
-    ) -> Result<(), PlayError>;
-    fn widen_path(&mut self, record: EMR_WIDENPATH) -> Result<(), PlayError>;
+    fn abort_path(self, record: EMR_ABORTPATH) -> Result<Self, PlayError>;
+    fn begin_path(self, record: EMR_BEGINPATH) -> Result<Self, PlayError>;
+    fn close_figure(self, record: EMR_CLOSEFIGURE) -> Result<Self, PlayError>;
+    fn end_path(self, record: EMR_ENDPATH) -> Result<Self, PlayError>;
+    fn flatten_path(self, record: EMR_FLATTENPATH) -> Result<Self, PlayError>;
+    fn widen_path(self, record: EMR_WIDENPATH) -> Result<Self, PlayError>;
 
     // .
     // .
@@ -302,110 +276,104 @@ pub trait Player {
     // .
     // .
     fn color_match_to_target_w(
-        &mut self,
+        self,
         record: EMR_COLORMATCHTOTARGETW,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn force_ufi_mapping(
-        &mut self,
+        self,
         record: EMR_FORCEUFIMAPPING,
-    ) -> Result<(), PlayError>;
-    fn invert_rgn(&mut self, record: EMR_INVERTRGN) -> Result<(), PlayError>;
-    fn move_to_ex(&mut self, record: EMR_MOVETOEX) -> Result<(), PlayError>;
-    fn pixel_format(
-        &mut self,
-        record: EMR_PIXELFORMAT,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
+    fn invert_rgn(self, record: EMR_INVERTRGN) -> Result<Self, PlayError>;
+    fn move_to_ex(self, record: EMR_MOVETOEX) -> Result<Self, PlayError>;
+    fn pixel_format(self, record: EMR_PIXELFORMAT) -> Result<Self, PlayError>;
     fn realize_palette(
-        &mut self,
+        self,
         record: EMR_REALIZEPALETTE,
-    ) -> Result<(), PlayError>;
-    fn restore_dc(&mut self, record: EMR_RESTOREDC) -> Result<(), PlayError>;
-    fn save_dc(&mut self, record: EMR_SAVEDC) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
+    fn restore_dc(self, record: EMR_RESTOREDC) -> Result<Self, PlayError>;
+    fn save_dc(self, record: EMR_SAVEDC) -> Result<Self, PlayError>;
     fn scale_viewport_ext_ex(
-        &mut self,
+        self,
         record: EMR_SCALEVIEWPORTEXTEX,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn scale_window_ext_ex(
-        &mut self,
+        self,
         record: EMR_SCALEWINDOWEXTEX,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn set_arc_direction(
-        &mut self,
+        self,
         record: EMR_SETARCDIRECTION,
-    ) -> Result<(), PlayError>;
-    fn set_bk_color(&mut self, record: EMR_SETBKCOLOR)
-        -> Result<(), PlayError>;
-    fn set_bk_mode(&mut self, record: EMR_SETBKMODE) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
+    fn set_bk_color(self, record: EMR_SETBKCOLOR) -> Result<Self, PlayError>;
+    fn set_bk_mode(self, record: EMR_SETBKMODE) -> Result<Self, PlayError>;
     fn set_brush_org_ex(
-        &mut self,
+        self,
         record: EMR_SETBRUSHORGEX,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn set_color_adjustment(
-        &mut self,
+        self,
         record: EMR_SETCOLORADJUSTMENT,
-    ) -> Result<(), PlayError>;
-    fn set_icm_mode(&mut self, record: EMR_SETICMMODE)
-        -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
+    fn set_icm_mode(self, record: EMR_SETICMMODE) -> Result<Self, PlayError>;
     fn set_icm_profile_a(
-        &mut self,
+        self,
         record: EMR_SETICMPROFILEA,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn set_icm_profile_w(
-        &mut self,
+        self,
         record: EMR_SETICMPROFILEW,
-    ) -> Result<(), PlayError>;
-    fn set_layout(&mut self, record: EMR_SETLAYOUT) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
+    fn set_layout(self, record: EMR_SETLAYOUT) -> Result<Self, PlayError>;
     fn set_linked_ufis(
-        &mut self,
+        self,
         record: EMR_SETLINKEDUFIS,
-    ) -> Result<(), PlayError>;
-    fn set_map_mode(&mut self, record: EMR_SETMAPMODE)
-        -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
+    fn set_map_mode(self, record: EMR_SETMAPMODE) -> Result<Self, PlayError>;
     fn set_mapper_flags(
-        &mut self,
+        self,
         record: EMR_SETMAPPERFLAGS,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn set_miter_limit(
-        &mut self,
+        self,
         record: EMR_SETMITERLIMIT,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn set_polyfill_mode(
-        &mut self,
+        self,
         record: EMR_SETPOLYFILLMODE,
-    ) -> Result<(), PlayError>;
-    fn set_rop2(&mut self, record: EMR_SETROP2) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
+    fn set_rop2(self, record: EMR_SETROP2) -> Result<Self, PlayError>;
     fn set_stretch_blt_mode(
-        &mut self,
+        self,
         record: EMR_SETSTRETCHBLTMODE,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn set_text_align(
-        &mut self,
+        self,
         record: EMR_SETTEXTALIGN,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn set_text_color(
-        &mut self,
+        self,
         record: EMR_SETTEXTCOLOR,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn set_text_justification(
-        &mut self,
+        self,
         record: EMR_SETTEXTJUSTIFICATION,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn set_viewport_ext_ex(
-        &mut self,
+        self,
         record: EMR_SETVIEWPORTEXTEX,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn set_viewport_org_ex(
-        &mut self,
+        self,
         record: EMR_SETVIEWPORTORGEX,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn set_window_ext_ex(
-        &mut self,
+        self,
         record: EMR_SETWINDOWEXTEX,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn set_window_org_ex(
-        &mut self,
+        self,
         record: EMR_SETWINDOWORGEX,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
 
     // .
     // .
@@ -413,11 +381,11 @@ pub trait Player {
     // .
     // .
     fn modify_world_transform(
-        &mut self,
+        self,
         record: EMR_MODIFYWORLDTRANSFORM,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
     fn set_world_transform(
-        &mut self,
+        self,
         record: EMR_SETWORLDTRANSFORM,
-    ) -> Result<(), PlayError>;
+    ) -> Result<Self, PlayError>;
 }
