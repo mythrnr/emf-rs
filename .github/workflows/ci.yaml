@@ -13,7 +13,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: "actions/checkout@v4"
-      - run: "rustup component add rustfmt"
+      - run: "rustup install nightly"
+      - run: "rustup toolchain install nightly --component rustfmt"
       - run: "make fmt"
 
   clippy:
