@@ -5,6 +5,7 @@ use crate::converter::{svg::*, *};
 impl LogFont {
     pub fn set_props(
         &self,
+        ctx: &PlaybackDeviceContext,
         mut elem: Node,
         point: &wmf_core::parser::PointL,
     ) -> (Node, Vec<String>) {
@@ -46,10 +47,13 @@ impl LogFont {
             );
         }
 
-        info!("font size: {}", self.height.abs().to_string());
+        let scale = ctx.xform.calc_scale();
+        let font_size =
+            (f64::from(self.height.abs()) * f64::from(scale)).round() as i32;
+
         elem = elem
             .set("font-family", self.facename.as_str())
-            .set("font-size", self.height.abs().to_string())
+            .set("font-size", font_size.to_string())
             .set("font-weight", self.weight.to_string());
 
         (elem, styles)
