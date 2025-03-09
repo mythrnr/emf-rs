@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: "actions/checkout@v4"
       - run: "rustup install nightly"
-      - run: "rustup component add rustfmt"
+      - run: "rustup toolchain install nightly --component rustfmt"
       - run: "make fmt"
 
   clippy:
