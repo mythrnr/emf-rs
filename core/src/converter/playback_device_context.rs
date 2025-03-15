@@ -87,14 +87,14 @@ pub fn point_s_to_point_l(
 /// Before a graphics object is instantiated and activated, a default stock
 /// object for that type is used in graphics operations.
 #[derive(Clone, Debug)]
-pub struct EmfObjectTable(Vec<GraphicsObject>);
+pub struct EmfObjectTable(Vec<GraphicsObject>, GraphicsObject);
 
 impl EmfObjectTable {
     pub fn new(v: usize) -> Self {
         let mut objects = vec![GraphicsObject::Null; v + 1];
         objects[0] = GraphicsObject::ReferenceSelf;
 
-        Self(objects)
+        Self(objects, GraphicsObject::Null)
     }
 
     pub fn delete(&mut self, i: usize) {
@@ -102,7 +102,7 @@ impl EmfObjectTable {
     }
 
     pub fn get(&self, i: usize) -> &GraphicsObject {
-        self.0.get(i).expect("should be set")
+        self.0.get(i).unwrap_or(&self.1)
     }
 
     pub fn set(&mut self, idx: usize, g: GraphicsObject) {
@@ -112,7 +112,7 @@ impl EmfObjectTable {
 
 #[derive(Clone, Debug)]
 pub struct SelectedObject {
-    // pub dib: Option<wmf_core::parser::DeviceIndependentBitmap>,
+    pub dib: Option<wmf_core::parser::DeviceIndependentBitmap>,
     pub brush: crate::parser::LogBrushEx,
     // pub color_space: Option<wmf_core::parser::LogColorSpace>,
     // pub color_space_w: Option<wmf_core::parser::LogColorSpaceW>,
@@ -125,7 +125,7 @@ pub struct SelectedObject {
 impl Default for SelectedObject {
     fn default() -> Self {
         Self {
-            // dib: None,
+            dib: None,
             brush: crate::parser::LogBrushEx::black_brush(),
             // color_space: None,
             // color_space_w: None,
@@ -139,7 +139,7 @@ impl Default for SelectedObject {
 
 #[derive(Clone, Debug)]
 pub enum GraphicsObject {
-    // DeviceIndependentBitmap(wmf_core::parser::DeviceIndependentBitmap),
+    DeviceIndependentBitmap(wmf_core::parser::DeviceIndependentBitmap),
     LogBrushEx(crate::parser::LogBrushEx),
     // LogColorSpace(wmf_core::parser::LogColorSpace),
     // LogColorSpaceW(wmf_core::parser::LogColorSpaceW),

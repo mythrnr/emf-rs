@@ -60,8 +60,14 @@ impl SVGPlayer {
     }
 
     #[inline]
-    fn issue_id(&self) -> String {
+    fn generate_definition_id(&self) -> String {
         format!("defs{}", self.definitions.len())
+    }
+
+    #[inline]
+    fn push_element(&mut self, record_number: usize, element: Node) {
+        let element = element.set("id", format!("elem{record_number}"));
+        self.elements.push(element);
     }
 }
 
@@ -72,7 +78,7 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn generate(self) -> Result<Vec<u8>, PlayError> {
-        let Self { window, definitions, elements, .. } = self;
+        let Self { definitions, elements, window, .. } = self;
 
         let mut document =
             Node::new("svg").set("xmlns", "http://www.w3.org/2000/svg").set(
@@ -114,6 +120,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn alpha_blend(
         mut self,
+        record_number: usize,
         record: EMR_ALPHABLEND,
     ) -> Result<Self, PlayError> {
         let dib_header_info = {
@@ -165,7 +172,7 @@ impl crate::converter::Player for SVGPlayer {
             .set("height", height.to_string())
             .set("href", bitmap.as_data_url());
 
-        self.elements.push(image);
+        self.push_element(record_number, image);
 
         Ok(self)
     }
@@ -175,7 +182,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn bit_blt(self, _record: EMR_BITBLT) -> Result<Self, PlayError> {
+    fn bit_blt(
+        self,
+        record_number: usize,
+        record: EMR_BITBLT,
+    ) -> Result<Self, PlayError> {
         info!("EMR_BITBLT: not implemented");
         Ok(self)
     }
@@ -185,7 +196,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn mask_blt(self, _record: EMR_MASKBLT) -> Result<Self, PlayError> {
+    fn mask_blt(
+        self,
+        record_number: usize,
+        record: EMR_MASKBLT,
+    ) -> Result<Self, PlayError> {
         info!("EMR_MASKBLT: not implemented");
         Ok(self)
     }
@@ -195,7 +210,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn plg_blt(self, _record: EMR_PLGBLT) -> Result<Self, PlayError> {
+    fn plg_blt(
+        self,
+        record_number: usize,
+        record: EMR_PLGBLT,
+    ) -> Result<Self, PlayError> {
         info!("EMR_PLGBLT: not implemented");
         Ok(self)
     }
@@ -207,7 +226,8 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_dibits_to_device(
         self,
-        _record: EMR_SETDIBITSTODEVICE,
+        record_number: usize,
+        record: EMR_SETDIBITSTODEVICE,
     ) -> Result<Self, PlayError> {
         info!("EMR_SETDIBITSTODEVICE: not implemented");
         Ok(self)
@@ -218,7 +238,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn stretch_blt(self, _record: EMR_STRETCHBLT) -> Result<Self, PlayError> {
+    fn stretch_blt(
+        self,
+        record_number: usize,
+        record: EMR_STRETCHBLT,
+    ) -> Result<Self, PlayError> {
         info!("EMR_STRETCHBLT: not implemented");
         Ok(self)
     }
@@ -230,6 +254,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn stretch_dibits(
         mut self,
+        record_number: usize,
         record: EMR_STRETCHDIBITS,
     ) -> Result<Self, PlayError> {
         let dib_header_info = {
@@ -281,7 +306,7 @@ impl crate::converter::Player for SVGPlayer {
             .set("height", height.to_string())
             .set("href", bitmap.as_data_url());
 
-        self.elements.push(image);
+        self.push_element(record_number, image);
 
         Ok(self)
     }
@@ -293,7 +318,8 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn transparent_blt(
         self,
-        _record: EMR_TRANSPARENTBLT,
+        record_number: usize,
+        record: EMR_TRANSPARENTBLT,
     ) -> Result<Self, PlayError> {
         info!("EMR_TRANSPARENTBLT: not implemented");
         Ok(self)
@@ -311,7 +337,8 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn exclude_clip_rect(
         self,
-        _record: EMR_EXCLUDECLIPRECT,
+        record_number: usize,
+        record: EMR_EXCLUDECLIPRECT,
     ) -> Result<Self, PlayError> {
         info!("EMR_EXCLUDECLIPRECT: not implemented");
         Ok(self)
@@ -324,7 +351,8 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn ext_select_clip_rgn(
         self,
-        _record: EMR_EXTSELECTCLIPRGN,
+        record_number: usize,
+        record: EMR_EXTSELECTCLIPRGN,
     ) -> Result<Self, PlayError> {
         info!("EMR_EXTSELECTCLIPRGN: not implemented");
         Ok(self)
@@ -337,7 +365,8 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn intersect_clip_rect(
         self,
-        _record: EMR_INTERSECTCLIPRECT,
+        record_number: usize,
+        record: EMR_INTERSECTCLIPRECT,
     ) -> Result<Self, PlayError> {
         info!("EMR_INTERSECTCLIPRECT: not implemented");
         Ok(self)
@@ -350,7 +379,8 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn offset_clip_rgn(
         self,
-        _record: EMR_OFFSETCLIPRGN,
+        record_number: usize,
+        record: EMR_OFFSETCLIPRGN,
     ) -> Result<Self, PlayError> {
         info!("EMR_OFFSETCLIPRGN: not implemented");
         Ok(self)
@@ -363,7 +393,8 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn select_clip_path(
         self,
-        _record: EMR_SELECTCLIPPATH,
+        record_number: usize,
+        record: EMR_SELECTCLIPPATH,
     ) -> Result<Self, PlayError> {
         info!("EMR_SELECTCLIPPATH: not implemented");
         Ok(self)
@@ -374,7 +405,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn set_meta_rgn(self, _record: EMR_SETMETARGN) -> Result<Self, PlayError> {
+    fn set_meta_rgn(
+        self,
+        record_number: usize,
+        record: EMR_SETMETARGN,
+    ) -> Result<Self, PlayError> {
         info!("EMR_SETMETARGN: not implemented");
         Ok(self)
     }
@@ -389,7 +424,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn comment(self, _record: EMR_COMMENT) -> Result<Self, PlayError> {
+    fn comment(
+        self,
+        record_number: usize,
+        record: EMR_COMMENT,
+    ) -> Result<Self, PlayError> {
         info!("EMR_COMMENT: not implemented");
         Ok(self)
     }
@@ -404,7 +443,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn eof(self, _record: EMR_EOF) -> Result<Self, PlayError> {
+    fn eof(
+        self,
+        record_number: usize,
+        record: EMR_EOF,
+    ) -> Result<Self, PlayError> {
         Ok(self)
     }
 
@@ -413,7 +456,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn header(mut self, record: EMR_HEADER) -> Result<Self, PlayError> {
+    fn header(
+        mut self,
+        record_number: usize,
+        record: EMR_HEADER,
+    ) -> Result<Self, PlayError> {
         self.emf_object_table =
             EmfObjectTable::new(record.emf_header.handles as usize);
 
@@ -478,7 +525,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn angle_arc(self, _record: EMR_ANGLEARC) -> Result<Self, PlayError> {
+    fn angle_arc(
+        self,
+        record_number: usize,
+        record: EMR_ANGLEARC,
+    ) -> Result<Self, PlayError> {
         info!("EMR_ANGLEARC: not implemented");
         Ok(self)
     }
@@ -488,7 +539,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn arc(self, _record: EMR_ARC) -> Result<Self, PlayError> {
+    fn arc(
+        self,
+        record_number: usize,
+        record: EMR_ARC,
+    ) -> Result<Self, PlayError> {
         info!("EMR_ARC: not implemented");
         Ok(self)
     }
@@ -498,7 +553,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn arc_to(self, _record: EMR_ARCTO) -> Result<Self, PlayError> {
+    fn arc_to(
+        self,
+        record_number: usize,
+        record: EMR_ARCTO,
+    ) -> Result<Self, PlayError> {
         info!("EMR_ARCTO: not implemented");
         Ok(self)
     }
@@ -508,7 +567,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn chord(self, _record: EMR_CHORD) -> Result<Self, PlayError> {
+    fn chord(
+        self,
+        record_number: usize,
+        record: EMR_CHORD,
+    ) -> Result<Self, PlayError> {
         info!("EMR_CHORD: not implemented");
         Ok(self)
     }
@@ -518,7 +581,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn ellipse(mut self, record: EMR_ELLIPSE) -> Result<Self, PlayError> {
+    fn ellipse(
+        mut self,
+        record_number: usize,
+        record: EMR_ELLIPSE,
+    ) -> Result<Self, PlayError> {
         let r = self.context.transform_point_l(&wmf_core::parser::PointL {
             x: (record.bx.right - record.bx.left) / 2,
             y: (record.bx.bottom - record.bx.top) / 2,
@@ -539,7 +606,7 @@ impl crate::converter::Player for SVGPlayer {
             self.selected_emf_object.brush.clone(),
         ) {
             Fill::Pattern { pattern } => {
-                let id = self.issue_id();
+                let id = self.generate_definition_id();
                 self.definitions.push(pattern.set("id", id.as_str()));
                 url_string(format!("#{id}").as_str())
             }
@@ -562,7 +629,7 @@ impl crate::converter::Player for SVGPlayer {
             .set("ry", r.y.to_string());
         let ellipse = stroke.set_props(&self.context, ellipse);
 
-        self.elements.push(ellipse);
+        self.push_element(record_number, ellipse);
 
         Ok(self)
     }
@@ -574,7 +641,8 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn ext_flood_fill(
         self,
-        _record: EMR_EXTFLOODFILL,
+        record_number: usize,
+        record: EMR_EXTFLOODFILL,
     ) -> Result<Self, PlayError> {
         info!("EMR_EXTFLOODFILL: not implemented");
         Ok(self)
@@ -587,7 +655,8 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn ext_text_out_a(
         self,
-        _record: EMR_EXTTEXTOUTA,
+        record_number: usize,
+        record: EMR_EXTTEXTOUTA,
     ) -> Result<Self, PlayError> {
         info!("EMR_EXTTEXTOUTA: not implemented");
         Ok(self)
@@ -600,6 +669,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn ext_text_out_w(
         mut self,
+        record_number: usize,
         record: EMR_EXTTEXTOUTW,
     ) -> Result<Self, PlayError> {
         let font = if let Some(ref font) = self.selected_emf_object.font_ex_dv {
@@ -628,7 +698,7 @@ impl crate::converter::Player for SVGPlayer {
         let (text, styles) = font.set_props(&self.context, text, &point);
         let text = text.set("style", styles.join(""));
 
-        self.elements.push(text);
+        self.push_element(record_number, text);
 
         Ok(self)
     }
@@ -638,7 +708,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn fill_path(mut self, _record: EMR_FILLPATH) -> Result<Self, PlayError> {
+    fn fill_path(
+        mut self,
+        record_number: usize,
+        record: EMR_FILLPATH,
+    ) -> Result<Self, PlayError> {
         self.context.graphics_environment.drawing.path_bracket = false;
         if self.path.is_empty() {
             return Ok(self);
@@ -649,7 +723,7 @@ impl crate::converter::Player for SVGPlayer {
             self.selected_emf_object.brush.clone(),
         ) {
             Fill::Pattern { pattern } => {
-                let id = self.issue_id();
+                let id = self.generate_definition_id();
                 self.definitions.push(pattern.set("id", id.as_str()));
                 url_string(format!("#{id}").as_str())
             }
@@ -664,7 +738,7 @@ impl crate::converter::Player for SVGPlayer {
             .set("fill-rule", fill_rule.as_str())
             .set("d", self.path.to_string());
 
-        self.elements.push(path);
+        self.push_element(record_number, path);
         self.path = Data::new();
 
         Ok(self)
@@ -675,7 +749,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn fill_rgn(self, _record: EMR_FILLRGN) -> Result<Self, PlayError> {
+    fn fill_rgn(
+        self,
+        record_number: usize,
+        record: EMR_FILLRGN,
+    ) -> Result<Self, PlayError> {
         info!("EMR_FILLRGN: not implemented");
         Ok(self)
     }
@@ -685,7 +763,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn frame_rgn(self, _record: EMR_FRAMERGN) -> Result<Self, PlayError> {
+    fn frame_rgn(
+        self,
+        record_number: usize,
+        record: EMR_FRAMERGN,
+    ) -> Result<Self, PlayError> {
         info!("EMR_FRAMERGN: not implemented");
         Ok(self)
     }
@@ -697,7 +779,8 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn gradient_fill(
         self,
-        _record: EMR_GRADIENTFILL,
+        record_number: usize,
+        record: EMR_GRADIENTFILL,
     ) -> Result<Self, PlayError> {
         info!("EMR_GRADIENTFILL: not implemented");
         Ok(self)
@@ -708,7 +791,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn line_to(mut self, record: EMR_LINETO) -> Result<Self, PlayError> {
+    fn line_to(
+        mut self,
+        record_number: usize,
+        record: EMR_LINETO,
+    ) -> Result<Self, PlayError> {
         let point = self.context.transform_point_l(&record.point);
         self.path = self.path.line_to(format!("{} {}", point.x, point.y));
 
@@ -720,7 +807,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn paint_rgn(self, _record: EMR_PAINTRGN) -> Result<Self, PlayError> {
+    fn paint_rgn(
+        self,
+        record_number: usize,
+        record: EMR_PAINTRGN,
+    ) -> Result<Self, PlayError> {
         info!("EMR_PAINTRGN: not implemented");
         Ok(self)
     }
@@ -730,7 +821,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn pie(self, _record: EMR_PIE) -> Result<Self, PlayError> {
+    fn pie(
+        self,
+        record_number: usize,
+        record: EMR_PIE,
+    ) -> Result<Self, PlayError> {
         info!("EMR_PIE: not implemented");
         Ok(self)
     }
@@ -742,6 +837,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn poly_bezier(
         mut self,
+        record_number: usize,
         record: EMR_POLYBEZIER,
     ) -> Result<Self, PlayError> {
         if record.count == 0 {
@@ -797,6 +893,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn poly_bezier_16(
         mut self,
+        record_number: usize,
         record: EMR_POLYBEZIER16,
     ) -> Result<Self, PlayError> {
         if record.count == 0 {
@@ -850,6 +947,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn poly_bezier_to(
         mut self,
+        record_number: usize,
         record: EMR_POLYBEZIERTO,
     ) -> Result<Self, PlayError> {
         if record.count == 0 {
@@ -900,6 +998,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn poly_bezier_to_16(
         mut self,
+        record_number: usize,
         record: EMR_POLYBEZIERTO16,
     ) -> Result<Self, PlayError> {
         if record.count == 0 {
@@ -947,7 +1046,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn poly_draw(self, _record: EMR_POLYDRAW) -> Result<Self, PlayError> {
+    fn poly_draw(
+        self,
+        record_number: usize,
+        record: EMR_POLYDRAW,
+    ) -> Result<Self, PlayError> {
         info!("EMR_POLYDRAW: not implemented");
         Ok(self)
     }
@@ -957,7 +1060,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn poly_draw_16(self, _record: EMR_POLYDRAW16) -> Result<Self, PlayError> {
+    fn poly_draw_16(
+        self,
+        record_number: usize,
+        record: EMR_POLYDRAW16,
+    ) -> Result<Self, PlayError> {
         info!("EMR_POLYDRAW16: not implemented");
         Ok(self)
     }
@@ -967,7 +1074,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn poly_polygon(self, record: EMR_POLYPOLYGON) -> Result<Self, PlayError> {
+    fn poly_polygon(
+        self,
+        record_number: usize,
+        record: EMR_POLYPOLYGON,
+    ) -> Result<Self, PlayError> {
         info!("EMR_POLYPOLYGON: not implemented");
         Ok(self)
     }
@@ -979,6 +1090,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn poly_polygon_16(
         mut self,
+        record_number: usize,
         record: EMR_POLYPOLYGON16,
     ) -> Result<Self, PlayError> {
         if record.number_of_polygons == 0 || record.count == 0 {
@@ -992,7 +1104,7 @@ impl crate::converter::Player for SVGPlayer {
             self.selected_emf_object.brush.clone(),
         ) {
             Fill::Pattern { pattern } => {
-                let id = self.issue_id();
+                let id = self.generate_definition_id();
                 self.definitions.push(pattern.set("id", id.as_str()));
                 url_string(format!("#{id}").as_str())
             }
@@ -1039,7 +1151,7 @@ impl crate::converter::Player for SVGPlayer {
                 .set("points", points.join(" "));
             let polygon = stroke.set_props(&self.context, polygon);
 
-            self.elements.push(polygon);
+            self.push_element(record_number, polygon);
         }
 
         Ok(self)
@@ -1052,7 +1164,8 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn poly_polyline(
         self,
-        _record: EMR_POLYPOLYLINE,
+        record_number: usize,
+        record: EMR_POLYPOLYLINE,
     ) -> Result<Self, PlayError> {
         info!("EMR_POLYPOLYLINE: not implemented");
         Ok(self)
@@ -1065,7 +1178,8 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn poly_polyline_16(
         self,
-        _record: EMR_POLYPOLYLINE16,
+        record_number: usize,
+        record: EMR_POLYPOLYLINE16,
     ) -> Result<Self, PlayError> {
         info!("EMR_POLYPOLYLINE16: not implemented");
         Ok(self)
@@ -1078,7 +1192,8 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn poly_text_out_a(
         self,
-        _record: EMR_POLYTEXTOUTA,
+        record_number: usize,
+        record: EMR_POLYTEXTOUTA,
     ) -> Result<Self, PlayError> {
         info!("EMR_POLYTEXTOUTA: not implemented");
         Ok(self)
@@ -1091,7 +1206,8 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn poly_text_out_w(
         self,
-        _record: EMR_POLYTEXTOUTW,
+        record_number: usize,
+        record: EMR_POLYTEXTOUTW,
     ) -> Result<Self, PlayError> {
         info!("EMR_POLYTEXTOUTW: not implemented");
         Ok(self)
@@ -1102,7 +1218,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn polygon(mut self, record: EMR_POLYGON) -> Result<Self, PlayError> {
+    fn polygon(
+        mut self,
+        record_number: usize,
+        record: EMR_POLYGON,
+    ) -> Result<Self, PlayError> {
         if record.count == 0 {
             info!(%record.count, "polygon has no points");
             return Ok(self);
@@ -1114,7 +1234,7 @@ impl crate::converter::Player for SVGPlayer {
             self.selected_emf_object.brush.clone(),
         ) {
             Fill::Pattern { pattern } => {
-                let id = self.issue_id();
+                let id = self.generate_definition_id();
                 self.definitions.push(pattern.set("id", id.as_str()));
                 url_string(format!("#{id}").as_str())
             }
@@ -1146,7 +1266,7 @@ impl crate::converter::Player for SVGPlayer {
             .set("points", points.join(" "));
         let polygon = stroke.set_props(&self.context, polygon);
 
-        self.elements.push(polygon);
+        self.push_element(record_number, polygon);
 
         Ok(self)
     }
@@ -1156,7 +1276,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn polygon_16(mut self, record: EMR_POLYGON16) -> Result<Self, PlayError> {
+    fn polygon_16(
+        mut self,
+        record_number: usize,
+        record: EMR_POLYGON16,
+    ) -> Result<Self, PlayError> {
         if record.count == 0 {
             info!(%record.count, "polygon has no points");
             return Ok(self);
@@ -1168,7 +1292,7 @@ impl crate::converter::Player for SVGPlayer {
             self.selected_emf_object.brush.clone(),
         ) {
             Fill::Pattern { pattern } => {
-                let id = self.issue_id();
+                let id = self.generate_definition_id();
                 self.definitions.push(pattern.set("id", id.as_str()));
                 url_string(format!("#{id}").as_str())
             }
@@ -1200,7 +1324,7 @@ impl crate::converter::Player for SVGPlayer {
             .set("points", points.join(" "));
         let polygon = stroke.set_props(&self.context, polygon);
 
-        self.elements.push(polygon);
+        self.push_element(record_number, polygon);
 
         Ok(self)
     }
@@ -1210,7 +1334,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn polyline(mut self, record: EMR_POLYLINE) -> Result<Self, PlayError> {
+    fn polyline(
+        mut self,
+        record_number: usize,
+        record: EMR_POLYLINE,
+    ) -> Result<Self, PlayError> {
         if record.count == 0 {
             info!(%record.count, "polyline has no points");
             return Ok(self);
@@ -1249,6 +1377,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn polyline_16(
         mut self,
+        record_number: usize,
         record: EMR_POLYLINE16,
     ) -> Result<Self, PlayError> {
         if record.count == 0 {
@@ -1256,13 +1385,19 @@ impl crate::converter::Player for SVGPlayer {
             return Ok(self);
         }
 
-        let Some(point) = record.a_points.first() else {
-            return Err(PlayError::InvalidRecord {
-                cause: "aPoints[0] is not defined".to_owned(),
-            });
-        };
+        let mut data = Data::new();
 
-        self.path = self.path.move_to(format!("{} {}", point.x, point.y));
+        data = {
+            let Some(point) = record.a_points.first() else {
+                return Err(PlayError::InvalidRecord {
+                    cause: "aPoints[0] is not defined".to_owned(),
+                });
+            };
+
+            let point = self.context.transform_point_s(point);
+
+            data.move_to(format!("{} {}", point.x, point.y))
+        };
 
         for i in 1..record.count {
             let Some(point) = record.a_points.get(i as usize) else {
@@ -1271,12 +1406,16 @@ impl crate::converter::Player for SVGPlayer {
                 });
             };
 
-            self.context.graphics_environment.drawing.current_position =
-                point_s_to_point_l(point);
-
             let point = self.context.transform_point_s(point);
-            self.path = self.path.line_to(format!("{} {}", point.x, point.y));
+            data = data.line_to(format!("{} {}", point.x, point.y));
         }
+
+        let stroke = Stroke::from(self.selected_emf_object.pen.clone());
+        let path =
+            Node::new("path").set("fill", "none").set("d", data.to_string());
+        let path = stroke.set_props(&self.context, path);
+
+        self.push_element(record_number, path);
 
         Ok(self)
     }
@@ -1288,6 +1427,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn polyline_to(
         mut self,
+        record_number: usize,
         record: EMR_POLYLINETO,
     ) -> Result<Self, PlayError> {
         if record.count == 0 {
@@ -1319,6 +1459,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn polyline_to_16(
         mut self,
+        record_number: usize,
         record: EMR_POLYLINETO16,
     ) -> Result<Self, PlayError> {
         if record.count == 0 {
@@ -1352,14 +1493,18 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn rectangle(mut self, record: EMR_RECTANGLE) -> Result<Self, PlayError> {
+    fn rectangle(
+        mut self,
+        record_number: usize,
+        record: EMR_RECTANGLE,
+    ) -> Result<Self, PlayError> {
         let stroke = Stroke::from(self.selected_emf_object.pen.clone());
         let fill = match Fill::from(
             &self.context,
             self.selected_emf_object.brush.clone(),
         ) {
             Fill::Pattern { pattern } => {
-                let id = self.issue_id();
+                let id = self.generate_definition_id();
                 self.definitions.push(pattern.set("id", id.as_str()));
                 url_string(format!("#{id}").as_str())
             }
@@ -1389,7 +1534,7 @@ impl crate::converter::Player for SVGPlayer {
             .set("width", (bottom_right.y - top_left.y).to_string());
         let rect = stroke.set_props(&self.context, rect);
 
-        self.elements.push(rect);
+        self.push_element(record_number, rect);
 
         Ok(self)
     }
@@ -1399,7 +1544,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn round_rect(self, _record: EMR_ROUNDRECT) -> Result<Self, PlayError> {
+    fn round_rect(
+        self,
+        record_number: usize,
+        record: EMR_ROUNDRECT,
+    ) -> Result<Self, PlayError> {
         info!("EMR_ROUNDRECT: not implemented");
         Ok(self)
     }
@@ -1409,7 +1558,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn set_pixel_v(self, _record: EMR_SETPIXELV) -> Result<Self, PlayError> {
+    fn set_pixel_v(
+        self,
+        record_number: usize,
+        record: EMR_SETPIXELV,
+    ) -> Result<Self, PlayError> {
         info!("EMR_SETPIXELV: not implemented");
         Ok(self)
     }
@@ -1421,7 +1574,8 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn small_text_out(
         self,
-        _record: EMR_SMALLTEXTOUT,
+        record_number: usize,
+        record: EMR_SMALLTEXTOUT,
     ) -> Result<Self, PlayError> {
         info!("EMR_SMALLTEXTOUT: not implemented");
         Ok(self)
@@ -1434,6 +1588,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn stroke_and_fill_path(
         mut self,
+        record_number: usize,
         record: EMR_STROKEANDFILLPATH,
     ) -> Result<Self, PlayError> {
         if self.path.is_empty() {
@@ -1444,7 +1599,7 @@ impl crate::converter::Player for SVGPlayer {
         let stroke = Stroke::from(self.selected_emf_object.pen.clone());
         let fill = match Fill::from(&self.context, brush.clone()) {
             Fill::Pattern { pattern } => {
-                let id = self.issue_id();
+                let id = self.generate_definition_id();
                 self.definitions.push(pattern.set("id", id.as_str()));
                 url_string(format!("#{id}").as_str())
             }
@@ -1460,7 +1615,7 @@ impl crate::converter::Player for SVGPlayer {
             .set("d", self.path.to_string());
         let path = stroke.set_props(&self.context, path);
 
-        self.elements.push(path);
+        self.push_element(record_number, path);
         self.path = Data::new();
 
         Ok(self)
@@ -1473,6 +1628,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn stroke_path(
         mut self,
+        record_number: usize,
         record: EMR_STROKEPATH,
     ) -> Result<Self, PlayError> {
         if self.path.is_empty() {
@@ -1485,7 +1641,7 @@ impl crate::converter::Player for SVGPlayer {
             .set("d", self.path.to_string());
         let path = stroke.set_props(&self.context, path);
 
-        self.elements.push(path);
+        self.push_element(record_number, path);
         self.path = Data::new();
 
         Ok(self)
@@ -1501,7 +1657,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn draw_escape(self, _record: EMR_DRAWESCAPE) -> Result<Self, PlayError> {
+    fn draw_escape(
+        self,
+        record_number: usize,
+        record: EMR_DRAWESCAPE,
+    ) -> Result<Self, PlayError> {
         info!("EMR_DRAWESCAPE: not implemented");
         Ok(self)
     }
@@ -1511,7 +1671,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn ext_escape(self, _record: EMR_EXTESCAPE) -> Result<Self, PlayError> {
+    fn ext_escape(
+        self,
+        record_number: usize,
+        record: EMR_EXTESCAPE,
+    ) -> Result<Self, PlayError> {
         info!("EMR_EXTESCAPE: not implemented");
         Ok(self)
     }
@@ -1521,7 +1685,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn named_escape(self, _record: EMR_NAMEDESCAPE) -> Result<Self, PlayError> {
+    fn named_escape(
+        self,
+        record_number: usize,
+        record: EMR_NAMEDESCAPE,
+    ) -> Result<Self, PlayError> {
         info!("EMR_NAMEDESCAPE: not implemented");
         Ok(self)
     }
@@ -1538,6 +1706,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn create_brush_indirect(
         mut self,
+        record_number: usize,
         record: EMR_CREATEBRUSHINDIRECT,
     ) -> Result<Self, PlayError> {
         self.emf_object_table.set(
@@ -1555,7 +1724,8 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn create_color_space(
         self,
-        _record: EMR_CREATECOLORSPACE,
+        record_number: usize,
+        record: EMR_CREATECOLORSPACE,
     ) -> Result<Self, PlayError> {
         info!("EMR_CREATECOLORSPACE: not implemented");
         Ok(self)
@@ -1568,7 +1738,8 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn create_color_space_w(
         self,
-        _record: EMR_CREATECOLORSPACEW,
+        record_number: usize,
+        record: EMR_CREATECOLORSPACEW,
     ) -> Result<Self, PlayError> {
         info!("EMR_CREATECOLORSPACEW: not implemented");
         Ok(self)
@@ -1580,10 +1751,15 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn create_dib_pattern_brush_pt(
-        self,
-        _record: EMR_CREATEDIBPATTERNBRUSHPT,
+        mut self,
+        record_number: usize,
+        record: EMR_CREATEDIBPATTERNBRUSHPT,
     ) -> Result<Self, PlayError> {
-        info!("EMR_CREATEDIBPATTERNBRUSHPT: not implemented");
+        self.emf_object_table.set(
+            record.ih_brush as usize,
+            GraphicsObject::DeviceIndependentBitmap(record.into()),
+        );
+
         Ok(self)
     }
 
@@ -1594,7 +1770,8 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn create_mono_brush(
         self,
-        _record: EMR_CREATEMONOBRUSH,
+        record_number: usize,
+        record: EMR_CREATEMONOBRUSH,
     ) -> Result<Self, PlayError> {
         info!("EMR_CREATEMONOBRUSH: not implemented");
         Ok(self)
@@ -1607,7 +1784,8 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn create_palette(
         self,
-        _record: EMR_CREATEPALETTE,
+        record_number: usize,
+        record: EMR_CREATEPALETTE,
     ) -> Result<Self, PlayError> {
         info!("EMR_CREATEPALETTE: not implemented");
         Ok(self)
@@ -1618,7 +1796,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn create_pen(mut self, record: EMR_CREATEPEN) -> Result<Self, PlayError> {
+    fn create_pen(
+        mut self,
+        record_number: usize,
+        record: EMR_CREATEPEN,
+    ) -> Result<Self, PlayError> {
         self.emf_object_table.set(
             record.ih_pen as usize,
             GraphicsObject::LogPenEx(record.log_pen.into()),
@@ -1634,6 +1816,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn ext_create_font_indirect_w(
         mut self,
+        record_number: usize,
         record: EMR_EXTCREATEFONTINDIRECTW,
     ) -> Result<Self, PlayError> {
         let font = match record.elw {
@@ -1656,6 +1839,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn ext_create_pen(
         mut self,
+        record_number: usize,
         record: EMR_EXTCREATEPEN,
     ) -> Result<Self, PlayError> {
         self.emf_object_table
@@ -1676,7 +1860,8 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn color_correct_palette(
         self,
-        _record: EMR_COLORCORRECTPALETTE,
+        record_number: usize,
+        record: EMR_COLORCORRECTPALETTE,
     ) -> Result<Self, PlayError> {
         info!("EMR_COLORCORRECTPALETTE: not implemented");
         Ok(self)
@@ -1689,7 +1874,8 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn delete_color_space(
         self,
-        _record: EMR_DELETECOLORSPACE,
+        record_number: usize,
+        record: EMR_DELETECOLORSPACE,
     ) -> Result<Self, PlayError> {
         info!("EMR_DELETECOLORSPACE: not implemented");
         Ok(self)
@@ -1702,6 +1888,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn delete_object(
         mut self,
+        record_number: usize,
         record: EMR_DELETEOBJECT,
     ) -> Result<Self, PlayError> {
         self.emf_object_table.delete(record.in_object as usize);
@@ -1715,7 +1902,8 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn resize_palette(
         self,
-        _record: EMR_RESIZEPALETTE,
+        record_number: usize,
+        record: EMR_RESIZEPALETTE,
     ) -> Result<Self, PlayError> {
         info!("EMR_RESIZEPALETTE: not implemented");
         Ok(self)
@@ -1728,20 +1916,35 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn select_object(
         mut self,
+        record_number: usize,
         record: EMR_SELECTOBJECT,
     ) -> Result<Self, PlayError> {
-        let emf_object = if let Some(stock_object) =
-            StockObject::from_repr(record.in_object)
-        {
-            GraphicsObject::from(&self.selected_emf_object, stock_object)
-        } else {
-            self.emf_object_table.get(record.in_object as usize).clone()
-        };
+        let emf_object =
+            match self.emf_object_table.get(record.in_object as usize) {
+                GraphicsObject::Null => {
+                    if let Some(stock_object) =
+                        StockObject::from_repr(record.in_object)
+                    {
+                        GraphicsObject::from(
+                            &self.selected_emf_object,
+                            stock_object,
+                        )
+                    } else {
+                        return Err(PlayError::InvalidRecord {
+                            cause: format!(
+                                "stock object is not found: index={}",
+                                record.in_object,
+                            ),
+                        });
+                    }
+                }
+                v => v.clone(),
+            };
 
         match emf_object {
-            // GraphicsObject::DeviceIndependentBitmap(v) => {
-            //     self.selected_emf_object.dib = v.into();
-            // }
+            GraphicsObject::DeviceIndependentBitmap(v) => {
+                self.selected_emf_object.dib = v.into();
+            }
             GraphicsObject::LogBrushEx(v) => {
                 self.selected_emf_object.brush = v;
             }
@@ -1783,7 +1986,8 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn select_palette(
         self,
-        _record: EMR_SELECTPALETTE,
+        record_number: usize,
+        record: EMR_SELECTPALETTE,
     ) -> Result<Self, PlayError> {
         info!("EMR_SELECTPALETTE: not implemented");
         Ok(self)
@@ -1796,7 +2000,8 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_color_space(
         self,
-        _record: EMR_SETCOLORSPACE,
+        record_number: usize,
+        record: EMR_SETCOLORSPACE,
     ) -> Result<Self, PlayError> {
         info!("EMR_SETCOLORSPACE: not implemented");
         Ok(self)
@@ -1809,7 +2014,8 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_palette_entries(
         self,
-        _record: EMR_SETPALETTEENTRIES,
+        record_number: usize,
+        record: EMR_SETPALETTEENTRIES,
     ) -> Result<Self, PlayError> {
         info!("EMR_SETPALETTEENTRIES: not implemented");
         Ok(self)
@@ -1827,7 +2033,8 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn gls_bounded_record(
         self,
-        _record: EMR_GLSBOUNDEDRECORD,
+        record_number: usize,
+        record: EMR_GLSBOUNDEDRECORD,
     ) -> Result<Self, PlayError> {
         info!("EMR_GLSBOUNDEDRECORD: not implemented");
         Ok(self)
@@ -1838,7 +2045,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn gls_record(self, _record: EMR_GLSRECORD) -> Result<Self, PlayError> {
+    fn gls_record(
+        self,
+        record_number: usize,
+        record: EMR_GLSRECORD,
+    ) -> Result<Self, PlayError> {
         info!("EMR_GLSRECORD: not implemented");
         Ok(self)
     }
@@ -1853,7 +2064,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn abort_path(mut self, _record: EMR_ABORTPATH) -> Result<Self, PlayError> {
+    fn abort_path(
+        mut self,
+        record_number: usize,
+        record: EMR_ABORTPATH,
+    ) -> Result<Self, PlayError> {
         self.path = Data::new();
         self.context.graphics_environment.drawing.path_bracket = false;
 
@@ -1865,7 +2080,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn begin_path(mut self, _record: EMR_BEGINPATH) -> Result<Self, PlayError> {
+    fn begin_path(
+        mut self,
+        record_number: usize,
+        record: EMR_BEGINPATH,
+    ) -> Result<Self, PlayError> {
         if self.context.graphics_environment.drawing.path_bracket {
             return Err(PlayError::InvalidRecord {
                 cause: "Path bracket construction MUST be closed by an \
@@ -1887,7 +2106,8 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn close_figure(
         mut self,
-        _record: EMR_CLOSEFIGURE,
+        record_number: usize,
+        record: EMR_CLOSEFIGURE,
     ) -> Result<Self, PlayError> {
         self.context.graphics_environment.drawing.path_bracket = false;
         self.path = self.path.close();
@@ -1900,7 +2120,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn end_path(mut self, _record: EMR_ENDPATH) -> Result<Self, PlayError> {
+    fn end_path(
+        mut self,
+        record_number: usize,
+        record: EMR_ENDPATH,
+    ) -> Result<Self, PlayError> {
         self.context.graphics_environment.drawing.path_bracket = false;
         Ok(self)
     }
@@ -1912,7 +2136,8 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn flatten_path(
         mut self,
-        _record: EMR_FLATTENPATH,
+        record_number: usize,
+        record: EMR_FLATTENPATH,
     ) -> Result<Self, PlayError> {
         if self.path.is_empty() {
             return Ok(self);
@@ -1924,7 +2149,7 @@ impl crate::converter::Player for SVGPlayer {
             .set("d", self.path.to_string());
         let path = stroke.set_props(&self.context, path);
 
-        self.elements.push(path);
+        self.push_element(record_number, path);
 
         Ok(self)
     }
@@ -1934,7 +2159,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn widen_path(self, _record: EMR_WIDENPATH) -> Result<Self, PlayError> {
+    fn widen_path(
+        self,
+        record_number: usize,
+        record: EMR_WIDENPATH,
+    ) -> Result<Self, PlayError> {
         info!("EMR_WIDENPATH: not implemented");
         Ok(self)
     }
@@ -1951,7 +2180,8 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn color_match_to_target_w(
         self,
-        _record: EMR_COLORMATCHTOTARGETW,
+        record_number: usize,
+        record: EMR_COLORMATCHTOTARGETW,
     ) -> Result<Self, PlayError> {
         info!("EMR_COLORMATCHTOTARGETW: not implemented");
         Ok(self)
@@ -1964,6 +2194,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn force_ufi_mapping(
         mut self,
+        record_number: usize,
         record: EMR_FORCEUFIMAPPING,
     ) -> Result<Self, PlayError> {
         self.context.graphics_environment.text.force_ufi_mapping =
@@ -1977,7 +2208,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn invert_rgn(self, _record: EMR_INVERTRGN) -> Result<Self, PlayError> {
+    fn invert_rgn(
+        self,
+        record_number: usize,
+        record: EMR_INVERTRGN,
+    ) -> Result<Self, PlayError> {
         info!("EMR_INVERTRGN: not implemented");
         Ok(self)
     }
@@ -1987,7 +2222,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn move_to_ex(mut self, record: EMR_MOVETOEX) -> Result<Self, PlayError> {
+    fn move_to_ex(
+        mut self,
+        record_number: usize,
+        record: EMR_MOVETOEX,
+    ) -> Result<Self, PlayError> {
         self.context.graphics_environment.drawing.current_position =
             record.offset.clone();
 
@@ -2006,6 +2245,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn pixel_format(
         mut self,
+        record_number: usize,
         record: EMR_PIXELFORMAT,
     ) -> Result<Self, PlayError> {
         self.context.graphics_environment.color.pixel_format =
@@ -2021,7 +2261,8 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn realize_palette(
         self,
-        _record: EMR_REALIZEPALETTE,
+        record_number: usize,
+        record: EMR_REALIZEPALETTE,
     ) -> Result<Self, PlayError> {
         info!("EMR_REALIZEPALETTE: not implemented");
         Ok(self)
@@ -2032,7 +2273,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn restore_dc(mut self, record: EMR_RESTOREDC) -> Result<Self, PlayError> {
+    fn restore_dc(
+        mut self,
+        record_number: usize,
+        record: EMR_RESTOREDC,
+    ) -> Result<Self, PlayError> {
         let mut current = record.saved_dc;
 
         while current < 0 {
@@ -2054,7 +2299,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn save_dc(mut self, _record: EMR_SAVEDC) -> Result<Self, PlayError> {
+    fn save_dc(
+        mut self,
+        record_number: usize,
+        record: EMR_SAVEDC,
+    ) -> Result<Self, PlayError> {
         self.context_stack.push(self.context.clone());
 
         Ok(self)
@@ -2067,6 +2316,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn scale_viewport_ext_ex(
         mut self,
+        record_number: usize,
         record: EMR_SCALEVIEWPORTEXTEX,
     ) -> Result<Self, PlayError> {
         let wmf_core::parser::SizeL { cx, cy } =
@@ -2090,6 +2340,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn scale_window_ext_ex(
         mut self,
+        record_number: usize,
         record: EMR_SCALEWINDOWEXTEX,
     ) -> Result<Self, PlayError> {
         let wmf_core::parser::SizeL { cx, cy } =
@@ -2113,6 +2364,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_arc_direction(
         mut self,
+        record_number: usize,
         record: EMR_SETARCDIRECTION,
     ) -> Result<Self, PlayError> {
         self.context.graphics_environment.drawing.arc_direction =
@@ -2128,6 +2380,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_bk_color(
         mut self,
+        record_number: usize,
         record: EMR_SETBKCOLOR,
     ) -> Result<Self, PlayError> {
         self.context.graphics_environment.drawing.background_color =
@@ -2141,7 +2394,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn set_bk_mode(mut self, record: EMR_SETBKMODE) -> Result<Self, PlayError> {
+    fn set_bk_mode(
+        mut self,
+        record_number: usize,
+        record: EMR_SETBKMODE,
+    ) -> Result<Self, PlayError> {
         self.context.graphics_environment.drawing.background_mode =
             record.background_mode;
 
@@ -2155,6 +2412,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_brush_org_ex(
         mut self,
+        record_number: usize,
         record: EMR_SETBRUSHORGEX,
     ) -> Result<Self, PlayError> {
         self.context.graphics_environment.drawing.brush_origin = record.origin;
@@ -2168,6 +2426,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_color_adjustment(
         mut self,
+        record_number: usize,
         record: EMR_SETCOLORADJUSTMENT,
     ) -> Result<Self, PlayError> {
         self.context.graphics_environment.color.color_adjustment =
@@ -2183,6 +2442,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_icm_mode(
         mut self,
+        record_number: usize,
         record: EMR_SETICMMODE,
     ) -> Result<Self, PlayError> {
         self.context.graphics_environment.color.icm_mode = record.icm_mode;
@@ -2196,7 +2456,8 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_icm_profile_a(
         self,
-        _record: EMR_SETICMPROFILEA,
+        record_number: usize,
+        record: EMR_SETICMPROFILEA,
     ) -> Result<Self, PlayError> {
         info!("EMR_SETICMPROFILEA: not implemented");
         Ok(self)
@@ -2209,7 +2470,8 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_icm_profile_w(
         self,
-        _record: EMR_SETICMPROFILEW,
+        record_number: usize,
+        record: EMR_SETICMPROFILEW,
     ) -> Result<Self, PlayError> {
         info!("EMR_SETICMPROFILEW: not implemented");
         Ok(self)
@@ -2220,7 +2482,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn set_layout(mut self, record: EMR_SETLAYOUT) -> Result<Self, PlayError> {
+    fn set_layout(
+        mut self,
+        record_number: usize,
+        record: EMR_SETLAYOUT,
+    ) -> Result<Self, PlayError> {
         self.context.graphics_environment.drawing.layout_mode =
             record.layout_mode;
 
@@ -2234,6 +2500,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_linked_ufis(
         mut self,
+        record_number: usize,
         record: EMR_SETLINKEDUFIS,
     ) -> Result<Self, PlayError> {
         self.context.graphics_environment.text.linked_ufis = record.ufis;
@@ -2247,6 +2514,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_map_mode(
         mut self,
+        record_number: usize,
         record: EMR_SETMAPMODE,
     ) -> Result<Self, PlayError> {
         self.context.graphics_environment.drawing.mapping_mode =
@@ -2262,6 +2530,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_mapper_flags(
         mut self,
+        record_number: usize,
         record: EMR_SETMAPPERFLAGS,
     ) -> Result<Self, PlayError> {
         self.context.graphics_environment.text.font_mapper_flags = record.flags;
@@ -2275,6 +2544,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_miter_limit(
         mut self,
+        record_number: usize,
         record: EMR_SETMITERLIMIT,
     ) -> Result<Self, PlayError> {
         self.context.graphics_environment.drawing.miter_limit =
@@ -2290,6 +2560,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_polyfill_mode(
         mut self,
+        record_number: usize,
         record: EMR_SETPOLYFILLMODE,
     ) -> Result<Self, PlayError> {
         self.context.graphics_environment.drawing.polyfill_mode =
@@ -2303,7 +2574,11 @@ impl crate::converter::Player for SVGPlayer {
         skip(self),
         err(level = tracing::Level::ERROR, Display),
     ))]
-    fn set_rop2(mut self, record: EMR_SETROP2) -> Result<Self, PlayError> {
+    fn set_rop2(
+        mut self,
+        record_number: usize,
+        record: EMR_SETROP2,
+    ) -> Result<Self, PlayError> {
         self.context.graphics_environment.drawing.rop2 = record.rop2_mode;
 
         Ok(self)
@@ -2316,6 +2591,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_stretch_blt_mode(
         mut self,
+        record_number: usize,
         record: EMR_SETSTRETCHBLTMODE,
     ) -> Result<Self, PlayError> {
         self.context.graphics_environment.drawing.stretch_blt_mode =
@@ -2331,6 +2607,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_text_align(
         mut self,
+        record_number: usize,
         record: EMR_SETTEXTALIGN,
     ) -> Result<Self, PlayError> {
         self.context.graphics_environment.text.text_alignment =
@@ -2346,6 +2623,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_text_color(
         mut self,
+        record_number: usize,
         record: EMR_SETTEXTCOLOR,
     ) -> Result<Self, PlayError> {
         self.context.graphics_environment.drawing.text_color = record.color;
@@ -2359,6 +2637,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_text_justification(
         mut self,
+        record_number: usize,
         record: EMR_SETTEXTJUSTIFICATION,
     ) -> Result<Self, PlayError> {
         self.context.graphics_environment.text.text_justification =
@@ -2374,6 +2653,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_viewport_ext_ex(
         mut self,
+        record_number: usize,
         record: EMR_SETVIEWPORTEXTEX,
     ) -> Result<Self, PlayError> {
         if matches!(
@@ -2396,6 +2676,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_viewport_org_ex(
         mut self,
+        record_number: usize,
         record: EMR_SETVIEWPORTORGEX,
     ) -> Result<Self, PlayError> {
         self.context.graphics_environment.regions.viewport.origin =
@@ -2411,6 +2692,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_window_ext_ex(
         mut self,
+        record_number: usize,
         record: EMR_SETWINDOWEXTEX,
     ) -> Result<Self, PlayError> {
         self.context.graphics_environment.regions.window.extent =
@@ -2435,6 +2717,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_window_org_ex(
         mut self,
+        record_number: usize,
         record: EMR_SETWINDOWORGEX,
     ) -> Result<Self, PlayError> {
         self.context.graphics_environment.regions.window.origin =
@@ -2462,6 +2745,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn modify_world_transform(
         mut self,
+        record_number: usize,
         record: EMR_MODIFYWORLDTRANSFORM,
     ) -> Result<Self, PlayError> {
         let (a, b) = match record.modify_world_transform_mode {
@@ -2500,6 +2784,7 @@ impl crate::converter::Player for SVGPlayer {
     ))]
     fn set_world_transform(
         mut self,
+        record_number: usize,
         record: EMR_SETWORLDTRANSFORM,
     ) -> Result<Self, PlayError> {
         self.context.xform = record.x_form;

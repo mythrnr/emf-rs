@@ -134,3 +134,18 @@ impl EMR_CREATEDIBPATTERNBRUSHPT {
         })
     }
 }
+
+impl From<EMR_CREATEDIBPATTERNBRUSHPT>
+    for wmf_core::parser::DeviceIndependentBitmap
+{
+    fn from(v: EMR_CREATEDIBPATTERNBRUSHPT) -> Self {
+        Self {
+            dib_header_info: v.bmi_src,
+            colors: wmf_core::parser::Colors::Null,
+            bitmap_buffer: wmf_core::parser::BitmapBuffer {
+                undefined_space: Vec::with_capacity(0),
+                a_data: v.bits_src,
+            },
+        }
+    }
+}
