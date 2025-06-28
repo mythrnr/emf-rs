@@ -286,7 +286,7 @@ impl From<LogPenEx> for Stroke {
                     stroke.opacity = 0_f32;
                     stroke
                 }
-                PenStyle::PS_ENDCAP_SQUARE => {
+                PenStyle::PS_ENDCAP_SQUARE | PenStyle::PS_ENDCAP_FLAT => {
                     "square".clone_into(&mut stroke.line_cap);
                     stroke
                 }
@@ -301,7 +301,6 @@ impl From<LogPenEx> for Stroke {
                 // not implemented
                 PenStyle::PS_INSIDEFRAME
                 | PenStyle::PS_USERSTYLE
-                | PenStyle::PS_ENDCAP_FLAT
                 | PenStyle::PS_GEOMETRIC => {
                     info!(?style, "pen style is not implemented");
                     stroke

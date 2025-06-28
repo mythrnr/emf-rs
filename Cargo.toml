@@ -1,12 +1,12 @@
 [workspace]
-resolver = "2"
 members = ["cli", "core", "wasm"]
+resolver = "2"
 
 [workspace.dependencies]
-clap = { version = "4.5.31", features = ["derive", "env"] }
+clap = { version = "4.5.40", features = ["derive", "env"] }
 embedded-io = "0.6.1"
 paste = "1.0.15"
-snafu = "0.8.5"
+snafu = "0.8.6"
 strum = { version = "0.27.1", default-features = false, features = ["derive"] }
 tracing = { version = "0.1.41", default-features = false, features = [
   "attributes",
@@ -17,7 +17,7 @@ tracing-subscriber = { version = "0.3.19", default-features = false, features = 
 tracing-wasm = "0.2.1"
 wasm-bindgen = "0.2.100"
 wasm-bindgen-test = "0.3.50"
-wmf-core = { git = "https://github.com/mythrnr/wmf-rs.git", tag = "0.0.10", package = "wmf-core", default-features = false }
+wmf-core = { git = "https://github.com/mythrnr/wmf-rs.git", tag = "0.0.14", package = "wmf-core", default-features = false }
 
 # The `console_error_panic_hook` crate provides better debugging of panics by
 # logging them with `console.error`. This is great for development, but requires
@@ -37,6 +37,11 @@ pedantic = { level = "warn", priority = -1 }
 doc_markdown = "allow"
 module_name_repetitions = "allow"
 must_use_candidate = "allow"
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.84.1"
+version = "0.1.0"
 
 [profile.release]
 codegen-units = 1
