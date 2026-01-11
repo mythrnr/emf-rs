@@ -13,18 +13,19 @@ enum NodeType {
     Text(String),
 }
 
+#[allow(clippy::needless_pass_by_value)]
 impl Node {
-    pub fn new(name: impl Into<String>) -> Self {
+    pub fn new(name: impl ToString) -> Self {
         Self {
-            typ: NodeType::Node(name.into()),
+            typ: NodeType::Node(name.to_string()),
             inner: vec![],
             attrs: BTreeMap::new(),
         }
     }
 
-    pub fn new_text(value: impl Into<String>) -> Self {
+    pub fn new_text(value: impl ToString) -> Self {
         Self {
-            typ: NodeType::Text(value.into()),
+            typ: NodeType::Text(value.to_string()),
             inner: vec![],
             attrs: BTreeMap::new(),
         }
@@ -38,27 +39,23 @@ impl Node {
         self
     }
 
-    pub fn set(
-        mut self,
-        name: impl Into<String>,
-        value: impl Into<String>,
-    ) -> Self {
+    pub fn set(mut self, name: impl ToString, value: impl ToString) -> Self {
         if matches!(self.typ, NodeType::Node(_)) {
-            self.attrs.insert(name.into(), value.into());
+            self.attrs.insert(name.to_string(), value.to_string());
         }
 
         self
     }
 
-    fn escape_text(value: impl Into<String>) -> String {
+    fn escape_text(value: impl ToString) -> String {
         value
-            .into()
+            .to_string()
             .replace('&', "&amp;")
             .replace('<', "&lt;")
             .replace('>', "&gt;")
     }
 
-    fn escape_attr(value: impl Into<String>) -> String {
+    fn escape_attr(value: impl ToString) -> String {
         Self::escape_text(value).replace('"', "&quot;").replace('\'', "&apos;")
     }
 }
@@ -106,7 +103,7 @@ impl Data {
 
     /// https://www.w3.org/TR/SVG/paths.html#PathDataClosePathCommand
     pub fn close(mut self) -> Self {
-        self.commands.push("Z".to_owned());
+        self.commands.push("Z".to_string());
         self
     }
 
@@ -116,9 +113,9 @@ impl Data {
         self
     }
 
-    /// https://www.w3.org/TR/SVG/paths.html#PathDataMovetoCommands
-    pub fn move_to(mut self, param: impl Into<Parameters>) -> Self {
-        self.commands.push(format!("M {}", param.into().0));
+    /// https://www.w3.org/TR/SVG/paths.html#PathDataEllipticalArcCommands
+    pub fn _elliptical_arc_to(mut self, param: impl Into<Parameters>) -> Self {
+        self.commands.push(format!("L {}", param.into().0));
         self
     }
 
@@ -128,9 +125,9 @@ impl Data {
         self
     }
 
-    /// https://www.w3.org/TR/SVG/paths.html#PathDataEllipticalArcCommands
-    pub fn _elliptical_arc_to(mut self, param: impl Into<Parameters>) -> Self {
-        self.commands.push(format!("L {}", param.into().0));
+    /// https://www.w3.org/TR/SVG/paths.html#PathDataMovetoCommands
+    pub fn move_to(mut self, param: impl Into<Parameters>) -> Self {
+        self.commands.push(format!("M {}", param.into().0));
         self
     }
 }
