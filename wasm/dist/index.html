@@ -53,14 +53,14 @@
   <div id="output" style="border: solid black; padding: 10px"></div>
 
   <script type="module">
-    import init, { convertEmf2Svg, setLogLevel } from './emf_wasm.js';
+    import init, { convertEmf2Svg, setLogLevel } from "./emf_wasm.js";
 
     async function run() {
       await init();
-      setLogLevel('debug');
+      setLogLevel("debug");
 
-      document.getElementById('input').addEventListener('change', () => {
-        const input = document.getElementById('input');
+      document.getElementById("input").addEventListener("change", () => {
+        const input = document.getElementById("input");
         const files = input.files;
 
         if (files === null || files.length === 0) {
@@ -70,19 +70,18 @@
         const fileReader = new FileReader();
         const filename = files[0].name;
 
-        fileReader.onload = function (e) {
-          const start = new Date().getTime();
+        fileReader.onload = (e) => {
+          const start = Date().getTime();
           const bytes = new Uint8Array(e.target.result);
 
           try {
             const output = convertEmf2Svg(bytes);
-            document.getElementById('output').innerHTML = output;
+            document.getElementById("output").innerHTML = output;
           } catch (e) {
-            document.getElementById('output').innerText = `${e}`;
+            document.getElementById("output").innerText = `${e}`;
           }
 
-          document.getElementById('time').innerText = `${filename} / ${new Date().getTime() - start
-            }ms`;
+          document.getElementById("time").innerText = `${filename} / ${Date().getTime() - start}ms`;
         };
 
         fileReader.readAsArrayBuffer(files[0]);
