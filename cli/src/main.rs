@@ -5,8 +5,8 @@ use std::{
 
 use clap::Parser;
 use tracing_subscriber::{
-    fmt::{format::FmtSpan, time::UtcTime},
     EnvFilter,
+    fmt::{format::FmtSpan, time::UtcTime},
 };
 
 #[derive(Clone, Debug, Parser)]

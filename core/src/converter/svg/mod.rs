@@ -5,21 +5,21 @@ use wmf_core::parser::{PointL, SizeL};
 
 use crate::{
     converter::{
+        PlayError,
         playback_device_context::{
-            point_s_to_point_l, EmfObjectTable, GraphicsEnvironment,
-            GraphicsObject, PlaybackDeviceContext, PlaybackStateColors,
-            PlaybackStateDrawing, PlaybackStateRegions, PlaybackStateText,
-            SelectedObject, Viewport, Window,
+            EmfObjectTable, GraphicsEnvironment, GraphicsObject,
+            PlaybackDeviceContext, PlaybackStateColors, PlaybackStateDrawing,
+            PlaybackStateRegions, PlaybackStateText, SelectedObject, Viewport,
+            Window, point_s_to_point_l,
         },
         svg::{
             node::{Data, Node},
             util::{
-                as_point_string_from_point_l, as_point_string_from_point_s,
-                color_from_color_ref, polygon_fill_rule, text_align,
-                url_string, Fill, Stroke,
+                Fill, Stroke, as_point_string_from_point_l,
+                as_point_string_from_point_s, color_from_color_ref,
+                polygon_fill_rule, text_align, url_string,
             },
         },
-        PlayError,
     },
     imports::*,
     parser::*,
