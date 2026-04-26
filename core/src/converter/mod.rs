@@ -108,7 +108,7 @@ where
                     ConvertError::WMFConvertError { source }
                 });
             }
-        };
+        }
 
         let buf = &mut buffer.as_slice();
         let header = EMR_HEADER::parse(buf)?;
@@ -964,7 +964,7 @@ where
                     player =
                         player.set_world_transform(record_number, record)?;
                 }
-            };
+            }
         }
 
         Ok(player.generate()?)

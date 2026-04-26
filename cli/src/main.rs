@@ -9,6 +9,14 @@ use tracing_subscriber::{
     fmt::{format::FmtSpan, time::UtcTime},
 };
 
+/// Command-line for converting emf to svg.
+///
+/// # Example
+///
+/// ```sh
+/// emf-cli --input sample.emf --output out.svg --verbose
+/// emf-cli -i sample.emf -o out.svg --quiet
+/// ```
 #[derive(Clone, Debug, Parser)]
 #[clap(author, version, about, long_about = None)]
 struct Cli {
@@ -26,6 +34,12 @@ struct Cli {
     verbose: bool,
 }
 
+/// Main entry point for emf-cli.
+///
+/// Reads an EMF file, converts it to SVG, and writes the result to the output
+/// file. If the input is actually a WMF file, conversion automatically falls
+/// back to the WMF player. Errors are logged and propagated as a non-zero
+/// process exit code.
 fn main() {
     let cli = Cli::parse();
 
@@ -130,7 +144,7 @@ fn main() {
 
             std::process::exit(1);
         }
-    };
+    }
 
     tracing::info!("Converted successfully.");
 }

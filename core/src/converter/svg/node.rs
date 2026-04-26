@@ -48,11 +48,33 @@ impl Node {
     }
 
     fn escape_text(value: impl ToString) -> String {
-        value
-            .to_string()
-            .replace('&', "&amp;")
-            .replace('<', "&lt;")
-            .replace('>', "&gt;")
+        let s = value.to_string();
+        let mut out = String::with_capacity(s.len());
+
+        for c in s.chars() {
+            match c {
+                '&' => out.push_str("&amp;"),
+                '<' => out.push_str("&lt;"),
+                '>' => out.push_str("&gt;"),
+                // The only control characters XML 1.0 permits are
+                // #x9 / #xA / #xD; strip the rest because they would
+                // produce invalid SVG.
+                '\x00'..='\x08' | '\x0B' | '\x0C' | '\x0E'..='\x1F' => {}
+                _ => {
+                    // Strip Unicode noncharacters that XML 1.0 forbids:
+                    // U+FDD0-U+FDEF and U+xFFFE / U+xFFFF in each plane.
+                    let code = c as u32;
+                    let is_nonchar = (0xFDD0..=0xFDEF).contains(&code)
+                        || (code & 0xFFFE) == 0xFFFE;
+
+                    if !is_nonchar {
+                        out.push(c);
+                    }
+                }
+            }
+        }
+
+        out
     }
 
     fn escape_attr(value: impl ToString) -> String {
@@ -64,21 +86,19 @@ impl core::fmt::Display for Node {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match &self.typ {
             NodeType::Node(name) => {
-                write!(
-                    f,
-                    "<{name} {}>{}</{name}>",
-                    self.attrs
-                        .iter()
-                        .map(|(k, v)| {
-                            format!(r#"{k}="{}""#, Self::escape_attr(v))
-                        })
-                        .collect::<Vec<_>>()
-                        .join(" "),
-                    self.inner
-                        .iter()
-                        .map(ToString::to_string)
-                        .collect::<String>()
-                )
+                write!(f, "<{name}")?;
+
+                for (k, v) in &self.attrs {
+                    write!(f, r#" {k}="{}""#, Self::escape_attr(v))?;
+                }
+
+                write!(f, ">")?;
+
+                for child in &self.inner {
+                    write!(f, "{child}")?;
+                }
+
+                write!(f, "</{name}>")
             }
             NodeType::Text(value) => {
                 write!(f, "{}", Self::escape_text(value))
@@ -88,9 +108,7 @@ impl core::fmt::Display for Node {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct Data {
-    commands: Vec<String>,
-}
+pub struct Data(String);
 
 impl Data {
     pub fn new() -> Self {
@@ -98,43 +116,59 @@ impl Data {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.commands.is_empty()
+        self.0.is_empty()
+    }
+
+    fn push_command(&mut self, cmd: char, param: &Parameters) {
+        if !self.0.is_empty() {
+            self.0.push(' ');
+        }
+
+        self.0.push(cmd);
+        self.0.push(' ');
+        self.0.push_str(&param.0);
     }
 
     /// https://www.w3.org/TR/SVG/paths.html#PathDataClosePathCommand
     pub fn close(mut self) -> Self {
-        self.commands.push("Z".to_string());
+        if !self.0.is_empty() {
+            self.0.push(' ');
+        }
+
+        self.0.push('Z');
         self
     }
 
     /// https://www.w3.org/TR/SVG/paths.html#PathDataCubicBezierCommands
     pub fn curve_to(mut self, param: impl Into<Parameters>) -> Self {
-        self.commands.push(format!("C {}", param.into().0));
+        self.push_command('C', &param.into());
         self
     }
 
     /// https://www.w3.org/TR/SVG/paths.html#PathDataEllipticalArcCommands
-    pub fn _elliptical_arc_to(mut self, param: impl Into<Parameters>) -> Self {
-        self.commands.push(format!("L {}", param.into().0));
+    // Reserved for future Arc-family record support.
+    #[allow(dead_code)]
+    pub fn elliptical_arc_to(mut self, param: impl Into<Parameters>) -> Self {
+        self.push_command('A', &param.into());
         self
     }
 
     /// https://www.w3.org/TR/SVG/paths.html#PathDataLinetoCommands
     pub fn line_to(mut self, param: impl Into<Parameters>) -> Self {
-        self.commands.push(format!("L {}", param.into().0));
+        self.push_command('L', &param.into());
         self
     }
 
     /// https://www.w3.org/TR/SVG/paths.html#PathDataMovetoCommands
     pub fn move_to(mut self, param: impl Into<Parameters>) -> Self {
-        self.commands.push(format!("M {}", param.into().0));
+        self.push_command('M', &param.into());
         self
     }
 }
 
 impl core::fmt::Display for Data {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{}", self.commands.join(" "))
+        f.write_str(&self.0)
     }
 }
 

@@ -15,17 +15,34 @@ impl PlaybackDeviceContext {
         let (sx, sy) =
             (*ve_cx as f32 / *we_cx as f32, *ve_cy as f32 / *we_cy as f32);
 
-        self.set_scale(sx, sy);
+        let wo = &self.graphics_environment.regions.window.origin;
+        let vo = &self.graphics_environment.regions.viewport.origin;
+
+        // Window-to-Viewport 変換:
+        //   device_x = (logical_x - wo.x) * sx + vo.x
+        //   device_y = (logical_y - wo.y) * sy + vo.y
+        //
+        // 行列形式:
+        //   device_x = sx * logical_x + (vo.x - wo.x * sx)
+        //   device_y = sy * logical_y + (vo.y - wo.y * sy)
+        let dx = vo.x as f32 - wo.x as f32 * sx;
+        let dy = vo.y as f32 - wo.y as f32 * sy;
+
+        self.set_scale_and_offset(sx, sy, dx, dy);
     }
 
     pub fn set_scale(&mut self, sx: f32, sy: f32) {
+        self.set_scale_and_offset(sx, sy, 0.0, 0.0);
+    }
+
+    fn set_scale_and_offset(&mut self, sx: f32, sy: f32, dx: f32, dy: f32) {
         self.xform = crate::parser::XForm {
             m11: 1.0 * sx,
             m12: 0.0,
             m21: 0.0,
             m22: 1.0 * sy,
-            dx: 0.0,
-            dy: 0.0,
+            dx,
+            dy,
         };
     }
 

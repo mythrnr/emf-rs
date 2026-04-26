@@ -1163,11 +1163,62 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn poly_polyline(
-        self,
+        mut self,
         record_number: usize,
         record: EMR_POLYPOLYLINE,
     ) -> Result<Self, PlayError> {
-        info!("EMR_POLYPOLYLINE: not implemented");
+        if record.count == 0 {
+            info!(%record.count, "poly_polyline has no points");
+            return Ok(self);
+        }
+
+        let stroke = Stroke::from(self.selected_emf_object.pen.clone());
+
+        let mut point_index: usize = 0;
+
+        for polyline_i in 0..record.number_of_polylines {
+            let point_count = record
+                .a_polyline_point_count
+                .get(polyline_i as usize)
+                .copied()
+                .unwrap_or(0);
+
+            if point_count == 0 {
+                continue;
+            }
+
+            let mut data = Data::new();
+
+            let Some(first_point) = record.a_points.get(point_index) else {
+                return Err(PlayError::InvalidRecord {
+                    cause: format!("aPoints[{point_index}] is not defined"),
+                });
+            };
+
+            let first_point = self.context.transform_point_l(first_point);
+            data = data.move_to(format!("{} {}", first_point.x, first_point.y));
+
+            for j in 1..point_count {
+                let idx = point_index + j as usize;
+                let Some(point) = record.a_points.get(idx) else {
+                    return Err(PlayError::InvalidRecord {
+                        cause: format!("aPoints[{idx}] is not defined"),
+                    });
+                };
+
+                let point = self.context.transform_point_l(point);
+                data = data.line_to(format!("{} {}", point.x, point.y));
+            }
+
+            let path = Node::new("path")
+                .set("fill", "none")
+                .set("d", data.to_string());
+            let path = stroke.set_props(&self.context, path);
+
+            self.push_element(record_number, path);
+            point_index += point_count as usize;
+        }
+
         Ok(self)
     }
 
@@ -1177,11 +1228,62 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn poly_polyline_16(
-        self,
+        mut self,
         record_number: usize,
         record: EMR_POLYPOLYLINE16,
     ) -> Result<Self, PlayError> {
-        info!("EMR_POLYPOLYLINE16: not implemented");
+        if record.count == 0 {
+            info!(%record.count, "poly_polyline has no points");
+            return Ok(self);
+        }
+
+        let stroke = Stroke::from(self.selected_emf_object.pen.clone());
+
+        let mut point_index: usize = 0;
+
+        for polyline_i in 0..record.number_of_polylines {
+            let point_count = record
+                .polyline_point_count
+                .get(polyline_i as usize)
+                .copied()
+                .unwrap_or(0);
+
+            if point_count == 0 {
+                continue;
+            }
+
+            let mut data = Data::new();
+
+            let Some(first_point) = record.a_points.get(point_index) else {
+                return Err(PlayError::InvalidRecord {
+                    cause: format!("aPoints[{point_index}] is not defined"),
+                });
+            };
+
+            let first_point = self.context.transform_point_s(first_point);
+            data = data.move_to(format!("{} {}", first_point.x, first_point.y));
+
+            for j in 1..point_count {
+                let idx = point_index + j as usize;
+                let Some(point) = record.a_points.get(idx) else {
+                    return Err(PlayError::InvalidRecord {
+                        cause: format!("aPoints[{idx}] is not defined"),
+                    });
+                };
+
+                let point = self.context.transform_point_s(point);
+                data = data.line_to(format!("{} {}", point.x, point.y));
+            }
+
+            let path = Node::new("path")
+                .set("fill", "none")
+                .set("d", data.to_string());
+            let path = stroke.set_props(&self.context, path);
+
+            self.push_element(record_number, path);
+            point_index += point_count as usize;
+        }
+
         Ok(self)
     }
 
@@ -1530,8 +1632,8 @@ impl crate::converter::Player for SVGPlayer {
             .set("fill-rule", fill_rule.as_str())
             .set("x", top_left.x.to_string())
             .set("y", top_left.y.to_string())
-            .set("height", (bottom_right.x - top_left.x).to_string())
-            .set("width", (bottom_right.y - top_left.y).to_string());
+            .set("width", (bottom_right.x - top_left.x).to_string())
+            .set("height", (bottom_right.y - top_left.y).to_string());
         let rect = stroke.set_props(&self.context, rect);
 
         self.push_element(record_number, rect);
@@ -2682,6 +2784,13 @@ impl crate::converter::Player for SVGPlayer {
         self.context.graphics_environment.regions.viewport.origin =
             record.origin;
 
+        if matches!(
+            self.context.graphics_environment.drawing.mapping_mode,
+            MapMode::MM_ISOTROPIC | MapMode::MM_ANISOTROPIC
+        ) {
+            self.context.apply_transformation();
+        }
+
         Ok(self)
     }
 
@@ -2695,16 +2804,13 @@ impl crate::converter::Player for SVGPlayer {
         record_number: usize,
         record: EMR_SETWINDOWEXTEX,
     ) -> Result<Self, PlayError> {
-        self.context.graphics_environment.regions.window.extent =
-            record.extent.clone();
+        self.context.graphics_environment.regions.window.extent = record.extent;
 
         if matches!(
             self.context.graphics_environment.drawing.mapping_mode,
             MapMode::MM_ISOTROPIC | MapMode::MM_ANISOTROPIC
         ) {
             self.context.apply_transformation();
-        } else {
-            self.window.extent = record.extent;
         }
 
         Ok(self)
@@ -2720,14 +2826,13 @@ impl crate::converter::Player for SVGPlayer {
         record_number: usize,
         record: EMR_SETWINDOWORGEX,
     ) -> Result<Self, PlayError> {
-        self.context.graphics_environment.regions.window.origin =
-            record.origin.clone();
+        self.context.graphics_environment.regions.window.origin = record.origin;
 
-        if !matches!(
+        if matches!(
             self.context.graphics_environment.drawing.mapping_mode,
             MapMode::MM_ISOTROPIC | MapMode::MM_ANISOTROPIC
         ) {
-            self.window.origin = record.origin;
+            self.context.apply_transformation();
         }
 
         Ok(self)

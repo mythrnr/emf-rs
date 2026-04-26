@@ -3,7 +3,7 @@ MAKEFLAGS += --silent
 endif
 
 .PHONY: ci-suite
-ci-suite: spell-check fix fmt lint udeps test
+ci-suite: spell-check fix fmt lint udeps wasm test
 
 .PHONY: check
 check:
@@ -53,9 +53,9 @@ serve: wasm
 
 .PHONY: spell-check
 spell-check:
-	docker run --pull always --rm -v $(shell pwd):/workdir \
+	docker run --pull always --rm -v "$(shell pwd):/workdir" \
 		ghcr.io/streetsidesoftware/cspell:latest \
-			--config .vscode/cspell.json "**" --words-only
+			--config .vscode/cspell.json "**"
 
 .PHONY: test
 test:

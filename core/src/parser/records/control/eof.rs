@@ -64,7 +64,7 @@ impl EMR_EOF {
         let palette_buffer = if off_pal_entries > 0 {
             let (_, undefined_space_bytes) = crate::parser::read_variable(
                 buf,
-                off_pal_entries as usize - size.consumed_bytes(),
+                size.checked_offset(off_pal_entries)?,
             )?;
 
             size.consume(undefined_space_bytes);

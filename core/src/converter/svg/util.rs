@@ -31,10 +31,6 @@ impl LogFont {
             }
         };
 
-        if self.orientation != 0 {
-            elem = elem.set("rotate", (-self.orientation / 10).to_string());
-        }
-
         if self.escapement != 0 {
             elem = elem.set(
                 "transform",
@@ -45,6 +41,15 @@ impl LogFont {
                     point.y
                 ),
             );
+        }
+
+        // orientation は文字の絶対角度、escapement はベースラインの
+        // 角度。transform で既にベースライン回転が適用されているため、
+        // rotate にはベースラインとの差分のみ設定する。
+        let char_rotation = self.orientation - self.escapement;
+
+        if char_rotation != 0 {
+            elem = elem.set("rotate", (-char_rotation / 10).to_string());
         }
 
         let scale = ctx.xform.calc_scale();
