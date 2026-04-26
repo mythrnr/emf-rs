@@ -113,6 +113,24 @@ impl Size {
         self.1
     }
 
+    /// Subtracts consumed bytes from the given offset, returning a
+    /// `ParseError` on underflow.
+    pub fn checked_offset(
+        &self,
+        offset: u32,
+    ) -> Result<usize, crate::parser::ParseError> {
+        let offset = offset as usize;
+
+        offset.checked_sub(self.1).ok_or_else(|| {
+            crate::parser::ParseError::UnexpectedPattern {
+                cause: alloc::format!(
+                    "offset ({offset:#010X}) is less than consumed bytes ({})",
+                    self.1,
+                ),
+            }
+        })
+    }
+
     pub fn remaining(&self) -> bool {
         self.remaining_bytes() > 0
     }

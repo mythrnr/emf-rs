@@ -210,7 +210,7 @@ impl EMR_MASKBLT {
         let ((_, undef_space_bytes), (bmi_src, bmi_src_bytes)) = (
             crate::parser::read_variable(
                 buf,
-                off_bmi_src as usize - size.consumed_bytes(),
+                size.checked_offset(off_bmi_src)?,
             )?,
             crate::parser::read_variable(buf, cb_bmi_src as usize)?,
         );
@@ -220,7 +220,7 @@ impl EMR_MASKBLT {
         let ((_, undef_space_bytes), (bits_src, bits_src_bytes)) = (
             crate::parser::read_variable(
                 buf,
-                off_bits_src as usize - size.consumed_bytes(),
+                size.checked_offset(off_bits_src)?,
             )?,
             crate::parser::read_variable(buf, cb_bits_src as usize)?,
         );
@@ -230,7 +230,7 @@ impl EMR_MASKBLT {
         let ((_, undef_space_bytes), (bmi_mask, bmi_mask_bytes)) = (
             crate::parser::read_variable(
                 buf,
-                off_bmi_mask as usize - size.consumed_bytes(),
+                size.checked_offset(off_bmi_mask)?,
             )?,
             crate::parser::read_variable(buf, cb_bmi_mask as usize)?,
         );
@@ -240,7 +240,7 @@ impl EMR_MASKBLT {
         let ((_, undef_space_bytes), (bits_mask, bits_mask_bytes)) = (
             crate::parser::read_variable(
                 buf,
-                off_bits_mask as usize - size.consumed_bytes(),
+                size.checked_offset(off_bits_mask)?,
             )?,
             crate::parser::read_variable(buf, cb_bits_mask as usize)?,
         );

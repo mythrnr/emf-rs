@@ -29,8 +29,8 @@ pub enum StockObject {
     /// A white, solid-color brush that is equivalent to a logical brush
     /// (LogBrushEx object) with the following properties:
     ///
-    /// - BrushStyle: BS_SOLID from the BrushStyle enumeration ([MS-WMF]
-    ///   section 2.1.1.4)
+    /// - BrushStyle: BS_SOLID from the BrushStyle enumeration ([MS-WMF] section
+    ///   2.1.1.4)
     /// - Color: 0x00FFFFFF in a ColorRef object ([MS-WMF] section 2.2.2.8)
     WHITE_BRUSH = 0x80000000,
     /// A light gray, solid-color brush that is equivalent to a logical brush

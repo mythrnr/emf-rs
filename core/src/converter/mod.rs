@@ -94,7 +94,7 @@ where
                             record_type as u32,
                         ),
                     },
-                })
+                });
             }
             Err(_) => {
                 info!("This file may be WMF. Try to convert as WMF.");
@@ -108,7 +108,7 @@ where
                     ConvertError::WMFConvertError { source }
                 });
             }
-        };
+        }
 
         let buf = &mut buffer.as_slice();
         let header = EMR_HEADER::parse(buf)?;
@@ -121,7 +121,7 @@ where
             record_number += 1;
 
             let ((record_type, record_type_bytes), (size, size_bytes)) = (
-                RecordType::parse(buf).map_err(ParseError::from)?,
+                RecordType::parse(buf)?,
                 read_u32_from_le_bytes(buf).map_err(ParseError::from)?,
             );
 
@@ -964,7 +964,7 @@ where
                     player =
                         player.set_world_transform(record_number, record)?;
                 }
-            };
+            }
         }
 
         Ok(player.generate()?)

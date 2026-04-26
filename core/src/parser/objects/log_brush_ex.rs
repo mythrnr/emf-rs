@@ -73,7 +73,7 @@ impl LogBrushEx {
             _ => {
                 return Err(crate::parser::ParseError::NotSupported {
                     cause: format!("Unsupported BrushStyle {brush_style:?}"),
-                })
+                });
             }
         };
 

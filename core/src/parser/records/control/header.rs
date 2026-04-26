@@ -217,7 +217,7 @@ impl EmfHeaderRecordBuffer {
         let ((_, undefined_bytes), (b, description_bytes)) = (
             crate::parser::read_variable(
                 buf,
-                emf_header.off_description as usize - size.consumed_bytes(),
+                size.checked_offset(emf_header.off_description)?,
             )?,
             crate::parser::read_variable(
                 buf,
@@ -246,7 +246,7 @@ impl EmfHeaderRecordBuffer {
             let ((_, undefined_bytes), (b, description_bytes)) = (
                 crate::parser::read_variable(
                     buf,
-                    emf_header.off_description as usize - size.consumed_bytes(),
+                    size.checked_offset(emf_header.off_description)?,
                 )?,
                 crate::parser::read_variable(
                     buf,
@@ -268,8 +268,9 @@ impl EmfHeaderRecordBuffer {
             let ((_, undefined_bytes), (pixel_format, pixel_format_bytes)) = (
                 crate::parser::read_variable(
                     buf,
-                    emf_header_extension_1.off_pixel_format as usize
-                        - size.consumed_bytes(),
+                    size.checked_offset(
+                        emf_header_extension_1.off_pixel_format,
+                    )?,
                 )?,
                 crate::parser::PixelFormatDescriptor::parse(buf)?,
             );
@@ -309,7 +310,7 @@ impl EmfHeaderRecordBuffer {
             let ((_, undefined_bytes), (b, description_bytes)) = (
                 crate::parser::read_variable(
                     buf,
-                    emf_header.off_description as usize - size.consumed_bytes(),
+                    size.checked_offset(emf_header.off_description)?,
                 )?,
                 crate::parser::read_variable(
                     buf,
@@ -331,8 +332,9 @@ impl EmfHeaderRecordBuffer {
             let ((_, undefined_bytes), (pixel_format, pixel_format_bytes)) = (
                 crate::parser::read_variable(
                     buf,
-                    emf_header_extension_1.off_pixel_format as usize
-                        - size.consumed_bytes(),
+                    size.checked_offset(
+                        emf_header_extension_1.off_pixel_format,
+                    )?,
                 )?,
                 crate::parser::PixelFormatDescriptor::parse(buf)?,
             );

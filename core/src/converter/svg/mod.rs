@@ -5,21 +5,21 @@ use wmf_core::parser::{PointL, SizeL};
 
 use crate::{
     converter::{
+        PlayError,
         playback_device_context::{
-            point_s_to_point_l, EmfObjectTable, GraphicsEnvironment,
-            GraphicsObject, PlaybackDeviceContext, PlaybackStateColors,
-            PlaybackStateDrawing, PlaybackStateRegions, PlaybackStateText,
-            SelectedObject, Viewport, Window,
+            EmfObjectTable, GraphicsEnvironment, GraphicsObject,
+            PlaybackDeviceContext, PlaybackStateColors, PlaybackStateDrawing,
+            PlaybackStateRegions, PlaybackStateText, SelectedObject, Viewport,
+            Window, point_s_to_point_l,
         },
         svg::{
             node::{Data, Node},
             util::{
-                as_point_string_from_point_l, as_point_string_from_point_s,
-                color_from_color_ref, polygon_fill_rule, text_align,
-                url_string, Fill, Stroke,
+                Fill, Stroke, as_point_string_from_point_l,
+                as_point_string_from_point_s, color_from_color_ref,
+                polygon_fill_rule, text_align, url_string,
             },
         },
-        PlayError,
     },
     imports::*,
     parser::*,
@@ -183,11 +183,70 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn bit_blt(
-        self,
+        mut self,
         record_number: usize,
         record: EMR_BITBLT,
     ) -> Result<Self, PlayError> {
-        info!("EMR_BITBLT: not implemented");
+        use wmf_core::parser::TernaryRasterOperation;
+
+        if record.cx_dest == 0 || record.cy_dest == 0 {
+            info!(
+                cx_dest = %record.cx_dest,
+                cy_dest = %record.cy_dest,
+                "EMR_BITBLT is skipped because cx_dest or cy_dest is zero.",
+            );
+            return Ok(self);
+        }
+
+        // Transform both corners and derive width/height from the
+        // difference. Sizes are vectors, so transforming them as points
+        // would erroneously double-apply the translation offset.
+        let top_left = self
+            .context
+            .transform_point_l(&PointL { x: record.x_dest, y: record.y_dest });
+        let bottom_right = self.context.transform_point_l(&PointL {
+            x: record.x_dest + record.cx_dest,
+            y: record.y_dest + record.cy_dest,
+        });
+
+        let x = top_left.x.min(bottom_right.x);
+        let y = top_left.y.min(bottom_right.y);
+        let width = (bottom_right.x - top_left.x).abs();
+        let height = (bottom_right.y - top_left.y).abs();
+
+        // Approximate ROP3 operations that do not consume a source
+        // bitmap as a filled rectangle. Source-dependent operations
+        // such as SRCCOPY are not implemented and only logged.
+        let fill = match record.bit_blt_raster_operation {
+            TernaryRasterOperation::BLACKNESS => "#000000".to_owned(),
+            TernaryRasterOperation::WHITENESS => "#FFFFFF".to_owned(),
+            TernaryRasterOperation::PATCOPY => match Fill::from(
+                &self.context,
+                self.selected_emf_object.brush.clone(),
+            ) {
+                Fill::Pattern { pattern } => {
+                    let id = self.generate_definition_id();
+                    self.definitions.push(pattern.set("id", id.as_str()));
+                    url_string(format!("#{id}").as_str())
+                }
+                Fill::Value { value } => value,
+            },
+            op => {
+                info!(?op, "EMR_BITBLT raster operation is not implemented",);
+                return Ok(self);
+            }
+        };
+
+        let rect = Node::new("rect")
+            .set("fill", fill.as_str())
+            .set("stroke", "none")
+            .set("x", x.to_string())
+            .set("y", y.to_string())
+            .set("width", width.to_string())
+            .set("height", height.to_string());
+
+        self.push_element(record_number, rect);
+
         Ok(self)
     }
 
@@ -586,19 +645,36 @@ impl crate::converter::Player for SVGPlayer {
         record_number: usize,
         record: EMR_ELLIPSE,
     ) -> Result<Self, PlayError> {
-        let r = self.context.transform_point_l(&wmf_core::parser::PointL {
-            x: (record.bx.right - record.bx.left) / 2,
-            y: (record.bx.bottom - record.bx.top) / 2,
-        });
+        // Transform both corners of the bounding box and derive the
+        // center and radii from them. The radius is a direction vector,
+        // so transforming it as a point would double-apply the
+        // translation offset; computing it from the transformed corner
+        // difference avoids that.
+        let top_left =
+            self.context.transform_point_l(&wmf_core::parser::PointL {
+                x: record.bx.left,
+                y: record.bx.top,
+            });
+        let bottom_right =
+            self.context.transform_point_l(&wmf_core::parser::PointL {
+                x: record.bx.right,
+                y: record.bx.bottom,
+            });
 
-        if r.x == 0 || r.y == 0 {
+        let rx = (bottom_right.x - top_left.x).abs() / 2;
+        let ry = (bottom_right.y - top_left.y).abs() / 2;
+
+        if rx == 0 || ry == 0 {
             info!(
-                %r.x, %r.y,
+                %rx, %ry,
                 "EMR_ELLIPSE is skipped because rx or ry is zero.",
             );
 
             return Ok(self);
         }
+
+        let cx = i32::midpoint(top_left.x, bottom_right.x);
+        let cy = i32::midpoint(top_left.y, bottom_right.y);
 
         let stroke = Stroke::from(self.selected_emf_object.pen.clone());
         let fill = match Fill::from(
@@ -615,18 +691,14 @@ impl crate::converter::Player for SVGPlayer {
         let fill_rule = polygon_fill_rule(
             self.context.graphics_environment.drawing.polyfill_mode,
         );
-        let c = self.context.transform_point_l(&wmf_core::parser::PointL {
-            x: record.bx.left,
-            y: record.bx.top,
-        });
 
         let ellipse = Node::new("ellipse")
             .set("fill", fill.as_str())
             .set("fill-rule", fill_rule.as_str())
-            .set("cx", (c.x + r.x).to_string())
-            .set("cy", (c.y + r.y).to_string())
-            .set("rx", r.x.to_string())
-            .set("ry", r.y.to_string());
+            .set("cx", cx.to_string())
+            .set("cy", cy.to_string())
+            .set("rx", rx.to_string())
+            .set("ry", ry.to_string());
         let ellipse = stroke.set_props(&self.context, ellipse);
 
         self.push_element(record_number, ellipse);
@@ -796,8 +868,36 @@ impl crate::converter::Player for SVGPlayer {
         record_number: usize,
         record: EMR_LINETO,
     ) -> Result<Self, PlayError> {
-        let point = self.context.transform_point_l(&record.point);
-        self.path = self.path.line_to(format!("{} {}", point.x, point.y));
+        // Transform the start (current position, in logical coords)
+        // and the end point.
+        let from = self.context.transform_point_l(
+            &self.context.graphics_environment.drawing.current_position,
+        );
+        let to = self.context.transform_point_l(&record.point);
+
+        // EMR_LINETO updates the current position to the specified
+        // point after drawing (MS-EMF 2.3.5.13).
+        self.context.graphics_environment.drawing.current_position =
+            record.point.clone();
+
+        if self.context.graphics_environment.drawing.path_bracket {
+            // Inside a path bracket, accumulate into the shared path
+            // instead of emitting an element.
+            self.path = self.path.clone().line_to(format!("{} {}", to.x, to.y));
+        } else {
+            // Outside a path bracket the line must be rendered
+            // immediately.
+            let stroke = Stroke::from(self.selected_emf_object.pen.clone());
+            let data = Data::new()
+                .move_to(format!("{} {}", from.x, from.y))
+                .line_to(format!("{} {}", to.x, to.y));
+            let path = Node::new("path")
+                .set("fill", "none")
+                .set("d", data.to_string());
+            let path = stroke.set_props(&self.context, path);
+
+            self.push_element(record_number, path);
+        }
 
         Ok(self)
     }
@@ -1163,11 +1263,62 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn poly_polyline(
-        self,
+        mut self,
         record_number: usize,
         record: EMR_POLYPOLYLINE,
     ) -> Result<Self, PlayError> {
-        info!("EMR_POLYPOLYLINE: not implemented");
+        if record.count == 0 {
+            info!(%record.count, "poly_polyline has no points");
+            return Ok(self);
+        }
+
+        let stroke = Stroke::from(self.selected_emf_object.pen.clone());
+
+        let mut point_index: usize = 0;
+
+        for polyline_i in 0..record.number_of_polylines {
+            let point_count = record
+                .a_polyline_point_count
+                .get(polyline_i as usize)
+                .copied()
+                .unwrap_or(0);
+
+            if point_count == 0 {
+                continue;
+            }
+
+            let mut data = Data::new();
+
+            let Some(first_point) = record.a_points.get(point_index) else {
+                return Err(PlayError::InvalidRecord {
+                    cause: format!("aPoints[{point_index}] is not defined"),
+                });
+            };
+
+            let first_point = self.context.transform_point_l(first_point);
+            data = data.move_to(format!("{} {}", first_point.x, first_point.y));
+
+            for j in 1..point_count {
+                let idx = point_index + j as usize;
+                let Some(point) = record.a_points.get(idx) else {
+                    return Err(PlayError::InvalidRecord {
+                        cause: format!("aPoints[{idx}] is not defined"),
+                    });
+                };
+
+                let point = self.context.transform_point_l(point);
+                data = data.line_to(format!("{} {}", point.x, point.y));
+            }
+
+            let path = Node::new("path")
+                .set("fill", "none")
+                .set("d", data.to_string());
+            let path = stroke.set_props(&self.context, path);
+
+            self.push_element(record_number, path);
+            point_index += point_count as usize;
+        }
+
         Ok(self)
     }
 
@@ -1177,11 +1328,62 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn poly_polyline_16(
-        self,
+        mut self,
         record_number: usize,
         record: EMR_POLYPOLYLINE16,
     ) -> Result<Self, PlayError> {
-        info!("EMR_POLYPOLYLINE16: not implemented");
+        if record.count == 0 {
+            info!(%record.count, "poly_polyline has no points");
+            return Ok(self);
+        }
+
+        let stroke = Stroke::from(self.selected_emf_object.pen.clone());
+
+        let mut point_index: usize = 0;
+
+        for polyline_i in 0..record.number_of_polylines {
+            let point_count = record
+                .polyline_point_count
+                .get(polyline_i as usize)
+                .copied()
+                .unwrap_or(0);
+
+            if point_count == 0 {
+                continue;
+            }
+
+            let mut data = Data::new();
+
+            let Some(first_point) = record.a_points.get(point_index) else {
+                return Err(PlayError::InvalidRecord {
+                    cause: format!("aPoints[{point_index}] is not defined"),
+                });
+            };
+
+            let first_point = self.context.transform_point_s(first_point);
+            data = data.move_to(format!("{} {}", first_point.x, first_point.y));
+
+            for j in 1..point_count {
+                let idx = point_index + j as usize;
+                let Some(point) = record.a_points.get(idx) else {
+                    return Err(PlayError::InvalidRecord {
+                        cause: format!("aPoints[{idx}] is not defined"),
+                    });
+                };
+
+                let point = self.context.transform_point_s(point);
+                data = data.line_to(format!("{} {}", point.x, point.y));
+            }
+
+            let path = Node::new("path")
+                .set("fill", "none")
+                .set("d", data.to_string());
+            let path = stroke.set_props(&self.context, path);
+
+            self.push_element(record_number, path);
+            point_index += point_count as usize;
+        }
+
         Ok(self)
     }
 
@@ -1530,8 +1732,8 @@ impl crate::converter::Player for SVGPlayer {
             .set("fill-rule", fill_rule.as_str())
             .set("x", top_left.x.to_string())
             .set("y", top_left.y.to_string())
-            .set("height", (bottom_right.x - top_left.x).to_string())
-            .set("width", (bottom_right.y - top_left.y).to_string());
+            .set("width", (bottom_right.x - top_left.x).to_string())
+            .set("height", (bottom_right.y - top_left.y).to_string());
         let rect = stroke.set_props(&self.context, rect);
 
         self.push_element(record_number, rect);
@@ -2109,7 +2311,10 @@ impl crate::converter::Player for SVGPlayer {
         record_number: usize,
         record: EMR_CLOSEFIGURE,
     ) -> Result<Self, PlayError> {
-        self.context.graphics_environment.drawing.path_bracket = false;
+        // MS-EMF 2.3.10.3: CLOSEFIGURE only closes the current subpath
+        // and does not end the path bracket; the bracket continues
+        // until EndPath or AbortPath. Subsequent MoveToEx/LineTo
+        // records must keep accumulating into the same path.
         self.path = self.path.close();
 
         Ok(self)
@@ -2230,10 +2435,16 @@ impl crate::converter::Player for SVGPlayer {
         self.context.graphics_environment.drawing.current_position =
             record.offset.clone();
 
-        let point = self.context.transform_point_l(&record.offset);
+        // Only reflect MOVETO into the shared path while inside a path
+        // bracket. Outside the bracket, updating the current position
+        // is sufficient: subsequent LINETO/POLYLINETO records will
+        // start drawing from that position.
+        if self.context.graphics_environment.drawing.path_bracket {
+            let point = self.context.transform_point_l(&record.offset);
 
-        self.path =
-            self.path.clone().move_to(format!("{} {}", point.x, point.y));
+            self.path =
+                self.path.clone().move_to(format!("{} {}", point.x, point.y));
+        }
 
         Ok(self)
     }
@@ -2656,6 +2867,10 @@ impl crate::converter::Player for SVGPlayer {
         record_number: usize,
         record: EMR_SETVIEWPORTEXTEX,
     ) -> Result<Self, PlayError> {
+        // MS-EMF 2.3.11.28: The viewport extent is only updated when
+        // the mapping mode is MM_ISOTROPIC or MM_ANISOTROPIC. In every
+        // other mapping mode the extent is fixed and this record is
+        // ignored.
         if matches!(
             self.context.graphics_environment.drawing.mapping_mode,
             MapMode::MM_ISOTROPIC | MapMode::MM_ANISOTROPIC
@@ -2679,8 +2894,12 @@ impl crate::converter::Player for SVGPlayer {
         record_number: usize,
         record: EMR_SETVIEWPORTORGEX,
     ) -> Result<Self, PlayError> {
+        // The viewport origin always feeds into the transformation,
+        // regardless of mapping mode. MS-EMF 2.3.11.29 places no
+        // mapping-mode restriction on this record.
         self.context.graphics_environment.regions.viewport.origin =
             record.origin;
+        self.context.apply_transformation();
 
         Ok(self)
     }
@@ -2695,16 +2914,18 @@ impl crate::converter::Player for SVGPlayer {
         record_number: usize,
         record: EMR_SETWINDOWEXTEX,
     ) -> Result<Self, PlayError> {
-        self.context.graphics_environment.regions.window.extent =
-            record.extent.clone();
-
+        // MS-EMF 2.3.11.30: The window extent is only updated when the
+        // mapping mode is MM_ISOTROPIC or MM_ANISOTROPIC. In every
+        // other mapping mode the extent is fixed and this record is
+        // ignored.
         if matches!(
             self.context.graphics_environment.drawing.mapping_mode,
             MapMode::MM_ISOTROPIC | MapMode::MM_ANISOTROPIC
         ) {
+            self.context.graphics_environment.regions.window.extent =
+                record.extent;
+
             self.context.apply_transformation();
-        } else {
-            self.window.extent = record.extent;
         }
 
         Ok(self)
@@ -2720,15 +2941,11 @@ impl crate::converter::Player for SVGPlayer {
         record_number: usize,
         record: EMR_SETWINDOWORGEX,
     ) -> Result<Self, PlayError> {
-        self.context.graphics_environment.regions.window.origin =
-            record.origin.clone();
-
-        if !matches!(
-            self.context.graphics_environment.drawing.mapping_mode,
-            MapMode::MM_ISOTROPIC | MapMode::MM_ANISOTROPIC
-        ) {
-            self.window.origin = record.origin;
-        }
+        // The window origin always feeds into the transformation,
+        // regardless of mapping mode. MS-EMF 2.3.11.31 places no
+        // mapping-mode restriction on this record.
+        self.context.graphics_environment.regions.window.origin = record.origin;
+        self.context.apply_transformation();
 
         Ok(self)
     }

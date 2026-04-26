@@ -145,7 +145,7 @@ impl EMR_SETDIBITSTODEVICE {
         let ((_, undef_space_bytes), (bmi_src, bmi_src_bytes)) = (
             crate::parser::read_variable(
                 buf,
-                off_bmi_src as usize - size.consumed_bytes(),
+                size.checked_offset(off_bmi_src)?,
             )?,
             crate::parser::read_variable(buf, cb_bmi_src as usize)?,
         );
@@ -155,7 +155,7 @@ impl EMR_SETDIBITSTODEVICE {
         let ((_, undef_space_bytes), (bits_src, bits_src_bytes)) = (
             crate::parser::read_variable(
                 buf,
-                off_bits_src as usize - size.consumed_bytes(),
+                size.checked_offset(off_bits_src)?,
             )?,
             crate::parser::read_variable(buf, cb_bits_src as usize)?,
         );

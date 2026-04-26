@@ -95,20 +95,14 @@ impl EMR_CREATEMONOBRUSH {
         );
 
         let ((_, undef_space_bytes), (bmi_src, bmi_src_bytes)) = (
-            crate::parser::read_variable(
-                buf,
-                off_bmi as usize - size.consumed_bytes(),
-            )?,
+            crate::parser::read_variable(buf, size.checked_offset(off_bmi)?)?,
             wmf_core::parser::BitmapInfoHeader::parse(buf)?,
         );
 
         size.consume(undef_space_bytes + bmi_src_bytes);
 
         let ((_, undef_space_bytes), (bits_src, bits_src_bytes)) = (
-            crate::parser::read_variable(
-                buf,
-                off_bits as usize - size.consumed_bytes(),
-            )?,
+            crate::parser::read_variable(buf, size.checked_offset(off_bits)?)?,
             crate::parser::read_variable(buf, cb_bits as usize)?,
         );
 

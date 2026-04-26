@@ -98,7 +98,7 @@ impl EMR_EXTCREATEPEN {
             let ((_, undef_space_bytes), (bmi_src, bmi_src_bytes)) = (
                 crate::parser::read_variable(
                     buf,
-                    off_bmi as usize - size.consumed_bytes(),
+                    size.checked_offset(off_bmi)?,
                 )?,
                 wmf_core::parser::BitmapInfoHeader::parse(buf)?,
             );
@@ -108,7 +108,7 @@ impl EMR_EXTCREATEPEN {
             let ((_, undef_space_bytes), (bits_src, bits_src_bytes)) = (
                 crate::parser::read_variable(
                     buf,
-                    off_bits as usize - size.consumed_bytes(),
+                    size.checked_offset(off_bits)?,
                 )?,
                 crate::parser::read_variable(buf, cb_bits as usize)?,
             );
