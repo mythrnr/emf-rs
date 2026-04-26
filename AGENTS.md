@@ -146,7 +146,16 @@ make install-tools
 - Error definitions: uses the `snafu` crate
 - Logging: uses the `tracing` crate; can be disabled via feature flag
 - EMF record type names follow the specification in `UPPER_SNAKE_CASE`
-- Comments in code are written in English
+- All comments in source files (`.rs`, `.toml`, shell scripts, etc.) MUST
+  be written in English. This rule has no exceptions: do not use any
+  language other than English, even temporarily during refactors or while
+  adding new code, and do not mix languages within the same comment block.
+  Inline doc strings, `//` line comments, and `/* */` block comments all
+  fall under this rule
+- Log messages emitted via `tracing` MUST be in English
+- Error messages produced by `snafu` (or any other path) MUST be in English
+- Identifier names follow Rust conventions in English (record type names
+  follow the MS-EMF specification as noted above)
 
 ### EditorConfig
 
