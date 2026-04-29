@@ -10,7 +10,8 @@ A Rust library for parsing [EMF (Enhanced Metafile)](https://learn.microsoft.com
 - Converts EMF records to SVG output
 - Automatic WMF fallback: delegates to [wmf-rs](https://github.com/mythrnr/wmf-rs) when the input is a WMF file
 - `no_std` compatible (uses `alloc`)
-- Works in WebAssembly environments via `emf-wasm`
+- Works in WebAssembly environments via `emf-wasm` (release builds run
+  through `wasm-opt -Oz`)
 - Extensible conversion via the `Player` trait
 
 ## Installation

@@ -34,34 +34,19 @@ impl EMR_DELETEOBJECT {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_DELETEOBJECT {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_DELETEOBJECT as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{consume_remaining_bytes, read_field};
 
-        let (in_object, in_object_bytes) =
-            crate::parser::read_u32_from_le_bytes(buf)?;
-
-        size.consume(in_object_bytes);
-
-        if in_object == 0 {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "in_object must not be zero, but parsed value is \
-                     `{in_object:#010X}`",
-                ),
-            });
-        }
-
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_DELETEOBJECT as u32,
         )?;
+
+        let in_object = read_field(buf, &mut size)?;
+
+        crate::parser::ParseError::expect_ne("in_object", in_object, 0_u32)?;
+
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self { record_type, size, in_object })
     }

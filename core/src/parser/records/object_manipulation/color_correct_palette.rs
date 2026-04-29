@@ -36,49 +36,25 @@ impl EMR_COLORCORRECTPALETTE {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_COLORCORRECTPALETTE {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_COLORCORRECTPALETTE as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{consume_remaining_bytes, read_field};
 
-        if size.byte_count() != 0x00000018 {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "size field must be `0x00000018`, but parsed value is \
-                     {:#010X}",
-                    size.byte_count(),
-                ),
-            });
-        }
-
-        let (
-            (ih_palette, ih_palette_bytes),
-            (n_first_entry, n_first_entry_bytes),
-            (n_pal_entries, n_pal_entries_bytes),
-            (n_reserved, n_reserved_bytes),
-        ) = (
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-        );
-
-        size.consume(
-            ih_palette_bytes
-                + n_first_entry_bytes
-                + n_pal_entries_bytes
-                + n_reserved_bytes,
-        );
-
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_COLORCORRECTPALETTE as u32,
         )?;
+        crate::parser::ParseError::expect_eq(
+            "size field",
+            size.byte_count() as u32,
+            0x00000018_u32,
+        )?;
+
+        let ih_palette = read_field(buf, &mut size)?;
+        let n_first_entry = read_field(buf, &mut size)?;
+        let n_pal_entries = read_field(buf, &mut size)?;
+        let n_reserved = read_field(buf, &mut size)?;
+
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self {
             record_type,

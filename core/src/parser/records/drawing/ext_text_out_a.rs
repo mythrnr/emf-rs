@@ -51,47 +51,28 @@ impl EMR_EXTTEXTOUTA {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_EXTTEXTOUTA {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_EXTTEXTOUTA as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{
+            consume_remaining_bytes, read_field, read_with,
+        };
 
-        let (
-            (bounds, bounds_bytes),
-            (i_graphics_mode, i_graphics_mode_bytes),
-            (ex_scale, ex_scale_bytes),
-            (ey_scale, ey_scale_bytes),
-        ) = (
-            wmf_core::parser::RectL::parse(buf)?,
-            crate::parser::GraphicsMode::parse(buf)?,
-            crate::parser::read_f32_from_le_bytes(buf)?,
-            crate::parser::read_f32_from_le_bytes(buf)?,
-        );
-
-        size.consume(
-            bounds_bytes
-                + i_graphics_mode_bytes
-                + ex_scale_bytes
-                + ey_scale_bytes,
-        );
-
-        let (a_emr_text, a_emr_text_bytes) = crate::parser::EmrText::parse(
-            buf,
-            &record_type,
-            size.consumed_bytes(),
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_EXTTEXTOUTA as u32,
         )?;
 
-        size.consume(a_emr_text_bytes);
+        let bounds = read_with(buf, &mut size, wmf_core::parser::RectL::parse)?;
+        let i_graphics_mode =
+            read_with(buf, &mut size, crate::parser::GraphicsMode::parse)?;
+        let ex_scale = read_field(buf, &mut size)?;
+        let ey_scale = read_field(buf, &mut size)?;
 
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
-        )?;
+        let offset = size.consumed_bytes();
+        let a_emr_text = read_with(buf, &mut size, |b| {
+            crate::parser::EmrText::parse(b, &record_type, offset)
+        })?;
+
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self {
             record_type,

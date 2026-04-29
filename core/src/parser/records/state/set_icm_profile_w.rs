@@ -39,37 +39,23 @@ impl EMR_SETICMPROFILEW {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_SETICMPROFILEW {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_SETICMPROFILEW as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{
+            consume_remaining_bytes, read_bytes_field, read_field,
+        };
 
-        let (
-            (dw_flags, dw_flags_bytes),
-            (cb_name, cb_name_bytes),
-            (cb_data, cb_data_bytes),
-        ) = (
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-        );
-
-        size.consume(dw_flags_bytes + cb_name_bytes + cb_data_bytes);
-
-        let (data, data_bytes) =
-            crate::parser::read_variable(buf, (cb_name + cb_data) as usize)?;
-
-        size.consume(data_bytes);
-
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_SETICMPROFILEW as u32,
         )?;
+
+        let dw_flags = read_field(buf, &mut size)?;
+        let cb_name = read_field(buf, &mut size)?;
+        let cb_data = read_field(buf, &mut size)?;
+        let data =
+            read_bytes_field(buf, &mut size, (cb_name + cb_data) as usize)?;
+
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self { record_type, size, dw_flags, cb_name, cb_data, data })
     }

@@ -32,28 +32,19 @@ impl EMR_ARCTO {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_ARCTO {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_ARCTO as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{consume_remaining_bytes, read_with};
 
-        let ((bx, bx_bytes), (start, start_bytes), (end, end_bytes)) = (
-            wmf_core::parser::RectL::parse(buf)?,
-            wmf_core::parser::PointL::parse(buf)?,
-            wmf_core::parser::PointL::parse(buf)?,
-        );
-
-        size.consume(bx_bytes + start_bytes + end_bytes);
-
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_ARCTO as u32,
         )?;
+
+        let bx = read_with(buf, &mut size, wmf_core::parser::RectL::parse)?;
+        let start = read_with(buf, &mut size, wmf_core::parser::PointL::parse)?;
+        let end = read_with(buf, &mut size, wmf_core::parser::PointL::parse)?;
+
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self { record_type, size, bx, start, end })
     }

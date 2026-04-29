@@ -32,32 +32,21 @@ impl EMR_EXTFLOODFILL {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_EXTFLOODFILL {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_EXTFLOODFILL as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{consume_remaining_bytes, read_with};
 
-        let (
-            (start, start_bytes),
-            (color, color_bytes),
-            (flood_fill_mode, flood_fill_mode_bytes),
-        ) = (
-            wmf_core::parser::PointL::parse(buf)?,
-            wmf_core::parser::ColorRef::parse(buf)?,
-            crate::parser::FloodFill::parse(buf)?,
-        );
-
-        size.consume(start_bytes + color_bytes + flood_fill_mode_bytes);
-
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_EXTFLOODFILL as u32,
         )?;
+
+        let start = read_with(buf, &mut size, wmf_core::parser::PointL::parse)?;
+        let color =
+            read_with(buf, &mut size, wmf_core::parser::ColorRef::parse)?;
+        let flood_fill_mode =
+            read_with(buf, &mut size, crate::parser::FloodFill::parse)?;
+
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self { record_type, size, start, color, flood_fill_mode })
     }

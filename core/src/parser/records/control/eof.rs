@@ -41,61 +41,46 @@ impl EMR_EOF {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_EOF {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_EOF as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{
+            consume_remaining_bytes, read_bytes_field, read_field, read_with,
+        };
 
-        let (
-            (n_pal_entries, n_pal_entries_bytes),
-            (off_pal_entries, off_pal_entries_bytes),
-        ) = (
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-        );
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_EOF as u32,
+        )?;
 
-        size.consume(n_pal_entries_bytes + off_pal_entries_bytes);
+        let n_pal_entries = read_field(buf, &mut size)?;
+        let off_pal_entries: u32 = read_field(buf, &mut size)?;
 
         let palette_buffer = if off_pal_entries > 0 {
-            let (_, undefined_space_bytes) = crate::parser::read_variable(
-                buf,
-                size.checked_offset(off_pal_entries)?,
-            )?;
-
-            size.consume(undefined_space_bytes);
+            let undef_offset = size.checked_offset(off_pal_entries)?;
+            let _ = read_bytes_field(buf, &mut size, undef_offset)?;
 
             let palette_buffer = {
                 let mut entries = vec![];
 
                 for _ in 0..n_pal_entries {
-                    let (v, b) = crate::parser::LogPaletteEntry::parse(buf)?;
-
-                    entries.push(v);
-                    size.consume(b);
+                    entries.push(read_with(
+                        buf,
+                        &mut size,
+                        crate::parser::LogPaletteEntry::parse,
+                    )?);
                 }
 
                 entries
             };
 
-            let (_, undefined_space_2_bytes) =
-                crate::parser::read_variable(buf, size.remaining_bytes() - 4)?;
-
-            size.consume(undefined_space_2_bytes);
+            let trailing = size.remaining_bytes() - 4;
+            let _ = read_bytes_field(buf, &mut size, trailing)?;
 
             palette_buffer
         } else {
             vec![]
         };
 
-        let (size_last, size_last_bytes) =
-            crate::parser::read_u32_from_le_bytes(buf)?;
-
-        size.consume(size_last_bytes);
+        let size_last = read_field(buf, &mut size)?;
 
         // if size.byte_count() as u32 != size_last {
         //     warn!(
@@ -105,10 +90,7 @@ impl EMR_EOF {
         //     );
         // }
 
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
-        )?;
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self {
             record_type,

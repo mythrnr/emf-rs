@@ -37,40 +37,24 @@ impl EMR_RESIZEPALETTE {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_RESIZEPALETTE {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_RESIZEPALETTE as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{consume_remaining_bytes, read_field};
 
-        let (
-            (ih_pal, ih_pal_bytes),
-            (number_of_entries, number_of_entries_bytes),
-        ) = (
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-        );
-
-        size.consume(ih_pal_bytes + number_of_entries_bytes);
-
-        if number_of_entries > 0x00000400 {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "number_of_entries must be greater than zero and lte \
-                     `0x00000400`, but parsed value is \
-                     `{number_of_entries:#010X}`",
-                ),
-            });
-        }
-
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_RESIZEPALETTE as u32,
         )?;
+
+        let ih_pal: u32 = read_field(buf, &mut size)?;
+        let number_of_entries = read_field(buf, &mut size)?;
+
+        crate::parser::ParseError::expect_le(
+            "number_of_entries",
+            number_of_entries,
+            0x00000400_u32,
+        )?;
+
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self { record_type, size, ih_pal, number_of_entries })
     }

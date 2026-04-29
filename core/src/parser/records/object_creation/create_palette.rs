@@ -34,37 +34,27 @@ impl EMR_CREATEPALETTE {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_CREATEPALETTE {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_CREATEPALETTE as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{
+            consume_remaining_bytes, read_field, read_with,
+        };
 
-        let ((ih_pal, ih_pal_bytes), (log_palette, log_palette_bytes)) = (
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::LogPalette::parse(buf)?,
-        );
-
-        size.consume(ih_pal_bytes + log_palette_bytes);
-
-        if log_palette.number_of_entries == 0 {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "number_of_entries of LogPalette must be greater than \
-                     zero, but parsed value is `{}`",
-                    log_palette.number_of_entries,
-                ),
-            });
-        }
-
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_CREATEPALETTE as u32,
         )?;
+
+        let ih_pal: u32 = read_field(buf, &mut size)?;
+        let log_palette =
+            read_with(buf, &mut size, crate::parser::LogPalette::parse)?;
+
+        crate::parser::ParseError::expect_ne(
+            "log_palette.number_of_entries",
+            log_palette.number_of_entries,
+            0_u16,
+        )?;
+
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self { record_type, size, ih_pal, log_palette })
     }

@@ -145,134 +145,65 @@ impl EMR_ALPHABLEND {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_ALPHABLEND {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_ALPHABLEND as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{
+            consume_remaining_bytes, read_bytes_field, read_field, read_with,
+        };
 
-        let (
-            (bounds, bounds_bytes),
-            (x_dest, x_dest_bytes),
-            (y_dest, y_dest_bytes),
-            (cx_dest, cx_dest_bytes),
-            (cy_dest, cy_dest_bytes),
-            (blend_function, blend_function_bytes),
-            (x_src, x_src_bytes),
-            (y_src, y_src_bytes),
-            (x_form_src, x_form_src_bytes),
-            (bk_color_src, bk_color_src_bytes),
-            (usage_src, usage_src_bytes),
-            (off_bmi_src, off_bmi_src_bytes),
-            (cb_bmi_src, cb_bmi_src_bytes),
-            (off_bits_src, off_bits_src_bytes),
-            (cb_bits_src, cb_bits_src_bytes),
-            (cx_src, cx_src_bytes),
-            (cy_src, cy_src_bytes),
-        ) = (
-            wmf_core::parser::RectL::parse(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            BlendFunction::parse(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::XForm::parse(buf)?,
-            wmf_core::parser::ColorRef::parse(buf)?,
-            crate::parser::DIBColors::parse(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-        );
-
-        size.consume(
-            bounds_bytes
-                + x_dest_bytes
-                + y_dest_bytes
-                + cx_dest_bytes
-                + cy_dest_bytes
-                + blend_function_bytes
-                + x_src_bytes
-                + y_src_bytes
-                + x_form_src_bytes
-                + bk_color_src_bytes
-                + usage_src_bytes
-                + off_bmi_src_bytes
-                + cb_bmi_src_bytes
-                + off_bits_src_bytes
-                + cb_bits_src_bytes
-                + cx_src_bytes
-                + cy_src_bytes,
-        );
-
-        if cx_dest <= 0 {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "cx_dest must be greater than zero, but parsed value is \
-                     `{cx_dest:#010X}`",
-                ),
-            });
-        }
-
-        if cy_dest <= 0 {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "cy_dest must be greater than zero, but parsed value is \
-                     `{cy_dest:#010X}`",
-                ),
-            });
-        }
-
-        if cx_src <= 0 {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "cx_src must be greater than zero, but parsed value is \
-                     `{cx_src:#010X}`",
-                ),
-            });
-        }
-
-        if cy_src <= 0 {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "cy_src must be greater than zero, but parsed value is \
-                     `{cy_src:#010X}`",
-                ),
-            });
-        }
-
-        let ((_, undef_space_bytes), (bmi_src, bmi_src_bytes)) = (
-            crate::parser::read_variable(
-                buf,
-                size.checked_offset(off_bmi_src)?,
-            )?,
-            crate::parser::read_variable(buf, cb_bmi_src as usize)?,
-        );
-
-        size.consume(undef_space_bytes + bmi_src_bytes);
-
-        let ((_, undef_space_bytes), (bits_src, bits_src_bytes)) = (
-            crate::parser::read_variable(
-                buf,
-                size.checked_offset(off_bits_src)?,
-            )?,
-            crate::parser::read_variable(buf, cb_bits_src as usize)?,
-        );
-
-        size.consume(undef_space_bytes + bits_src_bytes);
-
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_ALPHABLEND as u32,
         )?;
+
+        let bounds = read_with(buf, &mut size, wmf_core::parser::RectL::parse)?;
+        let x_dest = read_field(buf, &mut size)?;
+        let y_dest = read_field(buf, &mut size)?;
+        let cx_dest: i32 = read_field(buf, &mut size)?;
+        let cy_dest: i32 = read_field(buf, &mut size)?;
+        let blend_function = read_with(buf, &mut size, BlendFunction::parse)?;
+        let x_src = read_field(buf, &mut size)?;
+        let y_src = read_field(buf, &mut size)?;
+        let x_form_src =
+            read_with(buf, &mut size, crate::parser::XForm::parse)?;
+        let bk_color_src =
+            read_with(buf, &mut size, wmf_core::parser::ColorRef::parse)?;
+        let usage_src =
+            read_with(buf, &mut size, crate::parser::DIBColors::parse)?;
+        let off_bmi_src = read_field(buf, &mut size)?;
+        let cb_bmi_src: u32 = read_field(buf, &mut size)?;
+        let off_bits_src = read_field(buf, &mut size)?;
+        let cb_bits_src: u32 = read_field(buf, &mut size)?;
+        let cx_src: i32 = read_field(buf, &mut size)?;
+        let cy_src: i32 = read_field(buf, &mut size)?;
+
+        // Defense in depth: reject byte-count fields that exceed the
+        // record-size cap before they reach `read_bytes_field`'s
+        // `Vec::with_capacity`.
+        crate::parser::ParseError::expect_le(
+            "cb_bmi_src",
+            cb_bmi_src,
+            crate::parser::MAX_RECORD_BYTES,
+        )?;
+        crate::parser::ParseError::expect_le(
+            "cb_bits_src",
+            cb_bits_src,
+            crate::parser::MAX_RECORD_BYTES,
+        )?;
+
+        crate::parser::ParseError::expect_gt("cx_dest", cx_dest, 0_i32)?;
+        crate::parser::ParseError::expect_gt("cy_dest", cy_dest, 0_i32)?;
+        crate::parser::ParseError::expect_gt("cx_src", cx_src, 0_i32)?;
+        crate::parser::ParseError::expect_gt("cy_src", cy_src, 0_i32)?;
+
+        let undef_offset_bmi = size.checked_offset(off_bmi_src)?;
+        let _ = read_bytes_field(buf, &mut size, undef_offset_bmi)?;
+        let bmi_src = read_bytes_field(buf, &mut size, cb_bmi_src as usize)?;
+
+        let undef_offset_bits = size.checked_offset(off_bits_src)?;
+        let _ = read_bytes_field(buf, &mut size, undef_offset_bits)?;
+        let bits_src = read_bytes_field(buf, &mut size, cb_bits_src as usize)?;
+
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self {
             record_type,
@@ -328,17 +259,13 @@ impl BlendFunction {
     fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        let (
-            (blend_operation, blend_operation_bytes),
-            (blend_flags, blend_flags_bytes),
-            (src_constant_alpha, src_constant_alpha_bytes),
-            (alpha_format, alpha_format_bytes),
-        ) = (
-            crate::parser::read_u8_from_le_bytes(buf)?,
-            crate::parser::read_u8_from_le_bytes(buf)?,
-            crate::parser::read_u8_from_le_bytes(buf)?,
-            crate::parser::read_u8_from_le_bytes(buf)?,
-        );
+        use crate::parser::records::read_field;
+
+        let mut consumed_bytes: usize = 0;
+        let blend_operation = read_field(buf, &mut consumed_bytes)?;
+        let blend_flags = read_field(buf, &mut consumed_bytes)?;
+        let src_constant_alpha = read_field(buf, &mut consumed_bytes)?;
+        let alpha_format = read_field(buf, &mut consumed_bytes)?;
 
         if blend_flags != 0x00 {
             warn!(
@@ -354,10 +281,7 @@ impl BlendFunction {
                 src_constant_alpha,
                 alpha_format,
             },
-            blend_operation_bytes
-                + blend_flags_bytes
-                + src_constant_alpha_bytes
-                + alpha_format_bytes,
+            consumed_bytes,
         ))
     }
 }

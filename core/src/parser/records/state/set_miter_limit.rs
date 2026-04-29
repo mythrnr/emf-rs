@@ -27,25 +27,17 @@ impl EMR_SETMITERLIMIT {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_SETMITERLIMIT {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_SETMITERLIMIT as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{consume_remaining_bytes, read_field};
 
-        let (miter_limit, miter_limit_bytes) =
-            crate::parser::read_u32_from_le_bytes(buf)?;
-
-        size.consume(miter_limit_bytes);
-
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_SETMITERLIMIT as u32,
         )?;
+
+        let miter_limit = read_field(buf, &mut size)?;
+
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self { record_type, size, miter_limit })
     }

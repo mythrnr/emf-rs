@@ -21,25 +21,28 @@ impl RegionData {
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        let (region_data_header, region_data_header_bytes) =
-            crate::parser::RegionDataHeader::parse(buf)?;
-        let (data, data_bytes) = {
+        use crate::parser::records::read_with;
+
+        let mut consumed_bytes: usize = 0;
+        let region_data_header = read_with(
+            buf,
+            &mut consumed_bytes,
+            crate::parser::RegionDataHeader::parse,
+        )?;
+        let data = {
             let mut entries = vec![];
-            let mut bytes = 0;
 
             for _ in 0..region_data_header.count_rects {
-                let (v, b) = wmf_core::parser::RectL::parse(buf)?;
-
-                entries.push(v);
-                bytes += b;
+                entries.push(read_with(
+                    buf,
+                    &mut consumed_bytes,
+                    wmf_core::parser::RectL::parse,
+                )?);
             }
 
-            (entries, bytes)
+            entries
         };
 
-        Ok((
-            Self { region_data_header, data },
-            region_data_header_bytes + data_bytes,
-        ))
+        Ok((Self { region_data_header, data }, consumed_bytes))
     }
 }

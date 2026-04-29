@@ -40,58 +40,51 @@ impl EMR_POLYPOLYGON16 {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_POLYPOLYGON16 {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_POLYPOLYGON16 as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{
+            check_polygon_point_count_sum, check_total_points,
+            consume_remaining_bytes, read_field, read_with,
+        };
 
-        let (
-            (bounds, bounds_bytes),
-            (number_of_polygons, number_of_polygons_bytes),
-            (count, count_bytes),
-        ) = (
-            wmf_core::parser::RectL::parse(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-        );
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_POLYPOLYGON16 as u32,
+        )?;
 
-        size.consume(bounds_bytes + number_of_polygons_bytes + count_bytes);
+        let bounds = read_with(buf, &mut size, wmf_core::parser::RectL::parse)?;
+        let number_of_polygons = read_field(buf, &mut size)?;
+        let count = read_field(buf, &mut size)?;
+
+        check_total_points(number_of_polygons)?;
+        check_total_points(count)?;
 
         let polygon_point_count = {
-            let mut entries = vec![];
+            let mut entries: Vec<u32> = vec![];
 
             for _ in 0..number_of_polygons {
-                let (v, b) = crate::parser::read_u32_from_le_bytes(buf)?;
-
-                entries.push(v);
-                size.consume(b);
+                entries.push(read_field(buf, &mut size)?);
             }
 
             entries
         };
+
+        check_polygon_point_count_sum(&polygon_point_count, count)?;
 
         let a_points = {
             let mut entries = vec![];
 
             for _ in 0..count {
-                let (v, b) = wmf_core::parser::PointS::parse(buf)?;
-
-                entries.push(v);
-                size.consume(b);
+                entries.push(read_with(
+                    buf,
+                    &mut size,
+                    wmf_core::parser::PointS::parse,
+                )?);
             }
 
             entries
         };
 
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
-        )?;
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self {
             record_type,
@@ -102,5 +95,69 @@ impl EMR_POLYPOLYGON16 {
             polygon_point_count,
             a_points,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::parser::{RecordType, Size};
+
+    fn record_size(byte_count: u32) -> Size {
+        let mut size = Size::from(byte_count);
+        size.consume(8);
+        size
+    }
+
+    #[test]
+    fn rejects_count_above_max_total_points() {
+        // Build a payload where `count` exceeds `MAX_TOTAL_POINTS`.
+        // Record bytes: 8 (header) + 16 (bounds) + 4 (number_of_polygons)
+        // + 4 (count). The points arrays do not need to be present in
+        // the buffer because the bound check fires before they are
+        // read.
+        let oversized: u32 = crate::parser::records::MAX_TOTAL_POINTS + 1;
+        let mut payload = Vec::with_capacity(24);
+        payload.extend_from_slice(&[0_u8; 16]); // bounds (zeroed)
+        payload.extend_from_slice(&1_u32.to_le_bytes()); // number_of_polygons
+        payload.extend_from_slice(&oversized.to_le_bytes()); // count
+
+        let mut buf: &[u8] = &payload;
+        let result = EMR_POLYPOLYGON16::parse(
+            &mut buf,
+            RecordType::EMR_POLYPOLYGON16,
+            record_size(8 + 24),
+        );
+        assert!(result.is_err(), "oversized count should be rejected");
+        let msg = result.unwrap_err().to_string();
+        assert!(
+            msg.contains("total point count"),
+            "diagnostic should mention the bound: {msg}",
+        );
+    }
+
+    #[test]
+    fn rejects_polygon_point_count_sum_overflow() {
+        // Build a payload where polygon_point_count entries sum to
+        // exceed `count`. The bound check fires before allocating the
+        // points array.
+        let mut payload = Vec::with_capacity(36);
+        payload.extend_from_slice(&[0_u8; 16]); // bounds
+        payload.extend_from_slice(&2_u32.to_le_bytes()); // number_of_polygons
+        payload.extend_from_slice(&3_u32.to_le_bytes()); // count = 3
+        // Two entries summing to 5 (> count of 3).
+        payload.extend_from_slice(&3_u32.to_le_bytes());
+        payload.extend_from_slice(&2_u32.to_le_bytes());
+
+        let mut buf: &[u8] = &payload;
+        let result = EMR_POLYPOLYGON16::parse(
+            &mut buf,
+            RecordType::EMR_POLYPOLYGON16,
+            record_size(8 + 32),
+        );
+        assert!(
+            result.is_err(),
+            "polygon_point_count sum > count must be rejected",
+        );
     }
 }

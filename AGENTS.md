@@ -205,12 +205,53 @@ I/O is abstracted via `embedded_io::Read`.
 All data is read in little-endian byte order.
 Each record type has a `::parse(buf, record_type, size) -> Result<Self, ParseError>` static method that sequentially reads data from the buffer.
 
+Field reads go through three internal helpers in `core/src/parser/records/mod.rs`:
+
+- `read_field<T>` — reads a fixed-width LE integer (selected via the
+  `ReadLeField` trait, implemented for `i8`/`i16`/`i32`/`u8`/`u16`/`u32`/`f32`)
+  and advances a `ConsumeTracker` (either `Size` or a plain `usize` counter).
+- `read_with` — runs an existing `::parse(buf) -> Result<(T, usize), _>`
+  helper and threads the byte count into the tracker.
+- `read_bytes_field` — reads a variable-length byte buffer of `len` bytes
+  and tracks the consumption.
+
+Each parse function brings the helpers it actually uses into scope via a
+function-scoped `use crate::parser::records::{...};` so call sites stay
+short. Type annotations on `let x = read_field(...)?;` are dropped when
+the type is pinned downstream by `expect_eq` / `expect_le` / `expect_ne`
+(typed integer literal), `check_total_points` / `check_polygon_point_count_sum`
+(both take `u32`), or struct-field shorthand on a typed field. When the
+type cannot be inferred, the explicit annotation is kept.
+
+### Hardening
+
+- `Size::parse(byte_count_raw)` rejects record-size values past
+  `MAX_RECORD_BYTES` (64 MiB) before any allocation is sized from them.
+  `consume()` saturates on overflow and `remaining_bytes()` clamps to
+  zero on overrun, surfaced via `is_overrun()`.
+- `consume_remaining_bytes` discards the trailing record area in 4 KiB
+  chunks instead of allocating a one-shot `Vec<u8>` of `remaining_bytes`.
+- The drawing record parsers (`Polygon*`, `Polyline*`, `PolyBezier*`,
+  `PolyDraw*`, `PolyPolygon*`, `PolyPolyline*`) bound their `count` /
+  `number_of_polygons` fields against `MAX_TOTAL_POINTS` (16 Mi points)
+  via `check_total_points` before iterating. Multi-polygon records
+  additionally validate that `polygon_point_count` entries do not
+  overflow `u32` and do not exceed `count` via
+  `check_polygon_point_count_sum`.
+- Bitmap records (`AlphaBlend`, `BitBlt`, `MaskBlt`, `PlgBlt`,
+  `SetDIBitsToDevice`, `StretchBlt`, `StretchDIBits`, `TransparentBlt`)
+  reject `cb_bmi_src` / `cb_bits_src` (and the mask variants where
+  applicable) when they exceed `MAX_RECORD_BYTES`, before the value
+  drives `read_bytes_field`'s `Vec::with_capacity`.
+- `ParseError::expect_eq` / `expect_le` / `expect_ne` give a uniform
+  diagnostic format for field-value validation; hex width is selected
+  from `size_of::<T>()`.
+
 ### Dependency Graph
 
 ```
 emf-core (no_std)
 ├── embedded-io    (I/O trait)
-├── paste          (macros)
 ├── snafu          (error handling)
 ├── strum          (enum conversions)
 ├── wmf-core       (WMF shared types & fallback conversion)

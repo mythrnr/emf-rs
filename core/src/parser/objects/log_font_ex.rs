@@ -32,17 +32,14 @@ impl LogFontEx {
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        let (
-            (log_font, log_font_bytes),
-            (full_name, full_name_bytes),
-            (style, style_bytes),
-            (script, script_bytes),
-        ) = (
-            crate::parser::LogFont::parse(buf)?,
-            crate::parser::read_variable(buf, 128)?,
-            crate::parser::read_variable(buf, 64)?,
-            crate::parser::read_variable(buf, 64)?,
-        );
+        use crate::parser::records::{read_bytes_field, read_with};
+
+        let mut consumed_bytes: usize = 0;
+        let log_font =
+            read_with(buf, &mut consumed_bytes, crate::parser::LogFont::parse)?;
+        let full_name = read_bytes_field(buf, &mut consumed_bytes, 128)?;
+        let style = read_bytes_field(buf, &mut consumed_bytes, 64)?;
+        let script = read_bytes_field(buf, &mut consumed_bytes, 64)?;
 
         let (full_name, style, script) = (
             crate::parser::null_terminated_utf16le_string(&full_name)?,
@@ -50,9 +47,6 @@ impl LogFontEx {
             crate::parser::null_terminated_utf16le_string(&script)?,
         );
 
-        Ok((
-            Self { log_font, full_name, style, script },
-            log_font_bytes + full_name_bytes + style_bytes + script_bytes,
-        ))
+        Ok((Self { log_font, full_name, style, script }, consumed_bytes))
     }
 }

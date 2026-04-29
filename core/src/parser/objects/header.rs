@@ -59,53 +59,49 @@ impl Header {
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        let (
-            (bounds, bounds_bytes),
-            (frame, frame_bytes),
-            (record_signature, record_signature_bytes),
-            (version, version_bytes),
-            (bytes, bytes_bytes),
-            (records, records_bytes),
-            (handles, handles_bytes),
-            (reserved, reserved_bytes),
-            (n_description, n_description_bytes),
-            (off_description, off_description_bytes),
-            (n_pal_entries, n_pal_entries_bytes),
-            (device, device_bytes),
-            (millimeters, millimeters_bytes),
-        ) = (
-            wmf_core::parser::RectL::parse(buf)?,
-            wmf_core::parser::RectL::parse(buf)?,
-            crate::parser::FormatSignature::parse(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u16_from_le_bytes(buf)?,
-            crate::parser::read_u16_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            wmf_core::parser::SizeL::parse(buf)?,
-            wmf_core::parser::SizeL::parse(buf)?,
-        );
+        use crate::parser::records::{read_field, read_with};
 
-        if version != 0x00010000 {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "version field in Header must be `0x00010000`, but parsed \
-                     value is {version:#010X}"
-                ),
-            });
-        }
+        let mut consumed_bytes: usize = 0;
+        let bounds = read_with(
+            buf,
+            &mut consumed_bytes,
+            wmf_core::parser::RectL::parse,
+        )?;
+        let frame = read_with(
+            buf,
+            &mut consumed_bytes,
+            wmf_core::parser::RectL::parse,
+        )?;
+        let record_signature = read_with(
+            buf,
+            &mut consumed_bytes,
+            crate::parser::FormatSignature::parse,
+        )?;
+        let version = read_field(buf, &mut consumed_bytes)?;
+        let bytes = read_field(buf, &mut consumed_bytes)?;
+        let records = read_field(buf, &mut consumed_bytes)?;
+        let handles = read_field(buf, &mut consumed_bytes)?;
+        let reserved = read_field(buf, &mut consumed_bytes)?;
+        let n_description = read_field(buf, &mut consumed_bytes)?;
+        let off_description = read_field(buf, &mut consumed_bytes)?;
+        let n_pal_entries = read_field(buf, &mut consumed_bytes)?;
+        let device = read_with(
+            buf,
+            &mut consumed_bytes,
+            wmf_core::parser::SizeL::parse,
+        )?;
+        let millimeters = read_with(
+            buf,
+            &mut consumed_bytes,
+            wmf_core::parser::SizeL::parse,
+        )?;
 
-        if reserved != 0x0000 {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "reserved field in Header must be `0x0000`, but parsed \
-                     value is {reserved:#06X}"
-                ),
-            });
-        }
+        crate::parser::ParseError::expect_eq(
+            "version",
+            version,
+            0x00010000_u32,
+        )?;
+        crate::parser::ParseError::expect_eq("reserved", reserved, 0x0000_u16)?;
 
         Ok((
             Self {
@@ -123,19 +119,7 @@ impl Header {
                 device,
                 millimeters,
             },
-            bounds_bytes
-                + frame_bytes
-                + record_signature_bytes
-                + version_bytes
-                + bytes_bytes
-                + records_bytes
-                + handles_bytes
-                + reserved_bytes
-                + n_description_bytes
-                + off_description_bytes
-                + n_pal_entries_bytes
-                + device_bytes
-                + millimeters_bytes,
+            consumed_bytes,
         ))
     }
 }

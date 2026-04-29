@@ -29,7 +29,19 @@ console_error_panic_hook = { workspace = true, optional = true }
 wasm-bindgen-test = { workspace = true }
 
 [package.metadata.wasm-pack.profile.release]
-wasm-opt = false
+# `-Oz` strips unreachable wasm sections and re-runs `wasm-opt` size
+# passes on the bundle. The proposal whitelist matches Binaryen 116:
+# without these, `wasm-opt` rejects bytecode emitted by current
+# rustc/wasm-bindgen, since they assume `bulk-memory`, `sign-ext`,
+# `mutable-globals`, `nontrapping-float-to-int`, and `reference-types`.
+wasm-opt = [
+    "-Oz",
+    "--enable-bulk-memory",
+    "--enable-sign-ext",
+    "--enable-mutable-globals",
+    "--enable-nontrapping-float-to-int",
+    "--enable-reference-types",
+]
 
 [package.metadata.cargo-udeps.ignore]
 development = ["wasm-bindgen-test"]

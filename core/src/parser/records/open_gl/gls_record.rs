@@ -30,28 +30,20 @@ impl EMR_GLSRECORD {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_GLSRECORD {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_GLSRECORD as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{
+            consume_remaining_bytes, read_bytes_field, read_field,
+        };
 
-        let (cb_data, cb_data_bytes) =
-            crate::parser::read_u32_from_le_bytes(buf)?;
-
-        let (data, data_bytes) =
-            crate::parser::read_variable(buf, cb_data as usize)?;
-
-        size.consume(cb_data_bytes + data_bytes);
-
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_GLSRECORD as u32,
         )?;
+
+        let cb_data: u32 = read_field(buf, &mut size)?;
+        let data = read_bytes_field(buf, &mut size, cb_data as usize)?;
+
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self { record_type, size, cb_data, data })
     }

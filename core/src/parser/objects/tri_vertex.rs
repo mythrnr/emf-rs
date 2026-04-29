@@ -31,30 +31,16 @@ impl TriVertex {
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        let (
-            (x, x_bytes),
-            (y, y_bytes),
-            (red, red_bytes),
-            (green, green_bytes),
-            (blue, blue_bytes),
-            (alpha, alpha_bytes),
-        ) = (
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::read_u16_from_le_bytes(buf)?,
-            crate::parser::read_u16_from_le_bytes(buf)?,
-            crate::parser::read_u16_from_le_bytes(buf)?,
-            crate::parser::read_u16_from_le_bytes(buf)?,
-        );
+        use crate::parser::records::read_field;
 
-        Ok((
-            Self { x, y, red, green, blue, alpha },
-            x_bytes
-                + y_bytes
-                + red_bytes
-                + green_bytes
-                + blue_bytes
-                + alpha_bytes,
-        ))
+        let mut consumed_bytes: usize = 0;
+        let x = read_field(buf, &mut consumed_bytes)?;
+        let y = read_field(buf, &mut consumed_bytes)?;
+        let red = read_field(buf, &mut consumed_bytes)?;
+        let green = read_field(buf, &mut consumed_bytes)?;
+        let blue = read_field(buf, &mut consumed_bytes)?;
+        let alpha = read_field(buf, &mut consumed_bytes)?;
+
+        Ok((Self { x, y, red, green, blue, alpha }, consumed_bytes))
     }
 }

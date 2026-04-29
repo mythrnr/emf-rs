@@ -35,30 +35,18 @@ impl EMR_SETTEXTJUSTIFICATION {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_SETTEXTJUSTIFICATION {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_SETTEXTJUSTIFICATION as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{consume_remaining_bytes, read_field};
 
-        let (
-            (n_break_extra, n_break_extra_bytes),
-            (n_break_count, n_break_count_bytes),
-        ) = (
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-        );
-
-        size.consume(n_break_extra_bytes + n_break_count_bytes);
-
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_SETTEXTJUSTIFICATION as u32,
         )?;
+
+        let n_break_extra = read_field(buf, &mut size)?;
+        let n_break_count = read_field(buf, &mut size)?;
+
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self { record_type, size, n_break_extra, n_break_count })
     }

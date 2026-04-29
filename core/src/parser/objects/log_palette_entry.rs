@@ -28,21 +28,14 @@ impl LogPaletteEntry {
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        let (
-            (reserved, reserved_bytes),
-            (blue, blue_bytes),
-            (green, green_bytes),
-            (red, red_bytes),
-        ) = (
-            crate::parser::read_u8_from_le_bytes(buf)?,
-            crate::parser::read_u8_from_le_bytes(buf)?,
-            crate::parser::read_u8_from_le_bytes(buf)?,
-            crate::parser::read_u8_from_le_bytes(buf)?,
-        );
+        use crate::parser::records::read_field;
 
-        Ok((
-            Self { reserved, blue, green, red },
-            reserved_bytes + blue_bytes + green_bytes + red_bytes,
-        ))
+        let mut consumed_bytes: usize = 0;
+        let reserved = read_field(buf, &mut consumed_bytes)?;
+        let blue = read_field(buf, &mut consumed_bytes)?;
+        let green = read_field(buf, &mut consumed_bytes)?;
+        let red = read_field(buf, &mut consumed_bytes)?;
+
+        Ok((Self { reserved, blue, green, red }, consumed_bytes))
     }
 }

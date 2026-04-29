@@ -93,104 +93,70 @@ impl EMR_BITBLT {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_BITBLT {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_BITBLT as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{
+            consume_remaining_bytes, read_bytes_field, read_field, read_with,
+        };
 
-        let (
-            (bounds, bounds_bytes),
-            (x_dest, x_dest_bytes),
-            (y_dest, y_dest_bytes),
-            (cx_dest, cx_dest_bytes),
-            (cy_dest, cy_dest_bytes),
-            (bit_blt_raster_operation, bit_blt_raster_operation_bytes),
-            (x_src, x_src_bytes),
-            (y_src, y_src_bytes),
-            (x_form_src, x_form_src_bytes),
-            (bk_color_src, bk_color_src_bytes),
-            (usage_src, usage_src_bytes),
-            (off_bmi_src, off_bmi_src_bytes),
-            (cb_bmi_src, cb_bmi_src_bytes),
-            (off_bits_src, off_bits_src_bytes),
-            (cb_bits_src, cb_bits_src_bytes),
-        ) = (
-            wmf_core::parser::RectL::parse(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            wmf_core::parser::TernaryRasterOperation::parse(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::XForm::parse(buf)?,
-            wmf_core::parser::ColorRef::parse(buf)?,
-            crate::parser::DIBColors::parse(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-        );
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_BITBLT as u32,
+        )?;
 
-        size.consume(
-            bounds_bytes
-                + x_dest_bytes
-                + y_dest_bytes
-                + cx_dest_bytes
-                + cy_dest_bytes
-                + bit_blt_raster_operation_bytes
-                + x_src_bytes
-                + y_src_bytes
-                + x_form_src_bytes
-                + bk_color_src_bytes
-                + usage_src_bytes
-                + off_bmi_src_bytes
-                + cb_bmi_src_bytes
-                + off_bits_src_bytes
-                + cb_bits_src_bytes,
-        );
+        let bounds = read_with(buf, &mut size, wmf_core::parser::RectL::parse)?;
+        let x_dest = read_field(buf, &mut size)?;
+        let y_dest = read_field(buf, &mut size)?;
+        let cx_dest = read_field(buf, &mut size)?;
+        let cy_dest = read_field(buf, &mut size)?;
+        let bit_blt_raster_operation = read_with(
+            buf,
+            &mut size,
+            wmf_core::parser::TernaryRasterOperation::parse,
+        )?;
+        let x_src = read_field(buf, &mut size)?;
+        let y_src = read_field(buf, &mut size)?;
+        let x_form_src =
+            read_with(buf, &mut size, crate::parser::XForm::parse)?;
+        let bk_color_src =
+            read_with(buf, &mut size, wmf_core::parser::ColorRef::parse)?;
+        let usage_src =
+            read_with(buf, &mut size, crate::parser::DIBColors::parse)?;
+        let off_bmi_src: u32 = read_field(buf, &mut size)?;
+        let cb_bmi_src: u32 = read_field(buf, &mut size)?;
+        let off_bits_src: u32 = read_field(buf, &mut size)?;
+        let cb_bits_src: u32 = read_field(buf, &mut size)?;
+
+        // Defense in depth: reject byte-count fields that exceed the
+        // record-size cap before they reach `read_bytes_field`'s
+        // `Vec::with_capacity`.
+        crate::parser::ParseError::expect_le(
+            "cb_bmi_src",
+            cb_bmi_src,
+            crate::parser::MAX_RECORD_BYTES,
+        )?;
+        crate::parser::ParseError::expect_le(
+            "cb_bits_src",
+            cb_bits_src,
+            crate::parser::MAX_RECORD_BYTES,
+        )?;
 
         let bmi_src = if off_bmi_src > 0 && cb_bmi_src > 0 {
-            let ((_, undef_space_bytes), (bmi_src, bmi_src_bytes)) = (
-                crate::parser::read_variable(
-                    buf,
-                    size.checked_offset(off_bmi_src)?,
-                )?,
-                crate::parser::read_variable(buf, cb_bmi_src as usize)?,
-            );
-
-            size.consume(undef_space_bytes + bmi_src_bytes);
-
-            bmi_src
+            let undef_offset = size.checked_offset(off_bmi_src)?;
+            let _ = read_bytes_field(buf, &mut size, undef_offset)?;
+            read_bytes_field(buf, &mut size, cb_bmi_src as usize)?
         } else {
             vec![]
         };
 
         let bits_src = if off_bits_src > 0 && cb_bits_src > 0 {
-            let ((_, undef_space_bytes), (bits_src, bits_src_bytes)) = (
-                crate::parser::read_variable(
-                    buf,
-                    size.checked_offset(off_bits_src)?,
-                )?,
-                crate::parser::read_variable(buf, cb_bits_src as usize)?,
-            );
-
-            size.consume(undef_space_bytes + bits_src_bytes);
-
-            bits_src
+            let undef_offset = size.checked_offset(off_bits_src)?;
+            let _ = read_bytes_field(buf, &mut size, undef_offset)?;
+            read_bytes_field(buf, &mut size, cb_bits_src as usize)?
         } else {
             vec![]
         };
 
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
-        )?;
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self {
             record_type,

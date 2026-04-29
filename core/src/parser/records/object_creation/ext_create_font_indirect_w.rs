@@ -42,22 +42,17 @@ impl EMR_EXTCREATEFONTINDIRECTW {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_EXTCREATEFONTINDIRECTW
-        {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_EXTCREATEFONTINDIRECTW
-                        as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{
+            consume_remaining_bytes, read_field, read_with,
+        };
 
-        let (ih_fonts, ih_fonts_bytes) =
-            crate::parser::read_u32_from_le_bytes(buf)?;
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_EXTCREATEFONTINDIRECTW as u32,
+        )?;
 
-        size.consume(ih_fonts_bytes);
+        let ih_fonts: u32 = read_field(buf, &mut size)?;
 
         let elw_size = size.remaining_bytes();
 
@@ -74,18 +69,19 @@ impl EMR_EXTCREATEFONTINDIRECTW {
         }
 
         let elw = if elw_size == 320 {
-            let (font, font_bytes) = crate::parser::LogFontPanose::parse(buf)?;
-            size.consume(font_bytes);
+            let font =
+                read_with(buf, &mut size, crate::parser::LogFontPanose::parse)?;
 
             ELW::LogFontPanose(font)
         } else {
             let mut entries = vec![];
 
             loop {
-                let (v, b) = crate::parser::LogFontExDv::parse(buf)?;
-
-                entries.push(v);
-                size.consume(b);
+                entries.push(read_with(
+                    buf,
+                    &mut size,
+                    crate::parser::LogFontExDv::parse,
+                )?);
 
                 // log_font_ex (348 bytes) + design_vector (8 to 72 bytes)
                 if size.remaining_bytes() < 356 {
@@ -96,10 +92,7 @@ impl EMR_EXTCREATEFONTINDIRECTW {
             ELW::LogFontExDv(entries)
         };
 
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
-        )?;
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self { record_type, size, ih_fonts, elw })
     }

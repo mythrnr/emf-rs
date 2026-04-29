@@ -27,40 +27,35 @@ impl LogPalette {
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        let (
-            (version, version_bytes),
-            (number_of_entries, number_of_entries_bytes),
-        ) = (
-            crate::parser::read_u16_from_le_bytes(buf)?,
-            crate::parser::read_u16_from_le_bytes(buf)?,
-        );
+        use crate::parser::records::{read_field, read_with};
 
-        if version != 0x0300 {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "version field in LogPalette must be `0x0300`, but parsed \
-                     value is {version:#06X}"
-                ),
-            });
-        }
+        let mut consumed_bytes: usize = 0;
+        let version = read_field(buf, &mut consumed_bytes)?;
+        let number_of_entries: u16 = read_field(buf, &mut consumed_bytes)?;
 
-        let (palette_entries, palette_entries_bytes) = {
+        crate::parser::ParseError::expect_eq(
+            "version (LogPalette)",
+            version,
+            0x0300_u16,
+        )?;
+
+        let palette_entries = {
             let mut entries = vec![];
-            let mut bytes = 0;
 
             for _ in 0..number_of_entries {
-                let (e, b) = crate::parser::LogPaletteEntry::parse(buf)?;
-
-                entries.push(e);
-                bytes += b;
+                entries.push(read_with(
+                    buf,
+                    &mut consumed_bytes,
+                    crate::parser::LogPaletteEntry::parse,
+                )?);
             }
 
-            (entries, bytes)
+            entries
         };
 
         Ok((
             Self { version, number_of_entries, palette_entries },
-            version_bytes + number_of_entries_bytes + palette_entries_bytes,
+            consumed_bytes,
         ))
     }
 }

@@ -39,45 +39,41 @@ impl EpsData {
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        let ((size_data, size_data_bytes), (version, version_bytes)) = (
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-        );
+        use crate::parser::records::{read_bytes_field, read_field, read_with};
 
-        if version != 0x00000001 {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "version field in EpsData must be `0x00000001`, but \
-                     parsed value is {version:#010X}"
-                ),
-            });
-        }
+        let mut consumed_bytes: usize = 0;
+        let size_data: u32 = read_field(buf, &mut consumed_bytes)?;
+        let version = read_field(buf, &mut consumed_bytes)?;
 
-        let (points, points_bytes) = {
+        crate::parser::ParseError::expect_eq(
+            "version (EpsData)",
+            version,
+            0x00000001_u32,
+        )?;
+
+        let points = {
             let mut points = vec![];
-            let mut points_bytes = 0;
 
             for _ in 0..3 {
-                let (p, b) = crate::parser::Point28_4::parse(buf)?;
-                points.push(p);
-                points_bytes += b;
+                points.push(read_with(
+                    buf,
+                    &mut consumed_bytes,
+                    crate::parser::Point28_4::parse,
+                )?);
             }
 
             let points: [_; 3] =
                 points.try_into().expect("should be converted");
 
-            (points, points_bytes)
+            points
         };
 
-        let (post_script_data, post_script_data_bytes) =
-            crate::parser::read_variable(buf, size_data as usize)?;
+        let post_script_data =
+            read_bytes_field(buf, &mut consumed_bytes, size_data as usize)?;
 
         Ok((
             Self { size_data, version, points, post_script_data },
-            size_data_bytes
-                + version_bytes
-                + points_bytes
-                + post_script_data_bytes,
+            consumed_bytes,
         ))
     }
 }

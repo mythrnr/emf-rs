@@ -39,25 +39,17 @@ impl EMR_SETTEXTALIGN {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_SETTEXTALIGN {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_SETTEXTALIGN as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{consume_remaining_bytes, read_field};
 
-        let (text_alignment_mode, text_alignment_mode_bytes) =
-            crate::parser::read_u32_from_le_bytes(buf)?;
-
-        size.consume(text_alignment_mode_bytes);
-
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_SETTEXTALIGN as u32,
         )?;
+
+        let text_alignment_mode = read_field(buf, &mut size)?;
+
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self { record_type, size, text_alignment_mode })
     }

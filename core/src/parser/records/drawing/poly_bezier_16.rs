@@ -37,40 +37,36 @@ impl EMR_POLYBEZIER16 {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_POLYBEZIER16 {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_POLYBEZIER16 as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{
+            check_total_points, consume_remaining_bytes, read_field, read_with,
+        };
 
-        let ((bounds, bounds_bytes), (count, count_bytes)) = (
-            wmf_core::parser::RectL::parse(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-        );
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_POLYBEZIER16 as u32,
+        )?;
 
-        size.consume(bounds_bytes + count_bytes);
+        let bounds = read_with(buf, &mut size, wmf_core::parser::RectL::parse)?;
+        let count = read_field(buf, &mut size)?;
+
+        check_total_points(count)?;
 
         let a_points = {
             let mut entries = vec![];
 
             for _ in 0..count {
-                let (v, b) = wmf_core::parser::PointS::parse(buf)?;
-
-                entries.push(v);
-                size.consume(b);
+                entries.push(read_with(
+                    buf,
+                    &mut size,
+                    wmf_core::parser::PointS::parse,
+                )?);
             }
 
             entries
         };
 
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
-        )?;
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self { record_type, size, bounds, count, a_points })
     }

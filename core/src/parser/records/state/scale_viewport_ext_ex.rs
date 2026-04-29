@@ -45,66 +45,25 @@ impl EMR_SCALEVIEWPORTEXTEX {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_SCALEVIEWPORTEXTEX {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_SCALEVIEWPORTEXTEX as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{consume_remaining_bytes, read_field};
 
-        let (
-            (x_num, x_num_bytes),
-            (x_denom, x_denom_bytes),
-            (y_num, y_num_bytes),
-            (y_denom, y_denom_bytes),
-        ) = (
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-        );
-
-        size.consume(x_num_bytes + x_denom_bytes + y_num_bytes + y_denom_bytes);
-
-        if x_num == 0 {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "x_num cannot be zero. but parsed value is `{x_num}`",
-                ),
-            });
-        }
-
-        if x_denom == 0 {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "x_denom cannot be zero. but parsed value is `{x_denom}`",
-                ),
-            });
-        }
-
-        if y_num == 0 {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "y_num cannot be zero. but parsed value is `{y_num}`",
-                ),
-            });
-        }
-
-        if y_denom == 0 {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "y_denom cannot be zero. but parsed value is `{y_denom}`",
-                ),
-            });
-        }
-
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_SCALEVIEWPORTEXTEX as u32,
         )?;
+
+        let x_num = read_field(buf, &mut size)?;
+        let x_denom = read_field(buf, &mut size)?;
+        let y_num = read_field(buf, &mut size)?;
+        let y_denom = read_field(buf, &mut size)?;
+
+        crate::parser::ParseError::expect_ne("x_num", x_num, 0_i32)?;
+        crate::parser::ParseError::expect_ne("x_denom", x_denom, 0_i32)?;
+        crate::parser::ParseError::expect_ne("y_num", y_num, 0_i32)?;
+        crate::parser::ParseError::expect_ne("y_denom", y_denom, 0_i32)?;
+
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self { record_type, size, x_num, x_denom, y_num, y_denom })
     }

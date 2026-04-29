@@ -35,35 +35,23 @@ impl EMR_SETCOLORADJUSTMENT {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_SETCOLORADJUSTMENT {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_SETCOLORADJUSTMENT as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::{read_with, records::consume_remaining_bytes};
 
-        if size.byte_count() != 0x00000020 {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "size field must be `0x00000020`, but parsed value is \
-                     {:#010X}",
-                    size.byte_count(),
-                ),
-            });
-        }
-
-        let (color_adjustment, color_adjustment_bytes) =
-            crate::parser::ColorAdjustment::parse(buf)?;
-
-        size.consume(color_adjustment_bytes);
-
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_SETCOLORADJUSTMENT as u32,
         )?;
+        crate::parser::ParseError::expect_eq(
+            "size",
+            size.byte_count(),
+            0x00000020,
+        )?;
+
+        let color_adjustment =
+            read_with(buf, &mut size, crate::parser::ColorAdjustment::parse)?;
+
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self { record_type, size, color_adjustment })
     }

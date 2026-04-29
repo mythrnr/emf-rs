@@ -50,59 +50,37 @@ impl EMR_POLYTEXTOUTA {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_POLYTEXTOUTA {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_POLYTEXTOUTA as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{
+            consume_remaining_bytes, read_field, read_with,
+        };
 
-        let (
-            (bounds, bounds_bytes),
-            (i_graphics_mode, i_graphics_mode_bytes),
-            (ex_scale, ex_scale_bytes),
-            (ey_scale, ey_scale_bytes),
-            (c_strings, c_strings_bytes),
-        ) = (
-            wmf_core::parser::RectL::parse(buf)?,
-            crate::parser::GraphicsMode::parse(buf)?,
-            crate::parser::read_f32_from_le_bytes(buf)?,
-            crate::parser::read_f32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-        );
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_POLYTEXTOUTA as u32,
+        )?;
 
-        size.consume(
-            bounds_bytes
-                + i_graphics_mode_bytes
-                + ex_scale_bytes
-                + ey_scale_bytes
-                + c_strings_bytes,
-        );
+        let bounds = read_with(buf, &mut size, wmf_core::parser::RectL::parse)?;
+        let i_graphics_mode =
+            read_with(buf, &mut size, crate::parser::GraphicsMode::parse)?;
+        let ex_scale: f32 = read_field(buf, &mut size)?;
+        let ey_scale: f32 = read_field(buf, &mut size)?;
+        let c_strings = read_field(buf, &mut size)?;
 
         let a_emr_text = {
             let mut entries = vec![];
 
             for _ in 0..c_strings {
-                let (v, b) = crate::parser::EmrText::parse(
-                    buf,
-                    &record_type,
-                    size.consumed_bytes(),
-                )?;
-
-                entries.push(v);
-                size.consume(b);
+                let offset = size.consumed_bytes();
+                entries.push(read_with(buf, &mut size, |b| {
+                    crate::parser::EmrText::parse(b, &record_type, offset)
+                })?);
             }
 
             entries
         };
 
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
-        )?;
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self {
             record_type,

@@ -28,45 +28,35 @@ impl EMR_RESTOREDC {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_RESTOREDC {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_RESTOREDC as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{consume_remaining_bytes, read_field};
 
-        if size.byte_count() != 0x0000000C {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "size field must be `0x0000000C`, but parsed value is \
-                     {:#010X}",
-                    size.byte_count(),
-                ),
-            });
-        }
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_RESTOREDC as u32,
+        )?;
 
-        let (saved_dc, saved_dc_bytes) =
-            crate::parser::read_i32_from_le_bytes(buf)?;
+        crate::parser::ParseError::expect_eq(
+            "size field",
+            size.byte_count() as u32,
+            0x0000000C_u32,
+        )?;
 
-        size.consume(saved_dc_bytes);
+        let saved_dc: i32 = read_field(buf, &mut size)?;
 
+        // SavedDC MUST be negative per MS-EMF 2.3.11.21; reject values
+        // >= 0 directly. `expect_le` does not fit since the upper bound
+        // is `-1` for signed values.
         if saved_dc >= 0 {
             return Err(crate::parser::ParseError::UnexpectedPattern {
                 cause: format!(
-                    "saved_dc field must be negative value, but parsed value \
-                     is {:#010X}",
-                    size.byte_count(),
+                    "saved_dc must be negative, but parsed value is \
+                     {saved_dc:#010X}",
                 ),
             });
         }
 
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
-        )?;
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self { record_type, size, saved_dc })
     }

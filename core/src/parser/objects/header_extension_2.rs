@@ -20,17 +20,12 @@ impl HeaderExtension2 {
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        let (
-            (micrometers_x, micrometers_x_bytes),
-            (micrometers_y, micrometers_y_bytes),
-        ) = (
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-        );
+        use crate::parser::records::read_field;
 
-        Ok((
-            Self { micrometers_x, micrometers_y },
-            micrometers_x_bytes + micrometers_y_bytes,
-        ))
+        let mut consumed_bytes: usize = 0;
+        let micrometers_x = read_field(buf, &mut consumed_bytes)?;
+        let micrometers_y = read_field(buf, &mut consumed_bytes)?;
+
+        Ok((Self { micrometers_x, micrometers_y }, consumed_bytes))
     }
 }

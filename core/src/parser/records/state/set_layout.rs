@@ -28,35 +28,23 @@ impl EMR_SETLAYOUT {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_SETLAYOUT {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_SETLAYOUT as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::{read_with, records::consume_remaining_bytes};
 
-        if size.byte_count() != 0x0000000C {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "size field must be `0x0000000C`, but parsed value is \
-                     {:#010X}",
-                    size.byte_count(),
-                ),
-            });
-        }
-
-        let (layout_mode, layout_mode_bytes) =
-            crate::parser::LayoutMode::parse(buf)?;
-
-        size.consume(layout_mode_bytes);
-
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_SETLAYOUT as u32,
         )?;
+        crate::parser::ParseError::expect_eq(
+            "size",
+            size.byte_count(),
+            0x0000000C,
+        )?;
+
+        let layout_mode =
+            read_with(buf, &mut size, crate::parser::LayoutMode::parse)?;
+
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self { record_type, size, layout_mode })
     }

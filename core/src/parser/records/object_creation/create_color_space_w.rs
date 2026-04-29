@@ -51,42 +51,24 @@ impl EMR_CREATECOLORSPACEW {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_CREATECOLORSPACEW {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_CREATECOLORSPACEW as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{
+            consume_remaining_bytes, read_bytes_field, read_field, read_with,
+        };
 
-        let (
-            (ih_cs, ih_cs_bytes),
-            (lcs, lcs_bytes),
-            (dw_flags, dw_flags_bytes),
-            (cb_data, cb_data_bytes),
-        ) = (
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            wmf_core::parser::LogColorSpaceW::parse(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-        );
-        let (data, data_bytes) =
-            crate::parser::read_variable(buf, cb_data as usize)?;
-
-        size.consume(
-            ih_cs_bytes
-                + lcs_bytes
-                + dw_flags_bytes
-                + cb_data_bytes
-                + data_bytes,
-        );
-
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_CREATECOLORSPACEW as u32,
         )?;
+
+        let ih_cs: u32 = read_field(buf, &mut size)?;
+        let lcs =
+            read_with(buf, &mut size, wmf_core::parser::LogColorSpaceW::parse)?;
+        let dw_flags: u32 = read_field(buf, &mut size)?;
+        let cb_data: u32 = read_field(buf, &mut size)?;
+        let data = read_bytes_field(buf, &mut size, cb_data as usize)?;
+
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self { record_type, size, ih_cs, lcs, dw_flags, cb_data, data })
     }

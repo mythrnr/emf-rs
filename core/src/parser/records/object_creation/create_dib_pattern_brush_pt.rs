@@ -58,61 +58,36 @@ impl EMR_CREATEDIBPATTERNBRUSHPT {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_CREATEDIBPATTERNBRUSHPT
-        {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_CREATEDIBPATTERNBRUSHPT
-                        as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{
+            consume_remaining_bytes, read_bytes_field, read_field, read_with,
+        };
 
-        let (
-            (ih_brush, ih_brush_bytes),
-            (usage, usage_bytes),
-            (off_bmi, off_bmi_bytes),
-            (cb_bmi, cb_bmi_bytes),
-            (off_bits, off_bits_bytes),
-            (cb_bits, cb_bits_bytes),
-        ) = (
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::DIBColors::parse(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-        );
-
-        size.consume(
-            ih_brush_bytes
-                + usage_bytes
-                + off_bmi_bytes
-                + cb_bmi_bytes
-                + off_bits_bytes
-                + cb_bits_bytes,
-        );
-
-        let ((_, undef_space_bytes), (bmi_src, bmi_src_bytes)) = (
-            crate::parser::read_variable(buf, size.checked_offset(off_bmi)?)?,
-            wmf_core::parser::BitmapInfoHeader::parse(buf)?,
-        );
-
-        size.consume(undef_space_bytes + bmi_src_bytes);
-
-        let ((_, undef_space_bytes), (bits_src, bits_src_bytes)) = (
-            crate::parser::read_variable(buf, size.checked_offset(off_bits)?)?,
-            crate::parser::read_variable(buf, cb_bits as usize)?,
-        );
-
-        size.consume(undef_space_bytes + bits_src_bytes);
-
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_CREATEDIBPATTERNBRUSHPT as u32,
         )?;
+
+        let ih_brush = read_field(buf, &mut size)?;
+        let usage = read_with(buf, &mut size, crate::parser::DIBColors::parse)?;
+        let off_bmi = read_field(buf, &mut size)?;
+        let cb_bmi = read_field(buf, &mut size)?;
+        let off_bits = read_field(buf, &mut size)?;
+        let cb_bits: u32 = read_field(buf, &mut size)?;
+
+        let undef_space_bmi = size.checked_offset(off_bmi)?;
+        let _ = read_bytes_field(buf, &mut size, undef_space_bmi)?;
+        let bmi_src = read_with(
+            buf,
+            &mut size,
+            wmf_core::parser::BitmapInfoHeader::parse,
+        )?;
+
+        let undef_space_bits = size.checked_offset(off_bits)?;
+        let _ = read_bytes_field(buf, &mut size, undef_space_bits)?;
+        let bits_src = read_bytes_field(buf, &mut size, cb_bits as usize)?;
+
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self {
             record_type,

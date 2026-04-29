@@ -127,135 +127,83 @@ impl EMR_PLGBLT {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_PLGBLT {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_PLGBLT as u32,
-                    record_type as u32
-                ),
-            });
+        use crate::parser::records::{
+            consume_remaining_bytes, read_bytes_field, read_field, read_with,
+        };
+
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_PLGBLT as u32,
+        )?;
+
+        let bounds = read_with(buf, &mut size, wmf_core::parser::RectL::parse)?;
+        let aptl_dest = {
+            let p1 =
+                read_with(buf, &mut size, wmf_core::parser::PointL::parse)?;
+            let p2 =
+                read_with(buf, &mut size, wmf_core::parser::PointL::parse)?;
+            let p3 =
+                read_with(buf, &mut size, wmf_core::parser::PointL::parse)?;
+            [p1, p2, p3]
+        };
+        let x_src = read_field(buf, &mut size)?;
+        let y_src = read_field(buf, &mut size)?;
+        let cx_src = read_field(buf, &mut size)?;
+        let cy_src = read_field(buf, &mut size)?;
+        let x_form_src =
+            read_with(buf, &mut size, crate::parser::XForm::parse)?;
+        let bk_color_src =
+            read_with(buf, &mut size, wmf_core::parser::ColorRef::parse)?;
+        let usage_src =
+            read_with(buf, &mut size, crate::parser::DIBColors::parse)?;
+        let off_bmi_src = read_field(buf, &mut size)?;
+        let cb_bmi_src: u32 = read_field(buf, &mut size)?;
+        let off_bits_src = read_field(buf, &mut size)?;
+        let cb_bits_src: u32 = read_field(buf, &mut size)?;
+        let x_mask = read_field(buf, &mut size)?;
+        let y_mask = read_field(buf, &mut size)?;
+        let usage_mask =
+            read_with(buf, &mut size, crate::parser::DIBColors::parse)?;
+        let off_bmi_mask = read_field(buf, &mut size)?;
+        let cb_bmi_mask: u32 = read_field(buf, &mut size)?;
+        let off_bits_mask = read_field(buf, &mut size)?;
+        let cb_bits_mask: u32 = read_field(buf, &mut size)?;
+
+        // Defense in depth: reject byte-count fields that exceed the
+        // record-size cap before they reach `read_bytes_field`'s
+        // `Vec::with_capacity`.
+        for (name, n) in [
+            ("cb_bmi_src", cb_bmi_src),
+            ("cb_bits_src", cb_bits_src),
+            ("cb_bmi_mask", cb_bmi_mask),
+            ("cb_bits_mask", cb_bits_mask),
+        ] {
+            crate::parser::ParseError::expect_le(
+                name,
+                n,
+                crate::parser::MAX_RECORD_BYTES,
+            )?;
         }
 
-        let (
-            (bounds, bounds_bytes),
-            (aptl_dest, aptl_dest_bytes),
-            (x_src, x_src_bytes),
-            (y_src, y_src_bytes),
-            (cx_src, cx_src_bytes),
-            (cy_src, cy_src_bytes),
-            (x_form_src, x_form_src_bytes),
-            (bk_color_src, bk_color_src_bytes),
-            (usage_src, usage_src_bytes),
-            (off_bmi_src, off_bmi_src_bytes),
-            (cb_bmi_src, cb_bmi_src_bytes),
-            (off_bits_src, off_bits_src_bytes),
-            (cb_bits_src, cb_bits_src_bytes),
-            (x_mask, x_mask_bytes),
-            (y_mask, y_mask_bytes),
-            (usage_mask, usage_mask_bytes),
-            (off_bmi_mask, off_bmi_mask_bytes),
-            (cb_bmi_mask, cb_bmi_mask_bytes),
-            (off_bits_mask, off_bits_mask_bytes),
-            (cb_bits_mask, cb_bits_mask_bytes),
-        ) = (
-            wmf_core::parser::RectL::parse(buf)?,
-            {
-                let ((p1, p1_bytes), (p2, p2_bytes), (p3, p3_bytes)) = (
-                    wmf_core::parser::PointL::parse(buf)?,
-                    wmf_core::parser::PointL::parse(buf)?,
-                    wmf_core::parser::PointL::parse(buf)?,
-                );
+        let undef_offset = size.checked_offset(off_bmi_src)?;
+        let _ = read_bytes_field(buf, &mut size, undef_offset)?;
+        let bmi_src = read_bytes_field(buf, &mut size, cb_bmi_src as usize)?;
 
-                ([p1, p2, p3], p1_bytes + p2_bytes + p3_bytes)
-            },
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::XForm::parse(buf)?,
-            wmf_core::parser::ColorRef::parse(buf)?,
-            crate::parser::DIBColors::parse(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::DIBColors::parse(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-        );
+        let undef_offset = size.checked_offset(off_bits_src)?;
+        let _ = read_bytes_field(buf, &mut size, undef_offset)?;
+        let bits_src = read_bytes_field(buf, &mut size, cb_bits_src as usize)?;
 
-        size.consume(
-            bounds_bytes
-                + aptl_dest_bytes
-                + x_src_bytes
-                + y_src_bytes
-                + cx_src_bytes
-                + cy_src_bytes
-                + x_form_src_bytes
-                + bk_color_src_bytes
-                + usage_src_bytes
-                + off_bmi_src_bytes
-                + cb_bmi_src_bytes
-                + off_bits_src_bytes
-                + cb_bits_src_bytes
-                + x_mask_bytes
-                + y_mask_bytes
-                + usage_mask_bytes
-                + off_bmi_mask_bytes
-                + cb_bmi_mask_bytes
-                + off_bits_mask_bytes
-                + cb_bits_mask_bytes,
-        );
+        let undef_offset = size.checked_offset(off_bmi_mask)?;
+        let _ = read_bytes_field(buf, &mut size, undef_offset)?;
+        let bmi_mask = read_bytes_field(buf, &mut size, cb_bmi_mask as usize)?;
 
-        let ((_, undef_space_bytes), (bmi_src, bmi_src_bytes)) = (
-            crate::parser::read_variable(
-                buf,
-                size.checked_offset(off_bmi_src)?,
-            )?,
-            crate::parser::read_variable(buf, cb_bmi_src as usize)?,
-        );
+        let undef_offset = size.checked_offset(off_bits_mask)?;
+        let _ = read_bytes_field(buf, &mut size, undef_offset)?;
+        let bits_mask =
+            read_bytes_field(buf, &mut size, cb_bits_mask as usize)?;
 
-        size.consume(undef_space_bytes + bmi_src_bytes);
-
-        let ((_, undef_space_bytes), (bits_src, bits_src_bytes)) = (
-            crate::parser::read_variable(
-                buf,
-                size.checked_offset(off_bits_src)?,
-            )?,
-            crate::parser::read_variable(buf, cb_bits_src as usize)?,
-        );
-
-        size.consume(undef_space_bytes + bits_src_bytes);
-
-        let ((_, undef_space_bytes), (bmi_mask, bmi_mask_bytes)) = (
-            crate::parser::read_variable(
-                buf,
-                size.checked_offset(off_bmi_mask)?,
-            )?,
-            crate::parser::read_variable(buf, cb_bmi_mask as usize)?,
-        );
-
-        size.consume(undef_space_bytes + bmi_mask_bytes);
-
-        let ((_, undef_space_bytes), (bits_mask, bits_mask_bytes)) = (
-            crate::parser::read_variable(
-                buf,
-                size.checked_offset(off_bits_mask)?,
-            )?,
-            crate::parser::read_variable(buf, cb_bits_mask as usize)?,
-        );
-
-        size.consume(undef_space_bytes + bits_mask_bytes);
-
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
-        )?;
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self {
             record_type,

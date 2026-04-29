@@ -32,41 +32,46 @@ impl LogBrushEx {
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        let (brush_style, mut consumed_bytes) =
-            wmf_core::parser::BrushStyle::parse(buf)?;
-        // Ignore 2 bytes because wmf_core::parser::BrushStyle is 2 byte.
-        let (_, ignore_bytes) = crate::parser::read::<_, 2>(buf)?;
+        use crate::parser::records::{read_bytes_field, read_with};
 
-        consumed_bytes += ignore_bytes;
+        let mut consumed_bytes: usize = 0;
+        let brush_style = read_with(
+            buf,
+            &mut consumed_bytes,
+            wmf_core::parser::BrushStyle::parse,
+        )?;
+        // Skip 2 bytes; wmf_core::parser::BrushStyle is 2 bytes wide
+        // and the on-disk layout pads the field to 4 bytes.
+        let _ = read_bytes_field(buf, &mut consumed_bytes, 2)?;
 
         let v = match brush_style {
             wmf_core::parser::BrushStyle::BS_SOLID => {
-                let ((color, color_bytes), (_, brush_hatch_bytes)) = (
-                    wmf_core::parser::ColorRef::parse(buf)?,
-                    crate::parser::read::<_, 4>(buf)?,
-                );
-
-                consumed_bytes += color_bytes + brush_hatch_bytes;
+                let color = read_with(
+                    buf,
+                    &mut consumed_bytes,
+                    wmf_core::parser::ColorRef::parse,
+                )?;
+                let _ = read_bytes_field(buf, &mut consumed_bytes, 4)?;
 
                 Self::Solid { color }
             }
             wmf_core::parser::BrushStyle::BS_NULL => {
-                let ((_, color_bytes), (_, brush_hatch_bytes)) = (
-                    crate::parser::read::<_, 4>(buf)?,
-                    crate::parser::read::<_, 4>(buf)?,
-                );
-
-                consumed_bytes += color_bytes + brush_hatch_bytes;
+                let _ = read_bytes_field(buf, &mut consumed_bytes, 4)?;
+                let _ = read_bytes_field(buf, &mut consumed_bytes, 4)?;
 
                 Self::Null
             }
             wmf_core::parser::BrushStyle::BS_HATCHED => {
-                let ((color, color_bytes), (brush_hatch, brush_hatch_bytes)) = (
-                    wmf_core::parser::ColorRef::parse(buf)?,
-                    crate::parser::HatchStyle::parse(buf)?,
-                );
-
-                consumed_bytes += color_bytes + brush_hatch_bytes;
+                let color = read_with(
+                    buf,
+                    &mut consumed_bytes,
+                    wmf_core::parser::ColorRef::parse,
+                )?;
+                let brush_hatch = read_with(
+                    buf,
+                    &mut consumed_bytes,
+                    crate::parser::HatchStyle::parse,
+                )?;
 
                 Self::Hatched { color, brush_hatch }
             }

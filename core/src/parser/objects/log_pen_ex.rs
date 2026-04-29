@@ -70,47 +70,35 @@ impl LogPenEx {
     ) -> Result<(Self, usize), crate::parser::ParseError> {
         use strum::IntoEnumIterator;
 
-        let (pen_style, pen_style_bytes) = {
-            let (v, values_bytes) = crate::parser::read_u32_from_le_bytes(buf)?;
+        use crate::parser::records::{read_field, read_with};
 
-            (
-                crate::parser::PenStyle::iter()
-                    .filter(|c| v & (*c as u32) == (*c as u32))
-                    .collect::<BTreeSet<_>>(),
-                values_bytes,
-            )
+        let mut consumed_bytes: usize = 0;
+        let pen_style = {
+            let v: u32 = read_field(buf, &mut consumed_bytes)?;
+
+            crate::parser::PenStyle::iter()
+                .filter(|c| v & (*c as u32) == (*c as u32))
+                .collect::<BTreeSet<_>>()
         };
-        let (
-            (width, width_bytes),
-            (brush, brush_bytes),
-            (num_style_entries, num_style_entries_bytes),
-        ) = (
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            LogPenExBrush::parse(buf, &pen_style)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-        );
+        let width = read_field(buf, &mut consumed_bytes)?;
+        let brush = read_with(buf, &mut consumed_bytes, |b| {
+            LogPenExBrush::parse(b, &pen_style)
+        })?;
+        let num_style_entries: u32 = read_field(buf, &mut consumed_bytes)?;
 
-        let (style_entry, style_entry_bytes) = {
-            let mut entries = vec![];
-            let mut bytes = 0;
+        let style_entry = {
+            let mut entries: Vec<u32> = vec![];
 
             for _ in 0..num_style_entries {
-                let (v, b) = crate::parser::read_u32_from_le_bytes(buf)?;
-
-                entries.push(v);
-                bytes += b;
+                entries.push(read_field(buf, &mut consumed_bytes)?);
             }
 
-            (entries, bytes)
+            entries
         };
 
         Ok((
             Self { pen_style, width, brush, num_style_entries, style_entry },
-            pen_style_bytes
-                + width_bytes
-                + brush_bytes
-                + num_style_entries_bytes
-                + style_entry_bytes,
+            consumed_bytes,
         ))
     }
 
@@ -192,18 +180,18 @@ impl LogPenExBrush {
         buf: &mut R,
         pen_style: &BTreeSet<crate::parser::PenStyle>,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        let (
-            (brush_style, brush_style_bytes),
-            (_, ignore_bytes),
-            (color, color_bytes),
-            (brush_hatch, brush_hatch_bytes),
-        ) = (
-            wmf_core::parser::BrushStyle::parse(buf)?,
-            // Ignore 2 bytes because wmf_core::parser::BrushStyle is 2 byte.
-            crate::parser::read::<_, 2>(buf)?,
-            crate::parser::read::<_, 4>(buf)?,
-            crate::parser::read::<_, 4>(buf)?,
-        );
+        use crate::parser::records::{read_array_field, read_with};
+
+        let mut consumed_bytes: usize = 0;
+        let brush_style = read_with(
+            buf,
+            &mut consumed_bytes,
+            wmf_core::parser::BrushStyle::parse,
+        )?;
+        // Ignore 2 bytes because wmf_core::parser::BrushStyle is 2 byte.
+        let _: [u8; 2] = read_array_field(buf, &mut consumed_bytes)?;
+        let color: [u8; 4] = read_array_field(buf, &mut consumed_bytes)?;
+        let brush_hatch: [u8; 4] = read_array_field(buf, &mut consumed_bytes)?;
 
         let v = match brush_style {
             wmf_core::parser::BrushStyle::BS_SOLID => {
@@ -267,10 +255,7 @@ impl LogPenExBrush {
             }
         };
 
-        Ok((
-            v,
-            brush_style_bytes + ignore_bytes + color_bytes + brush_hatch_bytes,
-        ))
+        Ok((v, consumed_bytes))
     }
 }
 

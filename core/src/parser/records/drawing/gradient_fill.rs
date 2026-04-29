@@ -59,38 +59,31 @@ impl EMR_GRADIENTFILL {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_GRADIENTFILL {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_GRADIENTFILL as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{
+            consume_remaining_bytes, read_bytes_field, read_field, read_with,
+        };
 
-        let (
-            (bounds, bounds_bytes),
-            (n_ver, n_ver_bytes),
-            (n_tri, n_tri_bytes),
-            (ul_mode, ul_mode_bytes),
-        ) = (
-            wmf_core::parser::RectL::parse(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::GradientFill::parse(buf)?,
-        );
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_GRADIENTFILL as u32,
+        )?;
 
-        size.consume(bounds_bytes + n_ver_bytes + n_tri_bytes + ul_mode_bytes);
+        let bounds = read_with(buf, &mut size, wmf_core::parser::RectL::parse)?;
+        let n_ver = read_field(buf, &mut size)?;
+        let n_tri = read_field(buf, &mut size)?;
+        let ul_mode =
+            read_with(buf, &mut size, crate::parser::GradientFill::parse)?;
 
         let vertex_objects = {
             let mut entries = vec![];
 
             for _ in 0..n_ver {
-                let (v, b) = crate::parser::TriVertex::parse(buf)?;
-
-                entries.push(v);
-                size.consume(b);
+                entries.push(read_with(
+                    buf,
+                    &mut size,
+                    crate::parser::TriVertex::parse,
+                )?);
             }
 
             entries
@@ -100,10 +93,11 @@ impl EMR_GRADIENTFILL {
                 let mut entries = vec![];
 
                 for _ in 0..n_tri {
-                    let (v, b) = crate::parser::GradientTriangle::parse(buf)?;
-
-                    entries.push(v);
-                    size.consume(b);
+                    entries.push(read_with(
+                        buf,
+                        &mut size,
+                        crate::parser::GradientTriangle::parse,
+                    )?);
                 }
 
                 VertexIndexes::GradientTriangle(entries)
@@ -111,21 +105,18 @@ impl EMR_GRADIENTFILL {
                 let mut entries = vec![];
 
                 for _ in 0..n_tri {
-                    let (v, b) = crate::parser::GradientRectangle::parse(buf)?;
-
-                    entries.push(v);
-                    size.consume(b);
+                    entries.push(read_with(
+                        buf,
+                        &mut size,
+                        crate::parser::GradientRectangle::parse,
+                    )?);
                 }
 
                 VertexIndexes::GradientRectangle(entries)
             };
         let vertex_padding =
             if ul_mode == crate::parser::GradientFill::GRADIENT_FILL_TRIANGLE {
-                let (v, b) =
-                    crate::parser::read_variable(buf, (n_tri * 4) as usize)?;
-                size.consume(b);
-
-                v
+                read_bytes_field(buf, &mut size, (n_tri * 4) as usize)?
             } else {
                 vec![]
             };
@@ -133,10 +124,7 @@ impl EMR_GRADIENTFILL {
         let vertex_data =
             VertexData { vertex_objects, vertex_indexes, vertex_padding };
 
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
-        )?;
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self {
             record_type,

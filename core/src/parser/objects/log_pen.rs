@@ -27,19 +27,25 @@ impl LogPen {
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        let (
-            (pen_style, pen_style_bytes),
-            (width, width_bytes),
-            (color_ref, color_ref_bytes),
-        ) = (
-            crate::parser::PenStyle::parse(buf)?,
-            wmf_core::parser::PointL::parse(buf)?,
-            wmf_core::parser::ColorRef::parse(buf)?,
-        );
+        use crate::parser::records::read_with;
 
-        Ok((
-            Self { pen_style, width, color_ref },
-            pen_style_bytes + width_bytes + color_ref_bytes,
-        ))
+        let mut consumed_bytes: usize = 0;
+        let pen_style = read_with(
+            buf,
+            &mut consumed_bytes,
+            crate::parser::PenStyle::parse,
+        )?;
+        let width = read_with(
+            buf,
+            &mut consumed_bytes,
+            wmf_core::parser::PointL::parse,
+        )?;
+        let color_ref = read_with(
+            buf,
+            &mut consumed_bytes,
+            wmf_core::parser::ColorRef::parse,
+        )?;
+
+        Ok((Self { pen_style, width, color_ref }, consumed_bytes))
     }
 }

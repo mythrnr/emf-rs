@@ -23,18 +23,12 @@ impl GradientRectangle {
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        #[rustfmt::skip]
-        let (
-            (upper_left, upper_left_bytes),
-            (lower_right, lower_right_bytes),
-        ) = (
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-        );
+        use crate::parser::records::read_field;
 
-        Ok((
-            Self { upper_left, lower_right },
-            upper_left_bytes + lower_right_bytes,
-        ))
+        let mut consumed_bytes: usize = 0;
+        let upper_left = read_field(buf, &mut consumed_bytes)?;
+        let lower_right = read_field(buf, &mut consumed_bytes)?;
+
+        Ok((Self { upper_left, lower_right }, consumed_bytes))
     }
 }

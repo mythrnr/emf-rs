@@ -24,24 +24,18 @@ impl EMR_SETVIEWPORTORGEX {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_SETVIEWPORTORGEX {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_SETVIEWPORTORGEX as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{consume_remaining_bytes, read_with};
 
-        let (origin, origin_bytes) = wmf_core::parser::PointL::parse(buf)?;
-
-        size.consume(origin_bytes);
-
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_SETVIEWPORTORGEX as u32,
         )?;
+
+        let origin =
+            read_with(buf, &mut size, wmf_core::parser::PointL::parse)?;
+
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self { record_type, size, origin })
     }

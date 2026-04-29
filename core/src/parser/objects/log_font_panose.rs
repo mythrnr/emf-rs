@@ -52,36 +52,31 @@ impl LogFontPanose {
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        let (
-            (log_font, log_font_bytes),
-            (full_name, full_name_bytes),
-            (style, style_bytes),
-            (version, version_bytes),
-            (style_size, style_size_bytes),
-            (_match, _match_bytes),
-            (reserved, reserved_bytes),
-            (vendor_id, vendor_id_bytes),
-            (culture, culture_bytes),
-            (panose, panose_bytes),
-            (padding, padding_bytes),
-        ) = (
-            crate::parser::LogFont::parse(buf)?,
-            crate::parser::read::<_, 128>(buf)?,
-            crate::parser::read::<_, 64>(buf)?,
-            crate::parser::read::<_, 4>(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read::<_, 4>(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read::<_, 4>(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::Panose::parse(buf)?,
-            crate::parser::read::<_, 2>(buf)?,
-        );
+        use crate::parser::records::{
+            read_array_field, read_bytes_field, read_field, read_with,
+        };
 
-        let (full_name, style) = (
-            crate::parser::utf16le_bytes_to_string(&full_name)?,
-            crate::parser::utf16le_bytes_to_string(&style)?,
-        );
+        let mut consumed_bytes: usize = 0;
+        let log_font =
+            read_with(buf, &mut consumed_bytes, crate::parser::LogFont::parse)?;
+
+        // FullName / Style stay as Vec<u8> because they feed directly
+        // into `utf16le_bytes_to_string`, which takes a slice.
+        let full_name_bytes = read_bytes_field(buf, &mut consumed_bytes, 128)?;
+        let style_bytes = read_bytes_field(buf, &mut consumed_bytes, 64)?;
+        let version: [u8; 4] = read_array_field(buf, &mut consumed_bytes)?;
+        let style_size = read_field(buf, &mut consumed_bytes)?;
+        let _match: [u8; 4] = read_array_field(buf, &mut consumed_bytes)?;
+        let reserved = read_field(buf, &mut consumed_bytes)?;
+        let vendor_id: [u8; 4] = read_array_field(buf, &mut consumed_bytes)?;
+        let culture = read_field(buf, &mut consumed_bytes)?;
+        let panose =
+            read_with(buf, &mut consumed_bytes, crate::parser::Panose::parse)?;
+        let padding: [u8; 2] = read_array_field(buf, &mut consumed_bytes)?;
+
+        let full_name =
+            crate::parser::utf16le_bytes_to_string(&full_name_bytes)?;
+        let style = crate::parser::utf16le_bytes_to_string(&style_bytes)?;
 
         Ok((
             Self {
@@ -97,17 +92,7 @@ impl LogFontPanose {
                 panose,
                 padding,
             },
-            log_font_bytes
-                + full_name_bytes
-                + style_bytes
-                + version_bytes
-                + style_size_bytes
-                + _match_bytes
-                + reserved_bytes
-                + vendor_id_bytes
-                + culture_bytes
-                + panose_bytes
-                + padding_bytes,
+            consumed_bytes,
         ))
     }
 }

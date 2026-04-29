@@ -32,25 +32,21 @@ impl EMR_SETROP2 {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_SETROP2 {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_SETROP2 as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::{read_with, records::consume_remaining_bytes};
 
-        let (rop2_mode, rop2_mode_bytes) =
-            wmf_core::parser::BinaryRasterOperation::parse(buf)?;
-
-        size.consume(rop2_mode_bytes);
-
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_SETROP2 as u32,
         )?;
+
+        let rop2_mode = read_with(
+            buf,
+            &mut size,
+            wmf_core::parser::BinaryRasterOperation::parse,
+        )?;
+
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self { record_type, size, rop2_mode })
     }

@@ -35,34 +35,22 @@ impl EMR_SETCOLORSPACE {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_SETCOLORSPACE {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_SETCOLORSPACE as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{consume_remaining_bytes, read_field};
 
-        if size.byte_count() != 0x0000000C {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "size field must be `0x0000000C`, but parsed value is \
-                     {:#010X}",
-                    size.byte_count(),
-                ),
-            });
-        }
-
-        let (in_cs, in_cs_bytes) = crate::parser::read_u32_from_le_bytes(buf)?;
-
-        size.consume(in_cs_bytes);
-
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_SETCOLORSPACE as u32,
         )?;
+        crate::parser::ParseError::expect_eq(
+            "size field",
+            size.byte_count() as u32,
+            0x0000000C_u32,
+        )?;
+
+        let in_cs: u32 = read_field(buf, &mut size)?;
+
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self { record_type, size, in_cs })
     }

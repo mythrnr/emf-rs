@@ -34,30 +34,26 @@ impl EMR_EXTESCAPE {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_EXTESCAPE {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_EXTESCAPE as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{
+            consume_remaining_bytes, read_bytes_field, read_field, read_with,
+        };
 
-        let ((i_escape, i_escape_bytes), (cj_in, cj_in_bytes)) = (
-            wmf_core::parser::MetafileEscapes::parse(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-        );
-
-        let (data, data_bytes) =
-            crate::parser::read_variable(buf, cj_in as usize)?;
-
-        size.consume(i_escape_bytes + cj_in_bytes + data_bytes);
-
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_EXTESCAPE as u32,
         )?;
+
+        let i_escape = read_with(
+            buf,
+            &mut size,
+            wmf_core::parser::MetafileEscapes::parse,
+        )?;
+        let cj_in: u32 = read_field(buf, &mut size)?;
+
+        let data = read_bytes_field(buf, &mut size, cj_in as usize)?;
+
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self { record_type, size, i_escape, cj_in, data })
     }

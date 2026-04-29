@@ -83,89 +83,55 @@ impl EMR_SETDIBITSTODEVICE {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_SETDIBITSTODEVICE {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_SETDIBITSTODEVICE as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{
+            consume_remaining_bytes, read_bytes_field, read_field, read_with,
+        };
 
-        let (
-            (bounds, bounds_bytes),
-            (x_dest, x_dest_bytes),
-            (y_dest, y_dest_bytes),
-            (x_src, x_src_bytes),
-            (y_src, y_src_bytes),
-            (cx_src, cx_src_bytes),
-            (cy_src, cy_src_bytes),
-            (off_bmi_src, off_bmi_src_bytes),
-            (cb_bmi_src, cb_bmi_src_bytes),
-            (off_bits_src, off_bits_src_bytes),
-            (cb_bits_src, cb_bits_src_bytes),
-            (usage_src, usage_src_bytes),
-            (i_start_scan, i_start_scan_bytes),
-            (c_scans, c_scans_bytes),
-        ) = (
-            wmf_core::parser::RectL::parse(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::DIBColors::parse(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-        );
-
-        size.consume(
-            bounds_bytes
-                + x_dest_bytes
-                + y_dest_bytes
-                + x_src_bytes
-                + y_src_bytes
-                + cx_src_bytes
-                + cy_src_bytes
-                + off_bmi_src_bytes
-                + cb_bmi_src_bytes
-                + off_bits_src_bytes
-                + cb_bits_src_bytes
-                + usage_src_bytes
-                + i_start_scan_bytes
-                + c_scans_bytes,
-        );
-
-        let ((_, undef_space_bytes), (bmi_src, bmi_src_bytes)) = (
-            crate::parser::read_variable(
-                buf,
-                size.checked_offset(off_bmi_src)?,
-            )?,
-            crate::parser::read_variable(buf, cb_bmi_src as usize)?,
-        );
-
-        size.consume(undef_space_bytes + bmi_src_bytes);
-
-        let ((_, undef_space_bytes), (bits_src, bits_src_bytes)) = (
-            crate::parser::read_variable(
-                buf,
-                size.checked_offset(off_bits_src)?,
-            )?,
-            crate::parser::read_variable(buf, cb_bits_src as usize)?,
-        );
-
-        size.consume(undef_space_bytes + bits_src_bytes);
-
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_SETDIBITSTODEVICE as u32,
         )?;
+
+        let bounds = read_with(buf, &mut size, wmf_core::parser::RectL::parse)?;
+        let x_dest = read_field(buf, &mut size)?;
+        let y_dest = read_field(buf, &mut size)?;
+        let x_src = read_field(buf, &mut size)?;
+        let y_src = read_field(buf, &mut size)?;
+        let cx_src = read_field(buf, &mut size)?;
+        let cy_src = read_field(buf, &mut size)?;
+        let off_bmi_src = read_field(buf, &mut size)?;
+        let cb_bmi_src: u32 = read_field(buf, &mut size)?;
+        let off_bits_src = read_field(buf, &mut size)?;
+        let cb_bits_src: u32 = read_field(buf, &mut size)?;
+        let usage_src =
+            read_with(buf, &mut size, crate::parser::DIBColors::parse)?;
+        let i_start_scan = read_field(buf, &mut size)?;
+        let c_scans = read_field(buf, &mut size)?;
+
+        // Defense in depth: reject byte-count fields that exceed the
+        // record-size cap before they reach `read_bytes_field`'s
+        // `Vec::with_capacity`.
+        crate::parser::ParseError::expect_le(
+            "cb_bmi_src",
+            cb_bmi_src,
+            crate::parser::MAX_RECORD_BYTES,
+        )?;
+        crate::parser::ParseError::expect_le(
+            "cb_bits_src",
+            cb_bits_src,
+            crate::parser::MAX_RECORD_BYTES,
+        )?;
+
+        let undef_offset = size.checked_offset(off_bmi_src)?;
+        let _ = read_bytes_field(buf, &mut size, undef_offset)?;
+        let bmi_src = read_bytes_field(buf, &mut size, cb_bmi_src as usize)?;
+
+        let undef_offset = size.checked_offset(off_bits_src)?;
+        let _ = read_bytes_field(buf, &mut size, undef_offset)?;
+        let bits_src = read_bytes_field(buf, &mut size, cb_bits_src as usize)?;
+
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self {
             record_type,

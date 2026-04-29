@@ -58,6 +58,8 @@ where
         err(level = tracing::Level::ERROR, Display),
     ))]
     pub fn run(self) -> Result<Vec<u8>, ConvertError> {
+        use crate::parser::records::{read_field, read_with};
+
         let Self { mut buffer, mut player, wmf_player } = self;
 
         let buffer = {
@@ -120,13 +122,18 @@ where
         loop {
             record_number += 1;
 
-            let ((record_type, record_type_bytes), (size, size_bytes)) = (
-                RecordType::parse(buf)?,
-                read_u32_from_le_bytes(buf).map_err(ParseError::from)?,
-            );
+            // Track header bytes via a stand-alone counter; the record
+            // payload uses its own `Size` tracker created below.
+            let mut header_bytes: usize = 0;
+            let record_type =
+                read_with(buf, &mut header_bytes, RecordType::parse)?;
+            let size_raw = read_field(buf, &mut header_bytes)?;
 
-            let mut size = Size::from(size);
-            size.consume(record_type_bytes + size_bytes);
+            // Reject malformed/oversized record sizes up front. Without
+            // this guard `byte_count()` and `remaining_bytes()` consumers
+            // could be steered toward huge allocations.
+            let mut size = Size::parse(size_raw)?;
+            size.consume(header_bytes);
 
             if size.byte_count() == 0 {
                 debug!(%size, "skip parsing zero-sized record");

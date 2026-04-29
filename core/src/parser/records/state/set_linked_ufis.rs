@@ -32,42 +32,35 @@ impl EMR_SETLINKEDUFIS {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_SETLINKEDUFIS {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_SETLINKEDUFIS as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{
+            consume_remaining_bytes, read_array_field, read_field, read_with,
+        };
 
-        let (u_num_linked_ufi, u_num_linked_ufi_bytes) =
-            crate::parser::read_u32_from_le_bytes(buf)?;
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_SETLINKEDUFIS as u32,
+        )?;
 
-        size.consume(u_num_linked_ufi_bytes);
+        let u_num_linked_ufi: u32 = read_field(buf, &mut size)?;
 
         let ufis = {
             let mut entries = vec![];
 
             for _ in 0..u_num_linked_ufi {
-                let (v, b) = crate::parser::UniversalFontId::parse(buf)?;
-
-                entries.push(v);
-                size.consume(b);
+                entries.push(read_with(
+                    buf,
+                    &mut size,
+                    crate::parser::UniversalFontId::parse,
+                )?);
             }
 
             entries
         };
 
-        let (reserved, reserved_bytes) = crate::parser::read::<_, 8>(buf)?;
+        let reserved: [u8; 8] = read_array_field(buf, &mut size)?;
 
-        size.consume(reserved_bytes);
-
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
-        )?;
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self { record_type, size, u_num_linked_ufi, ufis, reserved })
     }

@@ -53,6 +53,21 @@ lint:
 	cargo clippy --workspace --all-targets --all-features \
 		-- --no-deps -D warnings
 
+.PHONY: lint-cli
+lint-cli:
+	cargo clippy --package emf-cli --all-targets \
+		-- --no-deps -D warnings
+
+.PHONY: lint-core
+lint-core:
+	cargo clippy --package emf-core --all-targets --all-features \
+		-- --no-deps -D warnings
+
+.PHONY: lint-wasm
+lint-wasm:
+	cargo clippy --package emf-wasm --all-targets --all-features \
+		-- --no-deps -D warnings
+
 .PHONY: release
 release:
 	if [ "$(version)" = "" ]; then \

@@ -19,11 +19,20 @@ impl Point28_4 {
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        let ((x, x_bytes), (y, y_bytes)) = (
-            crate::parser::BitFIX28_4::parse(buf)?,
-            crate::parser::BitFIX28_4::parse(buf)?,
-        );
+        use crate::parser::records::read_with;
 
-        Ok((Self { x, y }, x_bytes + y_bytes))
+        let mut consumed_bytes: usize = 0;
+        let x = read_with(
+            buf,
+            &mut consumed_bytes,
+            crate::parser::BitFIX28_4::parse,
+        )?;
+        let y = read_with(
+            buf,
+            &mut consumed_bytes,
+            crate::parser::BitFIX28_4::parse,
+        )?;
+
+        Ok((Self { x, y }, consumed_bytes))
     }
 }

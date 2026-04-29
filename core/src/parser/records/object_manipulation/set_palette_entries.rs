@@ -36,45 +36,35 @@ impl EMR_SETPALETTEENTRIES {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_SETPALETTEENTRIES {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_SETPALETTEENTRIES as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{
+            consume_remaining_bytes, read_field, read_with,
+        };
 
-        let (
-            (ih_pal, ih_pal_bytes),
-            (start, start_bytes),
-            (number_of_entries, number_of_entries_bytes),
-        ) = (
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-        );
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_SETPALETTEENTRIES as u32,
+        )?;
 
-        size.consume(ih_pal_bytes + start_bytes + number_of_entries_bytes);
+        let ih_pal = read_field(buf, &mut size)?;
+        let start = read_field(buf, &mut size)?;
+        let number_of_entries = read_field(buf, &mut size)?;
 
         let a_pal_entries = {
             let mut entries = vec![];
 
             for _ in 0..number_of_entries {
-                let (v, b) = crate::parser::LogPaletteEntry::parse(buf)?;
-
-                entries.push(v);
-                size.consume(b);
+                entries.push(read_with(
+                    buf,
+                    &mut size,
+                    crate::parser::LogPaletteEntry::parse,
+                )?);
             }
 
             entries
         };
 
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
-        )?;
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self {
             record_type,

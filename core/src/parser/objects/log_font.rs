@@ -126,57 +126,59 @@ impl LogFont {
     ) -> Result<(Self, usize), crate::parser::ParseError> {
         use strum::IntoEnumIterator;
 
-        let (
-            (height, height_bytes),
-            (width, width_bytes),
-            (escapement, escapement_bytes),
-            (orientation, orientation_bytes),
-            (weight, weight_bytes),
-            (italic, italic_bytes),
-            (underline, underline_bytes),
-            (strike_out, strike_out_bytes),
-            (charset, charset_bytes),
-            (out_precision, out_precision_bytes),
-        ) = (
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::read_u8_from_le_bytes(buf)
-                .map(|(v, b)| (v == 0x01, b))?,
-            crate::parser::read_u8_from_le_bytes(buf)
-                .map(|(v, b)| (v == 0x01, b))?,
-            crate::parser::read_u8_from_le_bytes(buf)
-                .map(|(v, b)| (v == 0x01, b))?,
-            wmf_core::parser::CharacterSet::parse(buf)?,
-            wmf_core::parser::OutPrecision::parse(buf)?,
-        );
+        use crate::parser::records::{read_bytes_field, read_field, read_with};
 
-        let (clip_precision, clip_precision_bytes) = {
-            let (v, clip_precision_bytes) =
-                crate::parser::read_u8_from_le_bytes(buf)?;
+        let mut consumed_bytes: usize = 0;
+        let height = read_field(buf, &mut consumed_bytes)?;
+        let width = read_field(buf, &mut consumed_bytes)?;
+        let escapement = read_field(buf, &mut consumed_bytes)?;
+        let orientation = read_field(buf, &mut consumed_bytes)?;
+        let weight = read_field(buf, &mut consumed_bytes)?;
+        let italic: bool = {
+            let v: u8 = read_field(buf, &mut consumed_bytes)?;
+            v == 0x01
+        };
+        let underline: bool = {
+            let v: u8 = read_field(buf, &mut consumed_bytes)?;
+            v == 0x01
+        };
+        let strike_out: bool = {
+            let v: u8 = read_field(buf, &mut consumed_bytes)?;
+            v == 0x01
+        };
+        let charset = read_with(
+            buf,
+            &mut consumed_bytes,
+            wmf_core::parser::CharacterSet::parse,
+        )?;
+        let out_precision = read_with(
+            buf,
+            &mut consumed_bytes,
+            wmf_core::parser::OutPrecision::parse,
+        )?;
 
-            (
-                wmf_core::parser::ClipPrecision::iter()
-                    .filter(|c| v & (*c as u8) == (*c as u8))
-                    .collect(),
-                clip_precision_bytes,
-            )
+        let clip_precision = {
+            let v: u8 = read_field(buf, &mut consumed_bytes)?;
+
+            wmf_core::parser::ClipPrecision::iter()
+                .filter(|c| v & (*c as u8) == (*c as u8))
+                .collect()
         };
 
-        let (
-            (quality, quality_bytes),
-            (pitch_and_family, pitch_and_family_bytes),
-        ) = (
-            wmf_core::parser::FontQuality::parse(buf)?,
-            wmf_core::parser::PitchAndFamily::parse(buf)?,
-        );
+        let quality = read_with(
+            buf,
+            &mut consumed_bytes,
+            wmf_core::parser::FontQuality::parse,
+        )?;
+        let pitch_and_family = read_with(
+            buf,
+            &mut consumed_bytes,
+            wmf_core::parser::PitchAndFamily::parse,
+        )?;
 
-        let (facename, facename_bytes) = {
-            let (v, facename_bytes) = crate::parser::read_variable(buf, 64)?;
-
-            (crate::parser::null_terminated_utf16le_string(&v)?, facename_bytes)
+        let facename = {
+            let v = read_bytes_field(buf, &mut consumed_bytes, 64)?;
+            crate::parser::null_terminated_utf16le_string(&v)?
         };
 
         Ok((
@@ -196,20 +198,7 @@ impl LogFont {
                 pitch_and_family,
                 facename,
             },
-            height_bytes
-                + width_bytes
-                + escapement_bytes
-                + orientation_bytes
-                + weight_bytes
-                + italic_bytes
-                + underline_bytes
-                + strike_out_bytes
-                + charset_bytes
-                + out_precision_bytes
-                + clip_precision_bytes
-                + quality_bytes
-                + pitch_and_family_bytes
-                + facename_bytes,
+            consumed_bytes,
         ))
     }
 }

@@ -34,26 +34,17 @@ impl XForm {
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        let (
-            (m11, m11_bytes),
-            (m12, m12_bytes),
-            (m21, m21_bytes),
-            (m22, m22_bytes),
-            (dx, dx_bytes),
-            (dy, dy_bytes),
-        ) = (
-            crate::parser::read_f32_from_le_bytes(buf)?,
-            crate::parser::read_f32_from_le_bytes(buf)?,
-            crate::parser::read_f32_from_le_bytes(buf)?,
-            crate::parser::read_f32_from_le_bytes(buf)?,
-            crate::parser::read_f32_from_le_bytes(buf)?,
-            crate::parser::read_f32_from_le_bytes(buf)?,
-        );
+        use crate::parser::records::read_field;
 
-        Ok((
-            Self { m11, m12, m21, m22, dx, dy },
-            m11_bytes + m12_bytes + m21_bytes + m22_bytes + dx_bytes + dy_bytes,
-        ))
+        let mut consumed_bytes: usize = 0;
+        let m11 = read_field(buf, &mut consumed_bytes)?;
+        let m12 = read_field(buf, &mut consumed_bytes)?;
+        let m21 = read_field(buf, &mut consumed_bytes)?;
+        let m22 = read_field(buf, &mut consumed_bytes)?;
+        let dx = read_field(buf, &mut consumed_bytes)?;
+        let dy = read_field(buf, &mut consumed_bytes)?;
+
+        Ok((Self { m11, m12, m21, m22, dx, dy }, consumed_bytes))
     }
 
     pub fn calc_scale(&self) -> f32 {

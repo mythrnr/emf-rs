@@ -61,62 +61,46 @@ impl EMR_SMALLTEXTOUT {
     ) -> Result<Self, crate::parser::ParseError> {
         use strum::IntoEnumIterator;
 
-        if record_type != crate::parser::RecordType::EMR_SMALLTEXTOUT {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_SMALLTEXTOUT as u32,
-                    record_type as u32
-                ),
-            });
-        }
-
-        let ((x, x_bytes), (y, y_bytes), (c_chars, c_chars_bytes)) = (
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-        );
-        let (fu_options, fu_options_bytes) = {
-            let (v, values_bytes) = crate::parser::read_u32_from_le_bytes(buf)?;
-
-            (
-                crate::parser::ExtTextOutOptions::iter()
-                    .filter(|c| v & (*c as u32) == (*c as u32))
-                    .collect::<BTreeSet<_>>(),
-                values_bytes,
-            )
+        use crate::parser::records::{
+            consume_remaining_bytes, read_bytes_field, read_field, read_with,
         };
 
-        size.consume(x_bytes + y_bytes + c_chars_bytes + fu_options_bytes);
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_SMALLTEXTOUT as u32,
+        )?;
 
-        let (
-            (i_graphics_mode, i_graphics_mode_bytes),
-            (ex_scale, ex_scale_bytes),
-            (ey_scale, ey_scale_bytes),
-        ) = (
-            crate::parser::GraphicsMode::parse(buf)?,
-            crate::parser::read_f32_from_le_bytes(buf)?,
-            crate::parser::read_f32_from_le_bytes(buf)?,
-        );
+        let x = read_field(buf, &mut size)?;
+        let y = read_field(buf, &mut size)?;
+        let c_chars: u32 = read_field(buf, &mut size)?;
+        let fu_options = {
+            let v: u32 = read_field(buf, &mut size)?;
 
-        size.consume(i_graphics_mode_bytes + ex_scale_bytes + ey_scale_bytes);
+            crate::parser::ExtTextOutOptions::iter()
+                .filter(|c| v & (*c as u32) == (*c as u32))
+                .collect::<BTreeSet<_>>()
+        };
+
+        let i_graphics_mode =
+            read_with(buf, &mut size, crate::parser::GraphicsMode::parse)?;
+        let ex_scale = read_field(buf, &mut size)?;
+        let ey_scale = read_field(buf, &mut size)?;
 
         let bounds = if fu_options
             .contains(&crate::parser::ExtTextOutOptions::ETO_NO_RECT)
         {
             None
         } else {
-            let (v, b) = wmf_core::parser::RectL::parse(buf)?;
-            size.consume(b);
-
-            Some(v)
+            Some(read_with(buf, &mut size, wmf_core::parser::RectL::parse)?)
         };
 
         let text_string = {
-            let (bytes, read_bytes) =
-                crate::parser::read_variable(buf, (c_chars * 2) as usize)?;
-
-            size.consume(read_bytes);
+            // Multiply in usize so a crafted `c_chars` close to
+            // u32::MAX cannot overflow before being passed to
+            // `read_bytes_field`.
+            let bytes =
+                read_bytes_field(buf, &mut size, (c_chars as usize) * 2)?;
 
             if fu_options
                 .contains(&crate::parser::ExtTextOutOptions::ETO_SMALL_CHARS)
@@ -125,7 +109,7 @@ impl EMR_SMALLTEXTOUT {
 
                 for mut v in bytes.chunks(2) {
                     let (value, _) =
-                        crate::parser::read_u16_from_le_bytes(&mut v)?;
+                        <u16 as crate::parser::ReadLeField>::read_le(&mut v)?;
 
                     entries.push(value & 0x00FF);
                 }
@@ -136,10 +120,7 @@ impl EMR_SMALLTEXTOUT {
             }
         };
 
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
-        )?;
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self {
             record_type,

@@ -38,27 +38,21 @@ impl EMR_COMMENT {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_COMMENT {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_COMMENT as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{
+            consume_remaining_bytes, read_bytes_field, read_field,
+        };
 
-        let (data_size, data_size_bytes) =
-            crate::parser::read_u32_from_le_bytes(buf)?;
-        let (private_data, private_data_bytes) =
-            crate::parser::read_variable(buf, data_size as usize)?;
-
-        size.consume(data_size_bytes + private_data_bytes);
-
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_COMMENT as u32,
         )?;
+
+        let data_size: u32 = read_field(buf, &mut size)?;
+        let private_data =
+            read_bytes_field(buf, &mut size, data_size as usize)?;
+
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self { record_type, size, data_size, private_data })
     }

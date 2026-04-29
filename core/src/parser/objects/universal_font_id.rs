@@ -27,11 +27,35 @@ impl UniversalFontId {
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        let ((checksum, checksum_bytes), (index, index_bytes)) = (
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_i32_from_le_bytes(buf)?,
-        );
+        use crate::parser::records::read_field;
 
-        Ok((Self { checksum, index }, checksum_bytes + index_bytes))
+        let mut consumed_bytes: usize = 0;
+        let checksum = read_field(buf, &mut consumed_bytes)?;
+        let index = read_field(buf, &mut consumed_bytes)?;
+
+        Ok((Self { checksum, index }, consumed_bytes))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_consumes_eight_bytes() {
+        // checksum = 3 (TrueType-like), index = -1
+        let bytes: [u8; 8] = [0x03, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF];
+        let mut buf: &[u8] = &bytes;
+        let (font_id, consumed) = UniversalFontId::parse(&mut buf).unwrap();
+        assert_eq!(font_id.checksum, 3);
+        assert_eq!(font_id.index, -1);
+        assert_eq!(consumed, 8);
+    }
+
+    #[test]
+    fn parse_short_buffer_errors() {
+        let bytes: [u8; 4] = [0x00; 4];
+        let mut buf: &[u8] = &bytes;
+        assert!(UniversalFontId::parse(&mut buf).is_err());
     }
 }
