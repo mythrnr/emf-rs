@@ -42,7 +42,8 @@ impl EMR_EOF {
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
         use crate::parser::records::{
-            consume_remaining_bytes, read_bytes_field, read_field, read_with,
+            check_total_points, consume_remaining_bytes, discard_bytes_field,
+            read_field, read_with,
         };
 
         crate::parser::ParseError::expect_eq(
@@ -51,15 +52,19 @@ impl EMR_EOF {
             crate::parser::RecordType::EMR_EOF as u32,
         )?;
 
-        let n_pal_entries = read_field(buf, &mut size)?;
+        let n_pal_entries: u32 = read_field(buf, &mut size)?;
         let off_pal_entries: u32 = read_field(buf, &mut size)?;
+
+        // `n_pal_entries` is unbounded in the spec; cap it before
+        // driving `Vec::with_capacity`.
+        check_total_points(n_pal_entries)?;
 
         let palette_buffer = if off_pal_entries > 0 {
             let undef_offset = size.checked_offset(off_pal_entries)?;
-            let _ = read_bytes_field(buf, &mut size, undef_offset)?;
+            discard_bytes_field(buf, &mut size, undef_offset)?;
 
             let palette_buffer = {
-                let mut entries = vec![];
+                let mut entries = Vec::with_capacity(n_pal_entries as usize);
 
                 for _ in 0..n_pal_entries {
                     entries.push(read_with(
@@ -73,7 +78,7 @@ impl EMR_EOF {
             };
 
             let trailing = size.remaining_bytes() - 4;
-            let _ = read_bytes_field(buf, &mut size, trailing)?;
+            discard_bytes_field(buf, &mut size, trailing)?;
 
             palette_buffer
         } else {

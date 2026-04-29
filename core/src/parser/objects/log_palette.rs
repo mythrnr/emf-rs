@@ -39,8 +39,11 @@ impl LogPalette {
             0x0300_u16,
         )?;
 
+        // `number_of_entries` is a u16, so `as usize` is at most
+        // 65535. A single LogPaletteEntry is 4 bytes, capping the
+        // pre-allocation at 256 KiB even for the worst-case input.
         let palette_entries = {
-            let mut entries = vec![];
+            let mut entries = Vec::with_capacity(number_of_entries as usize);
 
             for _ in 0..number_of_entries {
                 entries.push(read_with(

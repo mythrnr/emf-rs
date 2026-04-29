@@ -22,3 +22,49 @@ pub enum ColorAdjustmentEnum {
 }
 
 crate::parser::enums::impl_parser!(ColorAdjustmentEnum, u16);
+
+/// Bitmask of `ColorAdjustmentEnum` variants packed into a single
+/// u16. Replaces the prior `BTreeSet<ColorAdjustmentEnum>`
+/// representation to drop the per-record B-tree allocation.
+#[derive(Clone, Copy, Default, Eq, PartialEq)]
+#[repr(transparent)]
+pub struct ColorAdjustmentEnumFlags(u16);
+
+impl ColorAdjustmentEnumFlags {
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+
+    pub const fn from_raw(raw: u16) -> Self {
+        Self(raw)
+    }
+
+    pub const fn raw(self) -> u16 {
+        self.0
+    }
+
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+
+    pub const fn contains(self, flag: ColorAdjustmentEnum) -> bool {
+        let bit = flag as u16;
+        (self.0 & bit) == bit
+    }
+
+    pub fn iter(self) -> impl Iterator<Item = ColorAdjustmentEnum> {
+        use strum::IntoEnumIterator;
+
+        let raw = self.0;
+        ColorAdjustmentEnum::iter().filter(move |v| {
+            let bit = *v as u16;
+            (raw & bit) == bit
+        })
+    }
+}
+
+impl core::fmt::Debug for ColorAdjustmentEnumFlags {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_set().entries(self.iter()).finish()
+    }
+}

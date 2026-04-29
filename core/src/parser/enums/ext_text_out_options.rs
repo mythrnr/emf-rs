@@ -89,3 +89,50 @@ pub enum ExtTextOutOptions {
 }
 
 crate::parser::enums::impl_parser!(ExtTextOutOptions, u32);
+
+/// Bitmask of `ExtTextOutOptions` variants packed into a single u32.
+/// Replaces the prior `BTreeSet<ExtTextOutOptions>` representation
+/// to drop the per-record B-tree allocation and the related set-type
+/// generic instances from the wasm binary.
+#[derive(Clone, Copy, Default, Eq, PartialEq)]
+#[repr(transparent)]
+pub struct ExtTextOutOptionsFlags(u32);
+
+impl ExtTextOutOptionsFlags {
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+
+    pub const fn from_raw(raw: u32) -> Self {
+        Self(raw)
+    }
+
+    pub const fn raw(self) -> u32 {
+        self.0
+    }
+
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+
+    pub const fn contains(self, flag: ExtTextOutOptions) -> bool {
+        let bit = flag as u32;
+        (self.0 & bit) == bit
+    }
+
+    pub fn iter(self) -> impl Iterator<Item = ExtTextOutOptions> {
+        use strum::IntoEnumIterator;
+
+        let raw = self.0;
+        ExtTextOutOptions::iter().filter(move |v| {
+            let bit = *v as u32;
+            (raw & bit) == bit
+        })
+    }
+}
+
+impl core::fmt::Debug for ExtTextOutOptionsFlags {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_set().entries(self.iter()).finish()
+    }
+}

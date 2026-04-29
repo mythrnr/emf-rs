@@ -36,7 +36,7 @@ pub struct EmrText {
     /// Options (4 bytes): An unsigned integer that specifies how to use the
     /// rectangle specified in the Rectangle field. This field can be a
     /// combination of more than one ExtTextOutOptions enumeration values.
-    pub options: BTreeSet<crate::parser::ExtTextOutOptions>,
+    pub options: crate::parser::ExtTextOutOptionsFlags,
     /// Rectangle (16 bytes, optional): A RectL object ([MS-WMF] section
     /// 2.2.2.19) that defines a clipping and/or opaquing rectangle in logical
     /// units. This rectangle is applied to the text output performed by the
@@ -77,9 +77,9 @@ impl EmrText {
         record_type: &crate::parser::RecordType,
         offset: usize,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        use strum::IntoEnumIterator;
-
-        use crate::parser::records::{read_bytes_field, read_field, read_with};
+        use crate::parser::records::{
+            check_total_points, read_bytes_field, read_field, read_with,
+        };
 
         let mut consumed_bytes: usize = 0;
         let reference = read_with(
@@ -88,15 +88,18 @@ impl EmrText {
             wmf_core::parser::PointL::parse,
         )?;
         let chars: u32 = read_field(buf, &mut consumed_bytes)?;
+
+        // `chars` is unbounded in the spec; cap it at 16 Mi before
+        // it drives `read_bytes_field`'s `Vec::with_capacity(chars *
+        // 2)` (UTF-16 path) and the dx_buffer pre-allocation below
+        // (`length = chars * {1, 2}`).
+        check_total_points(chars)?;
+
         let off_string: u32 = read_field(buf, &mut consumed_bytes)?;
 
-        let options = {
-            let v: u32 = read_field(buf, &mut consumed_bytes)?;
-
-            crate::parser::ExtTextOutOptions::iter()
-                .filter(|o| v & (*o as u32) == (*o as u32))
-                .collect::<BTreeSet<_>>()
-        };
+        let options = crate::parser::ExtTextOutOptionsFlags::from_raw(
+            read_field(buf, &mut consumed_bytes)?,
+        );
 
         let rectangle = if (off_string as usize - offset) - consumed_bytes >= 20
         {
@@ -161,16 +164,18 @@ impl EmrText {
             read_bytes_field(buf, &mut consumed_bytes, undefined_space2_len)?;
 
         let dx_buffer = {
-            let length = chars
-                * if options
-                    .contains(&crate::parser::ExtTextOutOptions::ETO_PDY)
+            // Compute in usize to avoid the u32-multiplication
+            // overflow that would let a crafted `chars` near
+            // MAX_TOTAL_POINTS wrap when ETO_PDY doubles the count.
+            let length = (chars as usize)
+                * if options.contains(crate::parser::ExtTextOutOptions::ETO_PDY)
                 {
                     2
                 } else {
                     1
                 };
 
-            let mut values: Vec<u32> = vec![];
+            let mut values: Vec<u32> = Vec::with_capacity(length);
 
             for _ in 0..length {
                 values.push(read_field(buf, &mut consumed_bytes)?);

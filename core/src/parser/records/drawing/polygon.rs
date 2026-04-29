@@ -61,10 +61,6 @@ impl EMR_POLYGON {
 
         check_total_points(count)?;
 
-        // `count` is bounded by `MAX_TOTAL_POINTS` via
-        // `check_total_points` above, so the cast and the resulting
-        // `Vec::with_capacity` cannot trigger oversized allocations.
-        // Pre-allocating eliminates per-push reallocations.
         let a_points = {
             let mut entries = Vec::with_capacity(count as usize);
 

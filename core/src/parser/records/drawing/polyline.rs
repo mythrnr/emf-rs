@@ -58,7 +58,7 @@ impl EMR_POLYLINE {
         check_total_points(count)?;
 
         let a_points = {
-            let mut entries = vec![];
+            let mut entries = Vec::with_capacity(count as usize);
 
             for _ in 0..count {
                 entries.push(read_with(

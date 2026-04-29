@@ -60,7 +60,8 @@ impl EMR_GRADIENTFILL {
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
         use crate::parser::records::{
-            consume_remaining_bytes, read_bytes_field, read_field, read_with,
+            check_total_points, consume_remaining_bytes, read_bytes_field,
+            read_field, read_with,
         };
 
         crate::parser::ParseError::expect_eq(
@@ -70,13 +71,20 @@ impl EMR_GRADIENTFILL {
         )?;
 
         let bounds = read_with(buf, &mut size, wmf_core::parser::RectL::parse)?;
-        let n_ver = read_field(buf, &mut size)?;
-        let n_tri = read_field(buf, &mut size)?;
+        let n_ver: u32 = read_field(buf, &mut size)?;
+        let n_tri: u32 = read_field(buf, &mut size)?;
+
+        // Both counts are unbounded in the spec; cap them at the same
+        // 16 Mi ceiling used for polygon points before they drive
+        // `Vec::with_capacity`.
+        check_total_points(n_ver)?;
+        check_total_points(n_tri)?;
+
         let ul_mode =
             read_with(buf, &mut size, crate::parser::GradientFill::parse)?;
 
         let vertex_objects = {
-            let mut entries = vec![];
+            let mut entries = Vec::with_capacity(n_ver as usize);
 
             for _ in 0..n_ver {
                 entries.push(read_with(
@@ -90,7 +98,7 @@ impl EMR_GRADIENTFILL {
         };
         let vertex_indexes =
             if ul_mode == crate::parser::GradientFill::GRADIENT_FILL_TRIANGLE {
-                let mut entries = vec![];
+                let mut entries = Vec::with_capacity(n_tri as usize);
 
                 for _ in 0..n_tri {
                     entries.push(read_with(
@@ -102,7 +110,7 @@ impl EMR_GRADIENTFILL {
 
                 VertexIndexes::GradientTriangle(entries)
             } else {
-                let mut entries = vec![];
+                let mut entries = Vec::with_capacity(n_tri as usize);
 
                 for _ in 0..n_tri {
                     entries.push(read_with(

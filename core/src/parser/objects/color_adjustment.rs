@@ -1,5 +1,3 @@
-use crate::imports::*;
-
 /// The ColorAdjustment object defines values for adjusting the colors in source
 /// bitmaps in bit-block transfers.
 ///
@@ -24,7 +22,7 @@ pub struct ColorAdjustment {
     /// Values (2 bytes): An unsigned integer that specifies how to prepare the
     /// output image. This field can be set to NULL or to any combination of
     /// values in the ColorAdjustment enumeration.
-    pub values: BTreeSet<crate::parser::enums::ColorAdjustmentEnum>,
+    pub values: crate::parser::enums::ColorAdjustmentEnumFlags,
     /// IlluminantIndex (2 bytes): An unsigned integer that specifies the type
     /// of standard light source under which the image is viewed, from the
     /// Illuminant enumeration.
@@ -88,8 +86,6 @@ impl ColorAdjustment {
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        use strum::IntoEnumIterator;
-
         use crate::parser::records::{read_field, read_with};
 
         let mut consumed_bytes: usize = 0;
@@ -101,13 +97,9 @@ impl ColorAdjustment {
             0x0018_u16,
         )?;
 
-        let values = {
-            let v: u16 = read_field(buf, &mut consumed_bytes)?;
-
-            crate::parser::enums::ColorAdjustmentEnum::iter()
-                .filter(|c| v & (*c as u16) == (*c as u16))
-                .collect()
-        };
+        let values = crate::parser::enums::ColorAdjustmentEnumFlags::from_raw(
+            read_field(buf, &mut consumed_bytes)?,
+        );
 
         let illuminant_index = read_with(
             buf,
@@ -179,7 +171,7 @@ impl Default for ColorAdjustment {
     fn default() -> Self {
         Self {
             size: 0x0018,
-            values: BTreeSet::new(),
+            values: crate::parser::enums::ColorAdjustmentEnumFlags::empty(),
             illuminant_index:
                 crate::parser::Illuminant::ILLUMINANT_DEVICE_DEFAULT,
             red_gamma: crate::parser::Gamma::default(),

@@ -36,7 +36,7 @@ impl EMR_EXTSELECTCLIPRGN {
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
         use crate::parser::records::{
-            consume_remaining_bytes, read_field, read_with,
+            check_total_points, consume_remaining_bytes, read_field, read_with,
         };
 
         crate::parser::ParseError::expect_eq(
@@ -48,6 +48,11 @@ impl EMR_EXTSELECTCLIPRGN {
         let rgn_data_size: u32 = read_field(buf, &mut size)?;
         let region_mode =
             read_with(buf, &mut size, crate::parser::RegionMode::parse)?;
+
+        // Cap `rgn_data_size` so a crafted u32::MAX cannot drive the
+        // loop to exhaustion. Pre-allocating is intentionally skipped
+        // because a single `RegionData` owns a nested `Vec<RectL>`.
+        check_total_points(rgn_data_size)?;
 
         let rgn_data = {
             let mut entries = vec![];

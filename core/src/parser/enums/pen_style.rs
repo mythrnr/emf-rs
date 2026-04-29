@@ -64,3 +64,69 @@ pub enum PenStyle {
 }
 
 crate::parser::enums::impl_parser!(PenStyle, u32);
+
+/// Bitmask of `PenStyle` variants packed into a single u32.
+///
+/// Replaces the prior `BTreeSet<PenStyle>` representation: pen-style
+/// fields combine line-style, end-cap, line-join, and pen-type bits
+/// drawn from disjoint categories, so the EMF stream stores them as
+/// a single ORed integer. Keeping that integer verbatim avoids the
+/// per-record B-tree allocation that the BTreeSet form required and
+/// shrinks the wasm binary footprint contributed by `Ord`/`Debug`/
+/// `Clone` for the set type.
+#[derive(Clone, Copy, Default, Eq, PartialEq)]
+#[repr(transparent)]
+pub struct PenStyleFlags(u32);
+
+impl PenStyleFlags {
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+
+    pub const fn from_raw(raw: u32) -> Self {
+        Self(raw)
+    }
+
+    pub const fn raw(self) -> u32 {
+        self.0
+    }
+
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+
+    /// Returns true when every bit of `flag` is set in `self`.
+    /// Zero-valued variants (e.g. `PS_SOLID`, `PS_ENDCAP_ROUND`,
+    /// `PS_JOIN_ROUND`) always evaluate as present, matching the
+    /// previous `BTreeSet` form's semantics.
+    pub const fn contains(self, flag: PenStyle) -> bool {
+        let bit = flag as u32;
+        (self.0 & bit) == bit
+    }
+
+    /// Convenience constructor for the single-style pen presets used
+    /// by `LogPenEx::black_pen` / `white_pen` / `null_pen` and the
+    /// `From<LogPen>` adapter.
+    pub const fn single(flag: PenStyle) -> Self {
+        Self(flag as u32)
+    }
+
+    /// Iterates over the variants whose bits are set in `self`. The
+    /// iteration order follows `strum::EnumIter`, which mirrors
+    /// declaration order.
+    pub fn iter(self) -> impl Iterator<Item = PenStyle> {
+        use strum::IntoEnumIterator;
+
+        let raw = self.0;
+        PenStyle::iter().filter(move |v| {
+            let bit = *v as u32;
+            (raw & bit) == bit
+        })
+    }
+}
+
+impl core::fmt::Debug for PenStyleFlags {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_set().entries(self.iter()).finish()
+    }
+}

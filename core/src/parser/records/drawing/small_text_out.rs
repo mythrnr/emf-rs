@@ -28,7 +28,7 @@ pub struct EMR_SMALLTEXTOUT {
     /// fuOptions (4 bytes): An unsigned integer specifying the text output
     /// options to use. These options are specified by one or a combination of
     /// values from the ExtTextOutOptions enumeration.
-    pub fu_options: BTreeSet<crate::parser::ExtTextOutOptions>,
+    pub fu_options: crate::parser::ExtTextOutOptionsFlags,
     /// iGraphicsMode (4 bytes): An unsigned integer specifying the graphics
     /// mode, from the GraphicsMode enumeration.
     pub i_graphics_mode: crate::parser::GraphicsMode,
@@ -59,10 +59,9 @@ impl EMR_SMALLTEXTOUT {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        use strum::IntoEnumIterator;
-
         use crate::parser::records::{
-            consume_remaining_bytes, read_bytes_field, read_field, read_with,
+            check_total_points, consume_remaining_bytes, read_bytes_field,
+            read_field, read_with,
         };
 
         crate::parser::ParseError::expect_eq(
@@ -74,13 +73,15 @@ impl EMR_SMALLTEXTOUT {
         let x = read_field(buf, &mut size)?;
         let y = read_field(buf, &mut size)?;
         let c_chars: u32 = read_field(buf, &mut size)?;
-        let fu_options = {
-            let v: u32 = read_field(buf, &mut size)?;
 
-            crate::parser::ExtTextOutOptions::iter()
-                .filter(|c| v & (*c as u32) == (*c as u32))
-                .collect::<BTreeSet<_>>()
-        };
+        // `c_chars` is unbounded in the spec; cap it at 16 Mi before
+        // it drives `read_bytes_field`'s `Vec::with_capacity(c_chars *
+        // 2)` and the downstream `Vec::with_capacity(bytes.len() /
+        // 2)` in the ETO_SMALL_CHARS branch.
+        check_total_points(c_chars)?;
+        let fu_options = crate::parser::ExtTextOutOptionsFlags::from_raw(
+            read_field(buf, &mut size)?,
+        );
 
         let i_graphics_mode =
             read_with(buf, &mut size, crate::parser::GraphicsMode::parse)?;
@@ -88,7 +89,7 @@ impl EMR_SMALLTEXTOUT {
         let ey_scale = read_field(buf, &mut size)?;
 
         let bounds = if fu_options
-            .contains(&crate::parser::ExtTextOutOptions::ETO_NO_RECT)
+            .contains(crate::parser::ExtTextOutOptions::ETO_NO_RECT)
         {
             None
         } else {
@@ -103,9 +104,9 @@ impl EMR_SMALLTEXTOUT {
                 read_bytes_field(buf, &mut size, (c_chars as usize) * 2)?;
 
             if fu_options
-                .contains(&crate::parser::ExtTextOutOptions::ETO_SMALL_CHARS)
+                .contains(crate::parser::ExtTextOutOptions::ETO_SMALL_CHARS)
             {
-                let mut entries = vec![];
+                let mut entries = Vec::with_capacity(bytes.len() / 2);
 
                 for mut v in bytes.chunks(2) {
                     let (value, _) =

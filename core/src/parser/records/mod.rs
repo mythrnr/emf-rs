@@ -140,22 +140,58 @@ where
     Ok(v)
 }
 
+/// Drains exactly `len` bytes from `buf` without materializing them as
+/// a `Vec<u8>`, advancing the `tracker` once the read succeeds.
+///
+/// Mirrors `read_bytes_field` for call sites that only need to skip
+/// over a region (e.g. the `UndefinedSpace` ahead of `BmiSrc` /
+/// `BitsSrc` in bitmap records). The buffer of discarded bytes lives
+/// on the stack as a fixed 4 KiB chunk; a malformed record reporting
+/// a multi-MiB offset can no longer drive a `Vec::with_capacity`
+/// allocation just to throw the result away.
+pub(in crate::parser) fn discard_bytes_field<R, T>(
+    buf: &mut R,
+    tracker: &mut T,
+    len: usize,
+) -> Result<(), crate::parser::ParseError>
+where
+    R: crate::Read,
+    T: crate::parser::ConsumeTracker,
+{
+    if len == 0 {
+        return Ok(());
+    }
+
+    discard_bytes(buf, len)?;
+    tracker.track(len);
+    Ok(())
+}
+
 fn consume_remaining_bytes<R: crate::Read>(
     buf: &mut R,
     remaining_bytes: usize,
 ) -> Result<(), crate::parser::ParseError> {
-    if remaining_bytes == 0 {
+    discard_bytes(buf, remaining_bytes)
+}
+
+/// Reads and discards `len` bytes from `buf` using a fixed 4 KiB
+/// stack chunk. Shared by `consume_remaining_bytes` and
+/// `discard_bytes_field`; allocating a single `Vec<u8>` of `len`
+/// would let a malformed record drive a multi-megabyte allocation
+/// just to throw the data away.
+fn discard_bytes<R: crate::Read>(
+    buf: &mut R,
+    len: usize,
+) -> Result<(), crate::parser::ParseError> {
+    if len == 0 {
         return Ok(());
     }
 
-    // Discard remaining bytes in fixed-size chunks. Allocating a single
-    // `Vec<u8>` of `remaining_bytes` would let a malformed record drive
-    // a multi-megabyte allocation just to throw the data away.
     let mut discarded = 0;
     let mut chunk = [0_u8; 4096];
 
-    while discarded < remaining_bytes {
-        let to_read = core::cmp::min(remaining_bytes - discarded, chunk.len());
+    while discarded < len {
+        let to_read = core::cmp::min(len - discarded, chunk.len());
         crate::parser::read_exact(buf, &mut chunk[..to_read])?;
         discarded += to_read;
     }
@@ -225,5 +261,40 @@ mod tests {
         let data = [0_u8; 100];
         let mut reader = &data[..];
         assert!(consume_remaining_bytes(&mut reader, 200).is_err());
+    }
+
+    #[test]
+    fn discard_bytes_field_zero_len_does_not_advance_tracker() {
+        let mut empty: &[u8] = &[];
+        let mut size = crate::parser::Size::from(16);
+        size.consume(4);
+
+        discard_bytes_field(&mut empty, &mut size, 0).unwrap();
+        // No bytes consumed; the tracker must stay where it was.
+        assert_eq!(size.consumed_bytes(), 4);
+    }
+
+    #[test]
+    fn discard_bytes_field_advances_tracker_across_chunk_boundary() {
+        let data = vec![0xAA_u8; 8192];
+        let mut reader = &data[..];
+        let mut size = crate::parser::Size::from(8192);
+
+        // 5000 bytes spans the 4 KiB chunk boundary inside the helper.
+        discard_bytes_field(&mut reader, &mut size, 5000).unwrap();
+        assert_eq!(size.consumed_bytes(), 5000);
+        assert_eq!(reader.len(), 8192 - 5000);
+    }
+
+    #[test]
+    fn discard_bytes_field_does_not_track_on_short_input() {
+        let data = [0_u8; 100];
+        let mut reader = &data[..];
+        let mut size = crate::parser::Size::from(1024);
+
+        // Underlying read fails before the tracker advances; size must
+        // not pretend the bytes were consumed.
+        assert!(discard_bytes_field(&mut reader, &mut size, 200).is_err());
+        assert_eq!(size.consumed_bytes(), 0);
     }
 }

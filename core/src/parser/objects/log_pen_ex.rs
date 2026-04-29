@@ -8,7 +8,7 @@ pub struct LogPenEx {
     ///
     /// The pen style is a combination of pen type, line style, line cap, and
     /// line join.
-    pub pen_style: BTreeSet<crate::parser::PenStyle>,
+    pub pen_style: crate::parser::PenStyleFlags,
     /// An unsigned integer that specifies the width of the line drawn by the
     /// pen.
     ///
@@ -68,26 +68,28 @@ impl LogPenEx {
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        use strum::IntoEnumIterator;
-
-        use crate::parser::records::{read_field, read_with};
+        use crate::parser::records::{
+            check_total_points, read_field, read_with,
+        };
 
         let mut consumed_bytes: usize = 0;
-        let pen_style = {
-            let v: u32 = read_field(buf, &mut consumed_bytes)?;
-
-            crate::parser::PenStyle::iter()
-                .filter(|c| v & (*c as u32) == (*c as u32))
-                .collect::<BTreeSet<_>>()
-        };
+        let pen_style = crate::parser::PenStyleFlags::from_raw(read_field(
+            buf,
+            &mut consumed_bytes,
+        )?);
         let width = read_field(buf, &mut consumed_bytes)?;
         let brush = read_with(buf, &mut consumed_bytes, |b| {
-            LogPenExBrush::parse(b, &pen_style)
+            LogPenExBrush::parse(b, pen_style)
         })?;
         let num_style_entries: u32 = read_field(buf, &mut consumed_bytes)?;
 
+        // `num_style_entries` is unbounded in the spec; cap it before
+        // driving `Vec::with_capacity`.
+        check_total_points(num_style_entries)?;
+
         let style_entry = {
-            let mut entries: Vec<u32> = vec![];
+            let mut entries: Vec<u32> =
+                Vec::with_capacity(num_style_entries as usize);
 
             for _ in 0..num_style_entries {
                 entries.push(read_field(buf, &mut consumed_bytes)?);
@@ -104,7 +106,9 @@ impl LogPenEx {
 
     pub fn black_pen() -> Self {
         Self {
-            pen_style: BTreeSet::from_iter([crate::parser::PenStyle::PS_SOLID]),
+            pen_style: crate::parser::PenStyleFlags::single(
+                crate::parser::PenStyle::PS_SOLID,
+            ),
             width: 1,
             brush: LogPenExBrush::Solid {
                 color_ref: wmf_core::parser::ColorRef::black(),
@@ -116,7 +120,9 @@ impl LogPenEx {
 
     pub fn white_pen() -> Self {
         Self {
-            pen_style: BTreeSet::from_iter([crate::parser::PenStyle::PS_SOLID]),
+            pen_style: crate::parser::PenStyleFlags::single(
+                crate::parser::PenStyle::PS_SOLID,
+            ),
             width: 1,
             brush: LogPenExBrush::Solid {
                 color_ref: wmf_core::parser::ColorRef::white(),
@@ -128,7 +134,9 @@ impl LogPenEx {
 
     pub fn null_pen() -> Self {
         Self {
-            pen_style: BTreeSet::from_iter([crate::parser::PenStyle::PS_NULL]),
+            pen_style: crate::parser::PenStyleFlags::single(
+                crate::parser::PenStyle::PS_NULL,
+            ),
             width: 0,
             brush: LogPenExBrush::Null,
             num_style_entries: 0,
@@ -178,7 +186,7 @@ impl LogPenExBrush {
     ))]
     fn parse<R: crate::Read>(
         buf: &mut R,
-        pen_style: &BTreeSet<crate::parser::PenStyle>,
+        pen_style: crate::parser::PenStyleFlags,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
         use crate::parser::records::{read_array_field, read_with};
 
@@ -208,7 +216,7 @@ impl LogPenExBrush {
                 let (brush_hatch, _) =
                     crate::parser::HatchStyle::parse(&mut b)?;
 
-                if !pen_style.contains(&crate::parser::PenStyle::PS_GEOMETRIC)
+                if !pen_style.contains(crate::parser::PenStyle::PS_GEOMETRIC)
                     && !matches!(
                         brush_hatch,
                         crate::parser::HatchStyle::HS_SOLIDTEXTCLR
@@ -262,7 +270,7 @@ impl LogPenExBrush {
 impl From<crate::parser::LogPen> for LogPenEx {
     fn from(v: crate::parser::LogPen) -> Self {
         Self {
-            pen_style: BTreeSet::from_iter([v.pen_style]),
+            pen_style: crate::parser::PenStyleFlags::single(v.pen_style),
             width: v.width.x.unsigned_abs(),
             brush: LogPenExBrush::Solid { color_ref: v.color_ref },
             num_style_entries: 0,

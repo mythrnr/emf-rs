@@ -21,7 +21,7 @@ impl RegionData {
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        use crate::parser::records::read_with;
+        use crate::parser::records::{check_total_points, read_with};
 
         let mut consumed_bytes: usize = 0;
         let region_data_header = read_with(
@@ -29,8 +29,17 @@ impl RegionData {
             &mut consumed_bytes,
             crate::parser::RegionDataHeader::parse,
         )?;
+
+        // `count_rects` is unbounded in the spec, so reject crafted
+        // values up front before they drive `Vec::with_capacity`.
+        // Reuses the polygon point-count cap (16 Mi); a single RectL
+        // is 16 bytes, so this bound also stays well below
+        // `MAX_RECORD_BYTES`.
+        check_total_points(region_data_header.count_rects)?;
+
         let data = {
-            let mut entries = vec![];
+            let mut entries =
+                Vec::with_capacity(region_data_header.count_rects as usize);
 
             for _ in 0..region_data_header.count_rects {
                 entries.push(read_with(

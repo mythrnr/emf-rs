@@ -146,7 +146,8 @@ impl EMR_ALPHABLEND {
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
         use crate::parser::records::{
-            consume_remaining_bytes, read_bytes_field, read_field, read_with,
+            consume_remaining_bytes, discard_bytes_field, read_bytes_field,
+            read_field, read_with,
         };
 
         crate::parser::ParseError::expect_eq(
@@ -196,11 +197,11 @@ impl EMR_ALPHABLEND {
         crate::parser::ParseError::expect_gt("cy_src", cy_src, 0_i32)?;
 
         let undef_offset_bmi = size.checked_offset(off_bmi_src)?;
-        let _ = read_bytes_field(buf, &mut size, undef_offset_bmi)?;
+        discard_bytes_field(buf, &mut size, undef_offset_bmi)?;
         let bmi_src = read_bytes_field(buf, &mut size, cb_bmi_src as usize)?;
 
         let undef_offset_bits = size.checked_offset(off_bits_src)?;
-        let _ = read_bytes_field(buf, &mut size, undef_offset_bits)?;
+        discard_bytes_field(buf, &mut size, undef_offset_bits)?;
         let bits_src = read_bytes_field(buf, &mut size, cb_bits_src as usize)?;
 
         consume_remaining_bytes(buf, size.remaining_bytes())?;

@@ -52,7 +52,7 @@ impl EMR_POLYTEXTOUTW {
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
         use crate::parser::records::{
-            consume_remaining_bytes, read_field, read_with,
+            check_total_points, consume_remaining_bytes, read_field, read_with,
         };
 
         crate::parser::ParseError::expect_eq(
@@ -66,10 +66,15 @@ impl EMR_POLYTEXTOUTW {
             read_with(buf, &mut size, crate::parser::GraphicsMode::parse)?;
         let ex_scale: f32 = read_field(buf, &mut size)?;
         let ey_scale: f32 = read_field(buf, &mut size)?;
-        let c_strings = read_field(buf, &mut size)?;
+        let c_strings: u32 = read_field(buf, &mut size)?;
+
+        // `c_strings` is unbounded in the spec; cap it before driving
+        // `Vec::with_capacity`. Each EmrText carries a heap-allocated
+        // String, so this matters more than for fixed-size point arrays.
+        check_total_points(c_strings)?;
 
         let w_emr_text = {
-            let mut entries = vec![];
+            let mut entries = Vec::with_capacity(c_strings as usize);
 
             for _ in 0..c_strings {
                 let offset = size.consumed_bytes();

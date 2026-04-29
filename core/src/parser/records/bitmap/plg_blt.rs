@@ -128,7 +128,8 @@ impl EMR_PLGBLT {
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
         use crate::parser::records::{
-            consume_remaining_bytes, read_bytes_field, read_field, read_with,
+            consume_remaining_bytes, discard_bytes_field, read_bytes_field,
+            read_field, read_with,
         };
 
         crate::parser::ParseError::expect_eq(
@@ -187,19 +188,19 @@ impl EMR_PLGBLT {
         }
 
         let undef_offset = size.checked_offset(off_bmi_src)?;
-        let _ = read_bytes_field(buf, &mut size, undef_offset)?;
+        discard_bytes_field(buf, &mut size, undef_offset)?;
         let bmi_src = read_bytes_field(buf, &mut size, cb_bmi_src as usize)?;
 
         let undef_offset = size.checked_offset(off_bits_src)?;
-        let _ = read_bytes_field(buf, &mut size, undef_offset)?;
+        discard_bytes_field(buf, &mut size, undef_offset)?;
         let bits_src = read_bytes_field(buf, &mut size, cb_bits_src as usize)?;
 
         let undef_offset = size.checked_offset(off_bmi_mask)?;
-        let _ = read_bytes_field(buf, &mut size, undef_offset)?;
+        discard_bytes_field(buf, &mut size, undef_offset)?;
         let bmi_mask = read_bytes_field(buf, &mut size, cb_bmi_mask as usize)?;
 
         let undef_offset = size.checked_offset(off_bits_mask)?;
-        let _ = read_bytes_field(buf, &mut size, undef_offset)?;
+        discard_bytes_field(buf, &mut size, undef_offset)?;
         let bits_mask =
             read_bytes_field(buf, &mut size, cb_bits_mask as usize)?;
 

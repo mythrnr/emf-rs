@@ -33,7 +33,8 @@ impl EMR_SETLINKEDUFIS {
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
         use crate::parser::records::{
-            consume_remaining_bytes, read_array_field, read_field, read_with,
+            check_total_points, consume_remaining_bytes, read_array_field,
+            read_field, read_with,
         };
 
         crate::parser::ParseError::expect_eq(
@@ -44,8 +45,13 @@ impl EMR_SETLINKEDUFIS {
 
         let u_num_linked_ufi: u32 = read_field(buf, &mut size)?;
 
+        // `u_num_linked_ufi` is unbounded in the spec; cap it at the
+        // same 16 Mi ceiling used for polygon points before it drives
+        // `Vec::with_capacity`.
+        check_total_points(u_num_linked_ufi)?;
+
         let ufis = {
-            let mut entries = vec![];
+            let mut entries = Vec::with_capacity(u_num_linked_ufi as usize);
 
             for _ in 0..u_num_linked_ufi {
                 entries.push(read_with(

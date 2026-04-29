@@ -37,7 +37,7 @@ impl EMR_SETPALETTEENTRIES {
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
         use crate::parser::records::{
-            consume_remaining_bytes, read_field, read_with,
+            check_total_points, consume_remaining_bytes, read_field, read_with,
         };
 
         crate::parser::ParseError::expect_eq(
@@ -48,10 +48,15 @@ impl EMR_SETPALETTEENTRIES {
 
         let ih_pal = read_field(buf, &mut size)?;
         let start = read_field(buf, &mut size)?;
-        let number_of_entries = read_field(buf, &mut size)?;
+        let number_of_entries: u32 = read_field(buf, &mut size)?;
+
+        // `number_of_entries` is unbounded in the spec; reject
+        // crafted values past the same 16 Mi ceiling used for
+        // polygon points before they drive `Vec::with_capacity`.
+        check_total_points(number_of_entries)?;
 
         let a_pal_entries = {
-            let mut entries = vec![];
+            let mut entries = Vec::with_capacity(number_of_entries as usize);
 
             for _ in 0..number_of_entries {
                 entries.push(read_with(

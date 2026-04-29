@@ -44,7 +44,7 @@ impl EMR_FILLRGN {
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
         use crate::parser::records::{
-            consume_remaining_bytes, read_field, read_with,
+            check_total_points, consume_remaining_bytes, read_field, read_with,
         };
 
         crate::parser::ParseError::expect_eq(
@@ -54,8 +54,15 @@ impl EMR_FILLRGN {
         )?;
 
         let bounds = read_with(buf, &mut size, wmf_core::parser::RectL::parse)?;
-        let rgn_data_size = read_field(buf, &mut size)?;
+        let rgn_data_size: u32 = read_field(buf, &mut size)?;
         let ih_brush = read_field(buf, &mut size)?;
+
+        // Cap `rgn_data_size` so a crafted u32::MAX cannot drive the
+        // loop to exhaustion. Pre-allocating `Vec::with_capacity` is
+        // intentionally skipped: a single `RegionData` already owns
+        // a nested `Vec<RectL>`, so 16 Mi entries would still exceed
+        // the record-size cap.
+        check_total_points(rgn_data_size)?;
 
         let rgn_data = {
             let mut entries = vec![];

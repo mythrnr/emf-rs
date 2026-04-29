@@ -252,7 +252,7 @@ impl From<LogPenEx> for Stroke {
 
         stroke.width = v.width as i16;
 
-        for style in v.pen_style {
+        for style in v.pen_style.iter() {
             stroke = match style {
                 PenStyle::PS_SOLID => stroke,
                 PenStyle::PS_DASH => {

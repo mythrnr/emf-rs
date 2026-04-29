@@ -59,7 +59,8 @@ impl EMR_POLYPOLYGON16 {
         check_total_points(count)?;
 
         let polygon_point_count = {
-            let mut entries: Vec<u32> = vec![];
+            let mut entries: Vec<u32> =
+                Vec::with_capacity(number_of_polygons as usize);
 
             for _ in 0..number_of_polygons {
                 entries.push(read_field(buf, &mut size)?);
@@ -71,7 +72,7 @@ impl EMR_POLYPOLYGON16 {
         check_polygon_point_count_sum(&polygon_point_count, count)?;
 
         let a_points = {
-            let mut entries = vec![];
+            let mut entries = Vec::with_capacity(count as usize);
 
             for _ in 0..count {
                 entries.push(read_with(
