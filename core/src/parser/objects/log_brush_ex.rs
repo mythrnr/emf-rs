@@ -32,7 +32,7 @@ impl LogBrushEx {
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        use crate::parser::records::{read_bytes_field, read_with};
+        use crate::parser::records::{read_array_field, read_with};
 
         let mut consumed_bytes: usize = 0;
         let brush_style = read_with(
@@ -42,7 +42,7 @@ impl LogBrushEx {
         )?;
         // Skip 2 bytes; wmf_core::parser::BrushStyle is 2 bytes wide
         // and the on-disk layout pads the field to 4 bytes.
-        let _ = read_bytes_field(buf, &mut consumed_bytes, 2)?;
+        let _: [u8; 2] = read_array_field(buf, &mut consumed_bytes)?;
 
         let v = match brush_style {
             wmf_core::parser::BrushStyle::BS_SOLID => {
@@ -51,13 +51,13 @@ impl LogBrushEx {
                     &mut consumed_bytes,
                     wmf_core::parser::ColorRef::parse,
                 )?;
-                let _ = read_bytes_field(buf, &mut consumed_bytes, 4)?;
+                let _: [u8; 4] = read_array_field(buf, &mut consumed_bytes)?;
 
                 Self::Solid { color }
             }
             wmf_core::parser::BrushStyle::BS_NULL => {
-                let _ = read_bytes_field(buf, &mut consumed_bytes, 4)?;
-                let _ = read_bytes_field(buf, &mut consumed_bytes, 4)?;
+                let _: [u8; 4] = read_array_field(buf, &mut consumed_bytes)?;
+                let _: [u8; 4] = read_array_field(buf, &mut consumed_bytes)?;
 
                 Self::Null
             }
@@ -77,7 +77,8 @@ impl LogBrushEx {
             }
             _ => {
                 return Err(crate::parser::ParseError::NotSupported {
-                    cause: format!("Unsupported BrushStyle {brush_style:?}"),
+                    cause: format!("Unsupported BrushStyle {brush_style:?}")
+                        .into(),
                 });
             }
         };

@@ -57,7 +57,8 @@ pub(crate) fn check_polygon_point_count_sum(
             crate::parser::ParseError::UnexpectedPattern {
                 cause: alloc::format!(
                     "polygon_point_count sum overflow at entry {entry:#010X}",
-                ),
+                )
+                .into(),
             }
         })?;
     }
@@ -74,6 +75,7 @@ pub(crate) fn check_polygon_point_count_sum(
 /// (record parsers) or a plain `usize` counter (object parsers).
 /// The output type is selected via type inference from the binding,
 /// e.g. `let v: u32 = read_field(...)?;`.
+#[inline]
 pub(crate) fn read_field<R, T>(
     buf: &mut R,
     tracker: &mut impl crate::parser::ConsumeTracker,
@@ -91,6 +93,7 @@ where
 /// advance the `tracker` accordingly. Used for sub-object parsers
 /// (e.g. `RectL::parse`, `RecordType::parse`) that already follow the
 /// `(T, usize)` convention but cannot satisfy the `ReadLeField` bound.
+#[inline]
 pub(crate) fn read_with<R, T, F, E>(
     buf: &mut R,
     tracker: &mut impl crate::parser::ConsumeTracker,
@@ -113,6 +116,7 @@ where
 /// fields (e.g. `dwLayerMask`, `Reserved`, ...). The byte array lives
 /// on the stack, so this avoids the intermediate `Vec` allocation that
 /// `read_bytes_field` performs.
+#[inline]
 pub(in crate::parser) fn read_array_field<R, const N: usize>(
     buf: &mut R,
     tracker: &mut impl crate::parser::ConsumeTracker,
@@ -127,6 +131,7 @@ where
 
 /// Read a variable-length byte buffer of `len` bytes and advance the
 /// `tracker` accordingly.
+#[inline]
 pub(in crate::parser) fn read_bytes_field<R>(
     buf: &mut R,
     tracker: &mut impl crate::parser::ConsumeTracker,
@@ -149,6 +154,7 @@ where
 /// on the stack as a fixed 4 KiB chunk; a malformed record reporting
 /// a multi-MiB offset can no longer drive a `Vec::with_capacity`
 /// allocation just to throw the result away.
+#[inline]
 pub(in crate::parser) fn discard_bytes_field<R, T>(
     buf: &mut R,
     tracker: &mut T,

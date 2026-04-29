@@ -52,18 +52,15 @@ impl LogFontPanose {
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        use crate::parser::records::{
-            read_array_field, read_bytes_field, read_field, read_with,
-        };
+        use crate::parser::records::{read_array_field, read_field, read_with};
 
         let mut consumed_bytes: usize = 0;
         let log_font =
             read_with(buf, &mut consumed_bytes, crate::parser::LogFont::parse)?;
 
-        // FullName / Style stay as Vec<u8> because they feed directly
-        // into `utf16le_bytes_to_string`, which takes a slice.
-        let full_name_bytes = read_bytes_field(buf, &mut consumed_bytes, 128)?;
-        let style_bytes = read_bytes_field(buf, &mut consumed_bytes, 64)?;
+        let full_name_bytes: [u8; 128] =
+            read_array_field(buf, &mut consumed_bytes)?;
+        let style_bytes: [u8; 64] = read_array_field(buf, &mut consumed_bytes)?;
         let version: [u8; 4] = read_array_field(buf, &mut consumed_bytes)?;
         let style_size = read_field(buf, &mut consumed_bytes)?;
         let _match: [u8; 4] = read_array_field(buf, &mut consumed_bytes)?;

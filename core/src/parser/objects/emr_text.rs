@@ -127,7 +127,7 @@ impl EmrText {
                 str::from_utf8(&buffer)
                     .map_err(|err| {
                         crate::parser::ParseError::UnexpectedPattern {
-                            cause: err.to_string(),
+                            cause: err.to_string().into(),
                         }
                     })?
                     .to_string()
@@ -154,7 +154,8 @@ impl EmrText {
                          `EMR_POLYTEXTOUTA`, `EMR_EXTTEXTOUTW`, \
                          `EMR_POLYTEXTOUTW`. But record_type is \
                          {record_type:?}."
-                    ),
+                    )
+                    .into(),
                 });
             }
         };

@@ -20,7 +20,7 @@ impl EMR_RESTOREDC {
     #[cfg_attr(feature = "tracing", tracing::instrument(
         level = tracing::Level::TRACE,
         skip_all,
-        fields(record_type = %format!("{record_type:?}")),
+        fields(record_type = ?record_type),
         err(level = tracing::Level::ERROR, Display),
     ))]
     pub fn parse<R: crate::Read>(
@@ -52,7 +52,8 @@ impl EMR_RESTOREDC {
                 cause: format!(
                     "saved_dc must be negative, but parsed value is \
                      {saved_dc:#010X}",
-                ),
+                )
+                .into(),
             });
         }
 

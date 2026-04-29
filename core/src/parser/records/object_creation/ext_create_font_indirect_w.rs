@@ -34,7 +34,7 @@ impl EMR_EXTCREATEFONTINDIRECTW {
     #[cfg_attr(feature = "tracing", tracing::instrument(
         level = tracing::Level::TRACE,
         skip_all,
-        fields(record_type = %format!("{record_type:?}")),
+        fields(record_type = ?record_type),
         err(level = tracing::Level::ERROR, Display),
     ))]
     pub fn parse<R: crate::Read>(
@@ -64,7 +64,8 @@ impl EMR_EXTCREATEFONTINDIRECTW {
                     "The size of the elw field must be equal to or greater \
                      than the size of a LogFontPanose object (320 bytes). But \
                      parsed value is `{elw_size:#010X}`",
-                ),
+                )
+                .into(),
             });
         }
 

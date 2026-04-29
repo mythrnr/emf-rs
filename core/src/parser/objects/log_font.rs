@@ -126,7 +126,7 @@ impl LogFont {
     ) -> Result<(Self, usize), crate::parser::ParseError> {
         use strum::IntoEnumIterator;
 
-        use crate::parser::records::{read_bytes_field, read_field, read_with};
+        use crate::parser::records::{read_array_field, read_field, read_with};
 
         let mut consumed_bytes: usize = 0;
         let height = read_field(buf, &mut consumed_bytes)?;
@@ -177,7 +177,7 @@ impl LogFont {
         )?;
 
         let facename = {
-            let v = read_bytes_field(buf, &mut consumed_bytes, 64)?;
+            let v: [u8; 64] = read_array_field(buf, &mut consumed_bytes)?;
             crate::parser::null_terminated_utf16le_string(&v)?
         };
 

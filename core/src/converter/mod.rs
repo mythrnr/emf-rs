@@ -94,7 +94,8 @@ where
                              parsed value is {:010X}({record_type:?})",
                             RecordType::EMR_HEADER as u32,
                             record_type as u32,
-                        ),
+                        )
+                        .into(),
                     },
                 });
             }

@@ -135,6 +135,7 @@ impl Size {
         Ok(Self { byte_count_raw, consumed_bytes: 0 })
     }
 
+    #[inline]
     pub fn byte_count(&self) -> usize {
         self.byte_count_raw as usize
     }
@@ -144,11 +145,13 @@ impl Size {
     /// through `is_overrun()` and `remaining_bytes()` (which clamps to
     /// 0) so the caller still observes the malformed state without an
     /// unwind.
+    #[inline]
     pub fn consume(&mut self, consumed_bytes: usize) {
         self.consumed_bytes =
             self.consumed_bytes.saturating_add(consumed_bytes);
     }
 
+    #[inline]
     pub fn consumed_bytes(&self) -> usize {
         self.consumed_bytes
     }
@@ -166,17 +169,20 @@ impl Size {
                 cause: alloc::format!(
                     "offset ({offset:#010X}) is less than consumed bytes ({})",
                     self.consumed_bytes,
-                ),
+                )
+                .into(),
             }
         })
     }
 
     /// Returns true when `consumed_bytes` has exceeded `byte_count`,
     /// indicating a malformed record or a parser bug.
+    #[inline]
     pub fn is_overrun(&self) -> bool {
         self.consumed_bytes > self.byte_count()
     }
 
+    #[inline]
     pub fn remaining(&self) -> bool {
         !self.is_overrun() && self.remaining_bytes() > 0
     }
@@ -185,6 +191,7 @@ impl Size {
     /// that thread this into `read_variable` or `Vec::with_capacity`
     /// cannot underflow; pair with `is_overrun()` when overrun must be
     /// distinguished from a normal end-of-record.
+    #[inline]
     pub fn remaining_bytes(&self) -> usize {
         self.byte_count().saturating_sub(self.consumed_bytes)
     }

@@ -229,7 +229,8 @@ impl LogPenExBrush {
                              field, this field MUST be either HS_SOLIDTEXTCLR \
                              (0x0008) or HS_SOLIDBKCLR (0x000A). but \
                              HatchStyle is {brush_hatch:?}"
-                        ),
+                        )
+                        .into(),
                     });
                 }
 
@@ -258,7 +259,8 @@ impl LogPenExBrush {
             }
             _ => {
                 return Err(crate::parser::ParseError::NotSupported {
-                    cause: format!("Unsupported BrushStyle {brush_style:?}"),
+                    cause: format!("Unsupported BrushStyle {brush_style:?}")
+                        .into(),
                 });
             }
         };

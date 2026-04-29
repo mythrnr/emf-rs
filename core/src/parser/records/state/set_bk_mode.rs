@@ -17,7 +17,7 @@ impl EMR_SETBKMODE {
     #[cfg_attr(feature = "tracing", tracing::instrument(
         level = tracing::Level::TRACE,
         skip_all,
-        fields(record_type = %format!("{record_type:?}")),
+        fields(record_type = ?record_type),
         err(level = tracing::Level::ERROR, Display),
     ))]
     pub fn parse<R: crate::Read>(

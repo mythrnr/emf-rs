@@ -86,7 +86,8 @@ macro_rules! impl_parser {
                                     ": {:#0", $digits, "X}",
                                 ),
                                 value
-                            ),
+                            )
+                            .into(),
                         },
                     );
                 };
