@@ -154,7 +154,6 @@ impl crate::converter::Player for SVGPlayer {
                 dib_header_info,
                 colors,
                 bitmap_buffer: wmf_core::parser::BitmapBuffer {
-                    undefined_space: vec![],
                     a_data: record.bits_src,
                 },
             }
@@ -347,7 +346,6 @@ impl crate::converter::Player for SVGPlayer {
                 dib_header_info,
                 colors,
                 bitmap_buffer: wmf_core::parser::BitmapBuffer {
-                    undefined_space: vec![],
                     a_data: record.bits_src,
                 },
             }

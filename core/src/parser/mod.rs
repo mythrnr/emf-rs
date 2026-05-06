@@ -10,6 +10,15 @@ use crate::imports::*;
 pub enum ParseError {
     #[snafu(display("failed to read buffer: {cause}"))]
     FailedReadBuffer { cause: ReadError },
+    /// Wraps a parse error raised by `wmf-core` while the EMF parser is
+    /// driving a shared WMF helper (e.g. `RectL::parse`, `PointL::parse`,
+    /// `BitmapInfoHeader::parse`). Carrying the typed source preserves
+    /// the structured payload — including the `width_bits` hex padding
+    /// hint on `MismatchedField` / `FieldOutOfRange` — instead of
+    /// flattening it into a string, mirroring how `FailedReadBuffer`
+    /// preserves the underlying `ReadError`.
+    #[snafu(display("failed to parse WMF object: {cause}"))]
+    WMFParseError { cause: wmf_core::parser::ParseError },
     /// `cause` is a `Cow<'static, str>` so call sites can pass a
     /// `&'static str` literal without allocating, and still fall back to
     /// a formatted `String` (via `Cow::Owned`) when the message embeds
@@ -86,22 +95,7 @@ impl From<ReadError> for ParseError {
 
 impl From<wmf_core::parser::ParseError> for ParseError {
     fn from(err: wmf_core::parser::ParseError) -> Self {
-        use wmf_core::parser::ParseError;
-
-        match err {
-            ParseError::FailedReadBuffer { cause } => {
-                Self::FailedReadBuffer { cause: cause.into() }
-            }
-            ParseError::NotSupported { .. } => {
-                Self::NotSupported { cause: err.to_string().into() }
-            }
-            ParseError::UnexpectedEnumValue { .. } => {
-                Self::UnexpectedEnumValue { cause: err.to_string().into() }
-            }
-            ParseError::UnexpectedPattern { .. } => {
-                Self::UnexpectedPattern { cause: err.to_string().into() }
-            }
-        }
+        Self::WMFParseError { cause: err }
     }
 }
 
