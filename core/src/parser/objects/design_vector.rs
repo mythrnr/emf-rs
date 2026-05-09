@@ -26,44 +26,31 @@ impl DesignVector {
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        let (signature, signature_bytes) =
-            crate::parser::read_u32_from_le_bytes(buf)?;
+        use crate::parser::records::read_field;
 
-        if signature != 0x08007664 {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "signature field in DesignVector must be `0x08007664`, \
-                     but parsed value is {signature:#010X}"
-                ),
-            });
-        }
+        let mut consumed_bytes: usize = 0;
+        let signature = read_field(buf, &mut consumed_bytes)?;
 
-        let (num_axes, num_axes_bytes) =
-            crate::parser::read_u32_from_le_bytes(buf)?;
+        crate::parser::ParseError::expect_eq(
+            "signature (DesignVector)",
+            signature,
+            0x08007664_u32,
+        )?;
 
-        if num_axes > 16 {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "num_axes field in DesignVector must be less than `16`, \
-                     but parsed value is {num_axes:#010X}"
-                ),
-            });
-        }
+        let num_axes = read_field(buf, &mut consumed_bytes)?;
 
-        let mut values = vec![];
-        let mut values_bytes = 0;
+        crate::parser::ParseError::expect_le(
+            "num_axes (DesignVector)",
+            num_axes,
+            16_u32,
+        )?;
+
+        let mut values: Vec<i32> = vec![];
 
         for _ in 0..num_axes {
-            let (value, value_bytes) =
-                crate::parser::read_i32_from_le_bytes(buf)?;
-
-            values.push(value);
-            values_bytes += value_bytes;
+            values.push(read_field(buf, &mut consumed_bytes)?);
         }
 
-        Ok((
-            Self { signature, num_axes, values },
-            signature_bytes + num_axes_bytes + values_bytes,
-        ))
+        Ok((Self { signature, num_axes, values }, consumed_bytes))
     }
 }

@@ -10,7 +10,8 @@ A Rust library for parsing [EMF (Enhanced Metafile)](https://learn.microsoft.com
 - Converts EMF records to SVG output
 - Automatic WMF fallback: delegates to [wmf-rs](https://github.com/mythrnr/wmf-rs) when the input is a WMF file
 - `no_std` compatible (uses `alloc`)
-- Works in WebAssembly environments via `emf-wasm`
+- Works in WebAssembly environments via `emf-wasm` (release builds run
+  through `wasm-opt -Oz`)
 - Extensible conversion via the `Player` trait
 
 ## Installation
@@ -166,6 +167,17 @@ make serve
 # Open http://localhost:8080
 ```
 
+Pre-built artifacts (`emf_wasm_bg.wasm`, `emf_wasm.js`, `emf_wasm.d.ts`) are
+attached to each release on the
+[GitHub Releases](https://github.com/mythrnr/emf-rs/releases) page in two
+variants:
+
+- `emf-wasm-<version>.tar.gz` — full build with `tracing` enabled; pair with
+  `setLogLevel` for browser-console logging.
+- `emf-wasm-minimal-<version>.tar.gz` — built without the `tracing` feature.
+  `setLogLevel` becomes a no-op, but the bundle is noticeably smaller because
+  the `tracing-wasm` dependency is dropped entirely.
+
 #### WASM API
 
 - `convertEmf2Svg(buf: Uint8Array): string` - Converts EMF binary data to an SVG string. Falls back to WMF parsing automatically when the input is a WMF file.
@@ -183,7 +195,7 @@ make serve
 
 ## Requirements (for Development)
 
-- Rust 1.87.0+
+- Rust 1.88.0+
 - Rust nightly toolchain (for `rustfmt` and `cargo-udeps`)
 - Docker (for spell-check)
 - [wasm-pack](https://github.com/rustwasm/wasm-pack) (for WASM builds)

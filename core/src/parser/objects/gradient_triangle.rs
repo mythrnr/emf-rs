@@ -28,19 +28,13 @@ impl GradientTriangle {
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        let (
-            (vertex1, vertex1_bytes),
-            (vertex2, vertex2_bytes),
-            (vertex3, vertex3_bytes),
-        ) = (
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-        );
+        use crate::parser::records::read_field;
 
-        Ok((
-            Self { vertex1, vertex2, vertex3 },
-            vertex1_bytes + vertex2_bytes + vertex3_bytes,
-        ))
+        let mut consumed_bytes: usize = 0;
+        let vertex1 = read_field(buf, &mut consumed_bytes)?;
+        let vertex2 = read_field(buf, &mut consumed_bytes)?;
+        let vertex3 = read_field(buf, &mut consumed_bytes)?;
+
+        Ok((Self { vertex1, vertex2, vertex3 }, consumed_bytes))
     }
 }

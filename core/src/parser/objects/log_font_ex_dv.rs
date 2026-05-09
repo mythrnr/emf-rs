@@ -24,25 +24,33 @@ impl LogFontExDv {
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        let (
-            (log_font_ex, log_font_ex_bytes),
-            (design_vector, design_vector_bytes),
-        ) = (
-            crate::parser::LogFontEx::parse(buf)?,
-            crate::parser::DesignVector::parse(buf)?,
-        );
+        use crate::parser::records::read_with;
 
-        if design_vector_bytes > 72 {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: "Length of DesignVector must no be longer than 72 bytes"
-                    .to_owned(),
-            });
-        }
+        let mut consumed_bytes: usize = 0;
+        let log_font_ex = read_with(
+            buf,
+            &mut consumed_bytes,
+            crate::parser::LogFontEx::parse,
+        )?;
 
-        Ok((
-            Self { log_font_ex, design_vector },
-            log_font_ex_bytes + design_vector_bytes,
-        ))
+        // The DesignVector sub-record must fit within 72 bytes; track its
+        // contribution separately so that bound can be enforced after
+        // the read.
+        let before_design_vector = consumed_bytes;
+        let design_vector = read_with(
+            buf,
+            &mut consumed_bytes,
+            crate::parser::DesignVector::parse,
+        )?;
+        let design_vector_bytes = consumed_bytes - before_design_vector;
+
+        crate::parser::ParseError::expect_le(
+            "design_vector size",
+            design_vector_bytes,
+            72_usize,
+        )?;
+
+        Ok((Self { log_font_ex, design_vector }, consumed_bytes))
     }
 }
 

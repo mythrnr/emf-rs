@@ -64,3 +64,24 @@ pub enum PenStyle {
 }
 
 crate::parser::enums::impl_parser!(PenStyle, u32);
+
+/// Bitmask of `PenStyle` variants packed into a single u32.
+///
+/// Replaces the prior `BTreeSet<PenStyle>` representation: pen-style
+/// fields combine line-style, end-cap, line-join, and pen-type bits
+/// drawn from disjoint categories, so the EMF stream stores them as
+/// a single ORed integer. Keeping that integer verbatim avoids the
+/// per-record B-tree allocation that the BTreeSet form required and
+/// shrinks the wasm binary footprint contributed by `Ord`/`Debug`/
+/// `Clone` for the set type.
+///
+/// Note: `PenStyle` has variants whose discriminant is `0x00000000`
+/// (`PS_SOLID`, `PS_ENDCAP_ROUND`, `PS_JOIN_ROUND`). Because
+/// `contains` checks `(raw & bit) == bit`, those zero-valued variants
+/// always evaluate as present regardless of the stored bits, matching
+/// the previous `BTreeSet` form's semantics.
+#[derive(Clone, Copy, Default, Eq, PartialEq)]
+#[repr(transparent)]
+pub struct PenStyleFlags(u32);
+
+crate::parser::enums::impl_flags!(PenStyleFlags, PenStyle, u32);

@@ -89,3 +89,17 @@ pub enum ExtTextOutOptions {
 }
 
 crate::parser::enums::impl_parser!(ExtTextOutOptions, u32);
+
+/// Bitmask of `ExtTextOutOptions` variants packed into a single u32.
+/// Replaces the prior `BTreeSet<ExtTextOutOptions>` representation
+/// to drop the per-record B-tree allocation and the related set-type
+/// generic instances from the wasm binary.
+#[derive(Clone, Copy, Default, Eq, PartialEq)]
+#[repr(transparent)]
+pub struct ExtTextOutOptionsFlags(u32);
+
+crate::parser::enums::impl_flags!(
+    ExtTextOutOptionsFlags,
+    ExtTextOutOptions,
+    u32
+);

@@ -252,7 +252,7 @@ impl From<LogPenEx> for Stroke {
 
         stroke.width = v.width as i16;
 
-        for style in v.pen_style {
+        for style in v.pen_style.iter() {
             stroke = match style {
                 PenStyle::PS_SOLID => stroke,
                 PenStyle::PS_DASH => {
@@ -358,30 +358,41 @@ impl Stroke {
             .set("stroke-width", width.to_string());
 
         if let Some(ref limit) = ctx.graphics_environment.drawing.miter_limit {
-            elem = elem.set(
-                "stroke-miterlimit",
-                ((*limit as f32) * scale).to_string(),
-            );
+            // MS-EMF 2.3.11.21 / SVG: the miter limit is a unitless
+            // ratio of miter length to stroke width, so it must not
+            // be scaled by the world transform. SVG additionally
+            // requires the value to be >= 1.
+            let limit = core::cmp::max(*limit, 1);
+            elem = elem.set("stroke-miterlimit", limit.to_string());
         }
 
         elem
     }
 }
 
+// `TA_CENTER` (0x0006) shares its low bit with `TA_RIGHT` (0x0002),
+// so the horizontal portion must be masked against 0x0006 and matched
+// as a whole instead of probing for individual flags.
 #[inline]
 pub fn text_align(value: u32) -> String {
-    use strum::IntoEnumIterator;
+    match value & 0x0000_0006 {
+        0x0000_0006 => "middle".to_owned(),
+        0x0000_0002 => "end".to_owned(),
+        _ => "start".to_owned(),
+    }
+}
 
-    let align = wmf_core::parser::TextAlignmentMode::iter()
-        .filter(|c| value as u16 & (*c as u16) == (*c as u16))
-        .collect::<BTreeSet<_>>();
-
-    if align.contains(&wmf_core::parser::TextAlignmentMode::TA_RIGHT) {
-        "end".to_owned()
-    } else if align.contains(&wmf_core::parser::TextAlignmentMode::TA_CENTER) {
-        "middle".to_owned()
-    } else {
-        "start".to_owned()
+// `TA_BASELINE` (0x0018) and `TA_BOTTOM` (0x0008) overlap on bit 0x08,
+// so the vertical portion is masked against 0x0018 and matched as a
+// whole. Without this attribute, SVG anchors the text y at the
+// alphabetic baseline; EMF's TA_TOP reference would then render about
+// one font-size above the intended position.
+#[inline]
+pub fn text_baseline(value: u32) -> String {
+    match value & 0x0000_0018 {
+        0x0000_0018 => "alphabetic".to_owned(),
+        0x0000_0008 => "text-after-edge".to_owned(),
+        _ => "text-before-edge".to_owned(),
     }
 }
 

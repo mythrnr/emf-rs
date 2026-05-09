@@ -45,29 +45,50 @@ impl Panose {
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        let (
-            (family_type, family_type_bytes),
-            (serif_style, serif_style_bytes),
-            (weight, weight_bytes),
-            (proportion, proportion_bytes),
-            (contrast, contrast_bytes),
-            (stroke_variation, stroke_variation_bytes),
-            (arm_style, arm_style_bytes),
-            (letterform, letterform_bytes),
-            (midline, midline_bytes),
-            (x_height, x_height_bytes),
-        ) = (
-            crate::parser::FamilyType::parse(buf)?,
-            crate::parser::SerifType::parse(buf)?,
-            crate::parser::Weight::parse(buf)?,
-            crate::parser::Proportion::parse(buf)?,
-            crate::parser::Contrast::parse(buf)?,
-            crate::parser::StrokeVariation::parse(buf)?,
-            crate::parser::ArmStyle::parse(buf)?,
-            crate::parser::Letterform::parse(buf)?,
-            crate::parser::MidLine::parse(buf)?,
-            crate::parser::XHeight::parse(buf)?,
-        );
+        use crate::parser::records::read_with;
+
+        let mut consumed_bytes: usize = 0;
+        let family_type = read_with(
+            buf,
+            &mut consumed_bytes,
+            crate::parser::FamilyType::parse,
+        )?;
+        let serif_style = read_with(
+            buf,
+            &mut consumed_bytes,
+            crate::parser::SerifType::parse,
+        )?;
+        let weight =
+            read_with(buf, &mut consumed_bytes, crate::parser::Weight::parse)?;
+        let proportion = read_with(
+            buf,
+            &mut consumed_bytes,
+            crate::parser::Proportion::parse,
+        )?;
+        let contrast = read_with(
+            buf,
+            &mut consumed_bytes,
+            crate::parser::Contrast::parse,
+        )?;
+        let stroke_variation = read_with(
+            buf,
+            &mut consumed_bytes,
+            crate::parser::StrokeVariation::parse,
+        )?;
+        let arm_style = read_with(
+            buf,
+            &mut consumed_bytes,
+            crate::parser::ArmStyle::parse,
+        )?;
+        let letterform = read_with(
+            buf,
+            &mut consumed_bytes,
+            crate::parser::Letterform::parse,
+        )?;
+        let midline =
+            read_with(buf, &mut consumed_bytes, crate::parser::MidLine::parse)?;
+        let x_height =
+            read_with(buf, &mut consumed_bytes, crate::parser::XHeight::parse)?;
 
         Ok((
             Self {
@@ -82,16 +103,7 @@ impl Panose {
                 midline,
                 x_height,
             },
-            family_type_bytes
-                + serif_style_bytes
-                + weight_bytes
-                + proportion_bytes
-                + contrast_bytes
-                + stroke_variation_bytes
-                + arm_style_bytes
-                + letterform_bytes
-                + midline_bytes
-                + x_height_bytes,
+            consumed_bytes,
         ))
     }
 }

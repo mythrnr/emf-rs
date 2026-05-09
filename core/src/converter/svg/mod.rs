@@ -17,7 +17,7 @@ use crate::{
             util::{
                 Fill, Stroke, as_point_string_from_point_l,
                 as_point_string_from_point_s, color_from_color_ref,
-                polygon_fill_rule, text_align, url_string,
+                polygon_fill_rule, text_align, text_baseline, url_string,
             },
         },
     },
@@ -34,6 +34,12 @@ pub struct SVGPlayer {
     selected_emf_object: SelectedObject,
     path: Data,
     window: Window,
+    // Tracks how many SVG elements have already been emitted under each
+    // EMF record number. Records like POLYPOLYGON / POLYPOLYLINE expand
+    // into multiple sub-shapes; without per-record counters they would
+    // collide on the same `elem{record_number}` id and produce SVG that
+    // violates the id-uniqueness constraint.
+    record_element_counts: BTreeMap<usize, usize>,
 }
 
 impl Default for SVGPlayer {
@@ -50,6 +56,7 @@ impl Default for SVGPlayer {
                 extent: wmf_core::parser::SizeL { cx: 0, cy: 0 },
                 origin: wmf_core::parser::PointL { x: 0, y: 0 },
             },
+            record_element_counts: BTreeMap::new(),
         }
     }
 }
@@ -64,10 +71,23 @@ impl SVGPlayer {
         format!("defs{}", self.definitions.len())
     }
 
+    // The first emission for a record keeps `id="elem{N}"`; subsequent
+    // emissions get `id="elem{N}-1"`, `id="elem{N}-2"`, ... The suffix
+    // form lets call sites address individual sub-shapes (e.g. one
+    // sub-polygon of a POLYPOLYGON) while keeping the prefix stable as
+    // the EMF record identifier.
     #[inline]
     fn push_element(&mut self, record_number: usize, element: Node) {
-        let element = element.set("id", format!("elem{record_number}"));
-        self.elements.push(element);
+        let count =
+            self.record_element_counts.entry(record_number).or_insert(0);
+        let id = if *count == 0 {
+            format!("elem{record_number}")
+        } else {
+            format!("elem{record_number}-{count}")
+        };
+
+        *count += 1;
+        self.elements.push(element.set("id", id));
     }
 }
 
@@ -154,7 +174,6 @@ impl crate::converter::Player for SVGPlayer {
                 dib_header_info,
                 colors,
                 bitmap_buffer: wmf_core::parser::BitmapBuffer {
-                    undefined_space: vec![],
                     a_data: record.bits_src,
                 },
             }
@@ -347,7 +366,6 @@ impl crate::converter::Player for SVGPlayer {
                 dib_header_info,
                 colors,
                 bitmap_buffer: wmf_core::parser::BitmapBuffer {
-                    undefined_space: vec![],
                     a_data: record.bits_src,
                 },
             }
@@ -523,18 +541,18 @@ impl crate::converter::Player for SVGPlayer {
         self.emf_object_table =
             EmfObjectTable::new(record.emf_header.handles as usize);
 
-        let (extent, origin) = (
-            SizeL {
-                cx: (record.emf_header.bounds.right
-                    - record.emf_header.bounds.left) as u32,
-                cy: (record.emf_header.bounds.bottom
-                    - record.emf_header.bounds.top) as u32,
-            },
-            PointL {
-                x: record.emf_header.bounds.left,
-                y: record.emf_header.bounds.top,
-            },
-        );
+        // Picture-frame rectangle in device units. Used for the SVG
+        // viewBox so the recorded drawing maps directly to that area.
+        let viewbox_extent = SizeL {
+            cx: (record.emf_header.bounds.right - record.emf_header.bounds.left)
+                as u32,
+            cy: (record.emf_header.bounds.bottom - record.emf_header.bounds.top)
+                as u32,
+        };
+        let viewbox_origin = PointL {
+            x: record.emf_header.bounds.left,
+            y: record.emf_header.bounds.top,
+        };
 
         let color = if let Some(record_buffer) = record.emf_header_record_buffer
         {
@@ -555,16 +573,27 @@ impl crate::converter::Player for SVGPlayer {
             PlaybackStateColors::default()
         };
 
-        self.window = Window { extent: extent.clone(), origin: origin.clone() };
+        self.window =
+            Window { extent: viewbox_extent.clone(), origin: viewbox_origin };
+        // The window-to-viewport mapping starts as identity (Windows
+        // GDI defaults: MM_TEXT, viewport/window origin (0, 0), extent
+        // (1, 1)). Seeding viewport/window origin from the bounds
+        // top-left would cause subsequent SETWINDOWEXTEX /
+        // SETVIEWPORTEXTEX records to translate every drawing by that
+        // offset, pushing the output past the viewBox. Use (0, 0) and
+        // let SETVIEWPORTORGEX / SETWINDOWORGEX update it explicitly.
         self.context.graphics_environment = GraphicsEnvironment {
             regions: PlaybackStateRegions {
                 // clipping: None,
                 // meta_clipping: None,
                 viewport: Viewport {
-                    extent: extent.clone(),
-                    origin: origin.clone(),
+                    extent: viewbox_extent.clone(),
+                    origin: PointL { x: 0, y: 0 },
                 },
-                window: Window { extent, origin },
+                window: Window {
+                    extent: viewbox_extent,
+                    origin: PointL { x: 0, y: 0 },
+                },
             },
             color,
             text: PlaybackStateText::default(),
@@ -756,15 +785,15 @@ impl crate::converter::Player for SVGPlayer {
         let color = color_from_color_ref(
             &self.context.graphics_environment.drawing.text_color,
         );
-        let text_align =
-            text_align(self.context.graphics_environment.text.text_alignment);
+        let alignment = self.context.graphics_environment.text.text_alignment;
         let point =
             self.context.transform_point_l(&record.w_emr_text.reference);
 
         let text = Node::new("text")
             .set("x", point.x.to_string())
             .set("y", point.y.to_string())
-            .set("text-anchor", text_align)
+            .set("text-anchor", text_align(alignment))
+            .set("dominant-baseline", text_baseline(alignment))
             .set("fill", color)
             .add(Node::new_text(record.w_emr_text.string_buffer));
         let (text, styles) = font.set_props(&self.context, text, &point);
@@ -945,15 +974,18 @@ impl crate::converter::Player for SVGPlayer {
             return Ok(self);
         }
 
-        // NOTE: ignore move to first point for SVG.
-        // let Some(point) = record.a_points.first() else {
-        //     return Err(PlayError::InvalidRecord {
-        //         cause: "aPoints[0] is not defined".to_owned(),
-        //     });
-        // };
-        // let point = self.context.transform_point_l(point);
-        // self.path = self.path.clone().move_to(format!("{} {}", point.x,
-        // point.y));
+        // MS-EMF 2.3.5.16: aPoints[0] is the starting point of the
+        // first Bezier curve. Emit a SVG moveto so the path data
+        // begins with M (an SVG path that starts with a curveto is
+        // invalid).
+        let Some(point) = record.a_points.first() else {
+            return Err(PlayError::InvalidRecord {
+                cause: "aPoints[0] is not defined".to_owned(),
+            });
+        };
+        let point = self.context.transform_point_l(point);
+        self.path =
+            self.path.clone().move_to(format!("{} {}", point.x, point.y));
 
         let mut c = vec![];
 
@@ -1001,15 +1033,18 @@ impl crate::converter::Player for SVGPlayer {
             return Ok(self);
         }
 
-        // NOTE: ignore move to first point for SVG.
-        // let Some(point) = record.a_points.first() else {
-        //     return Err(PlayError::InvalidRecord {
-        //         cause: "aPoints[0] is not defined".to_owned(),
-        //     });
-        // };
-        // let point = self.context.transform_point_s(point);
-        // self.path = self.path.clone().move_to(format!("{} {}", point.x,
-        // point.y));
+        // MS-EMF 2.3.5.17: aPoints[0] is the starting point of the
+        // first Bezier curve. Emit a SVG moveto so the path data
+        // begins with M (an SVG path that starts with a curveto is
+        // invalid).
+        let Some(point) = record.a_points.first() else {
+            return Err(PlayError::InvalidRecord {
+                cause: "aPoints[0] is not defined".to_owned(),
+            });
+        };
+        let point = self.context.transform_point_s(point);
+        self.path =
+            self.path.clone().move_to(format!("{} {}", point.x, point.y));
 
         let mut c = vec![];
 
@@ -1055,12 +1090,24 @@ impl crate::converter::Player for SVGPlayer {
             return Ok(self);
         }
 
-        // NOTE: ignore move to first point for SVG.
-        // self.path = self.path.clone().move_to(format!(
-        //     "{} {}",
-        //     self.context.graphics_environment.drawing.current_position.x,
-        //     self.context.graphics_environment.drawing.current_position.y
-        // ));
+        // MS-EMF 2.3.5.18: the curve starts from the current position.
+        // When the shared path buffer is still empty (e.g. PolyBezierTo
+        // is the first command after BeginPath, or it is emitted
+        // outside any path bracket), seed it with M(current position)
+        // so the resulting path data does not start with a curveto,
+        // which is invalid SVG.
+        if self.path.is_empty() {
+            let start = self.context.transform_point_l(
+                &self
+                    .context
+                    .graphics_environment
+                    .drawing
+                    .current_position
+                    .clone(),
+            );
+            self.path =
+                self.path.clone().move_to(format!("{} {}", start.x, start.y));
+        }
 
         let mut c = vec![];
 
@@ -1106,11 +1153,24 @@ impl crate::converter::Player for SVGPlayer {
             return Ok(self);
         }
 
-        // NOTE: ignore move to first point for SVG.
-        // let point = self.context.transform_point_l(&
-        //     self.context.graphics_environment.drawing.current_position.
-        // clone(), );
-        // self.path = self.path.move_to(format!("{} {}", point.x, point.y));
+        // MS-EMF 2.3.5.19: the curve starts from the current position.
+        // When the shared path buffer is still empty (e.g. PolyBezierTo16
+        // is the first command after BeginPath, or it is emitted
+        // outside any path bracket), seed it with M(current position)
+        // so the resulting path data does not start with a curveto,
+        // which is invalid SVG.
+        if self.path.is_empty() {
+            let start = self.context.transform_point_l(
+                &self
+                    .context
+                    .graphics_environment
+                    .drawing
+                    .current_position
+                    .clone(),
+            );
+            self.path =
+                self.path.clone().move_to(format!("{} {}", start.x, start.y));
+        }
 
         let mut c = vec![];
 

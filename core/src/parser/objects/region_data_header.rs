@@ -27,45 +27,30 @@ impl RegionDataHeader {
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        let (
-            (size, size_bytes),
-            (typ, typ_bytes),
-            (count_rects, count_rects_bytes),
-            (rgn_size, rgn_size_bytes),
-            (bounds, bounds_bytes),
-        ) = (
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            wmf_core::parser::RectL::parse(buf)?,
-        );
+        use crate::parser::records::{read_field, read_with};
 
-        if size != 0x00000020 {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "size field must be `0x00000020`, but parsed value is \
-                     {size:#010X}"
-                ),
-            });
-        }
+        let mut consumed_bytes: usize = 0;
+        let size = read_field(buf, &mut consumed_bytes)?;
+        let typ = read_field(buf, &mut consumed_bytes)?;
+        let count_rects = read_field(buf, &mut consumed_bytes)?;
+        let rgn_size = read_field(buf, &mut consumed_bytes)?;
+        let bounds = read_with(
+            buf,
+            &mut consumed_bytes,
+            wmf_core::parser::RectL::parse,
+        )?;
 
-        if typ != 0x00000001 {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "type field must be `0x00000001`, but parsed value is \
-                     {typ:#010X}"
-                ),
-            });
-        }
+        crate::parser::ParseError::expect_eq(
+            "size (RegionDataHeader)",
+            size,
+            0x00000020_u32,
+        )?;
+        crate::parser::ParseError::expect_eq(
+            "type (RegionDataHeader)",
+            typ,
+            0x00000001_u32,
+        )?;
 
-        Ok((
-            Self { size, typ, count_rects, rgn_size, bounds },
-            size_bytes
-                + typ_bytes
-                + count_rects_bytes
-                + rgn_size_bytes
-                + bounds_bytes,
-        ))
+        Ok((Self { size, typ, count_rects, rgn_size, bounds }, consumed_bytes))
     }
 }

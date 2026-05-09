@@ -36,7 +36,7 @@ pub struct EmrText {
     /// Options (4 bytes): An unsigned integer that specifies how to use the
     /// rectangle specified in the Rectangle field. This field can be a
     /// combination of more than one ExtTextOutOptions enumeration values.
-    pub options: BTreeSet<crate::parser::ExtTextOutOptions>,
+    pub options: crate::parser::ExtTextOutOptionsFlags,
     /// Rectangle (16 bytes, optional): A RectL object ([MS-WMF] section
     /// 2.2.2.19) that defines a clipping and/or opaquing rectangle in logical
     /// units. This rectangle is applied to the text output performed by the
@@ -77,74 +77,74 @@ impl EmrText {
         record_type: &crate::parser::RecordType,
         offset: usize,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        use strum::IntoEnumIterator;
+        use crate::parser::records::{
+            check_total_points, read_bytes_field, read_field, read_with,
+        };
 
-        let (
-            (reference, reference_bytes),
-            (chars, chars_bytes),
-            (off_string, off_string_bytes),
-        ) = (
-            wmf_core::parser::PointL::parse(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
+        let mut consumed_bytes: usize = 0;
+        let reference = read_with(
+            buf,
+            &mut consumed_bytes,
+            wmf_core::parser::PointL::parse,
+        )?;
+        let chars: u32 = read_field(buf, &mut consumed_bytes)?;
+
+        // `chars` is unbounded in the spec; cap it at 16 Mi before
+        // it drives `read_bytes_field`'s `Vec::with_capacity(chars *
+        // 2)` (UTF-16 path) and the dx_buffer pre-allocation below
+        // (`length = chars * {1, 2}`).
+        check_total_points(chars)?;
+
+        let off_string: u32 = read_field(buf, &mut consumed_bytes)?;
+
+        let options = crate::parser::ExtTextOutOptionsFlags::from_raw(
+            read_field(buf, &mut consumed_bytes)?,
         );
 
-        let (options, options_bytes) = {
-            let (v, options_bytes) =
-                crate::parser::read_u32_from_le_bytes(buf)?;
-
-            (
-                crate::parser::ExtTextOutOptions::iter()
-                    .filter(|o| v & (*o as u32) == (*o as u32))
-                    .collect::<BTreeSet<_>>(),
-                options_bytes,
-            )
+        let rectangle = if (off_string as usize - offset) - consumed_bytes >= 20
+        {
+            Some(read_with(
+                buf,
+                &mut consumed_bytes,
+                wmf_core::parser::RectL::parse,
+            )?)
+        } else {
+            None
         };
-        let mut consumed_bytes =
-            reference_bytes + chars_bytes + off_string_bytes + options_bytes;
+        let off_dx: u32 = read_field(buf, &mut consumed_bytes)?;
 
-        let (rectangle, rectangle_bytes) =
-            if (off_string as usize - offset) - consumed_bytes >= 20 {
-                let (rect, rect_bytes) = wmf_core::parser::RectL::parse(buf)?;
-                (Some(rect), rect_bytes)
-            } else {
-                (None, 0)
-            };
-        let (off_dx, off_dx_bytes) =
-            crate::parser::read_u32_from_le_bytes(buf)?;
+        let undefined_space1_len =
+            (off_string as usize - offset) - consumed_bytes;
+        let _undefined_space1 =
+            read_bytes_field(buf, &mut consumed_bytes, undefined_space1_len)?;
 
-        consumed_bytes += rectangle_bytes + off_dx_bytes;
-
-        let (_, undefined_space1_bytes) = crate::parser::read_variable(
-            buf,
-            (off_string as usize - offset) - consumed_bytes,
-        )?;
-
-        consumed_bytes += undefined_space1_bytes;
-
-        let (string_buffer, string_buffer_bytes) = match record_type {
+        let string_buffer = match record_type {
             crate::parser::RecordType::EMR_EXTTEXTOUTA
             | crate::parser::RecordType::EMR_POLYTEXTOUTA => {
-                let (buffer, buffer_bytes) =
-                    crate::parser::read_variable(buf, chars as usize)?;
-                let string_buffer = str::from_utf8(&buffer)
+                let buffer =
+                    read_bytes_field(buf, &mut consumed_bytes, chars as usize)?;
+
+                str::from_utf8(&buffer)
                     .map_err(|err| {
                         crate::parser::ParseError::UnexpectedPattern {
-                            cause: err.to_string(),
+                            cause: err.to_string().into(),
                         }
                     })?
-                    .to_string();
-
-                (string_buffer, buffer_bytes)
+                    .to_string()
             }
             crate::parser::RecordType::EMR_EXTTEXTOUTW
             | crate::parser::RecordType::EMR_POLYTEXTOUTW => {
-                let (buffer, buffer_bytes) =
-                    crate::parser::read_variable(buf, (2 * chars) as usize)?;
-                let string_buffer =
-                    crate::parser::utf16le_bytes_to_string(&buffer)?;
+                // Multiply in usize so a crafted `chars` close to
+                // u32::MAX cannot overflow before being passed to
+                // `read_bytes_field`. usize is at least 32-bit on every
+                // supported target so the conversion is lossless.
+                let buffer = read_bytes_field(
+                    buf,
+                    &mut consumed_bytes,
+                    (chars as usize) * 2,
+                )?;
 
-                (string_buffer, buffer_bytes)
+                crate::parser::utf16le_bytes_to_string(&buffer)?
             }
             _ => {
                 return Err(crate::parser::ParseError::UnexpectedPattern {
@@ -154,44 +154,36 @@ impl EmrText {
                          `EMR_POLYTEXTOUTA`, `EMR_EXTTEXTOUTW`, \
                          `EMR_POLYTEXTOUTW`. But record_type is \
                          {record_type:?}."
-                    ),
+                    )
+                    .into(),
                 });
             }
         };
 
-        consumed_bytes += string_buffer_bytes;
+        let undefined_space2_len = (off_dx as usize - offset) - consumed_bytes;
+        let _undefined_space2 =
+            read_bytes_field(buf, &mut consumed_bytes, undefined_space2_len)?;
 
-        let (_, undefined_space2_bytes) = crate::parser::read_variable(
-            buf,
-            (off_dx as usize - offset) - consumed_bytes,
-        )?;
-
-        consumed_bytes += undefined_space2_bytes;
-
-        let (dx_buffer, dx_buffer_bytes) = {
-            let length = chars
-                * if options
-                    .contains(&crate::parser::ExtTextOutOptions::ETO_PDY)
+        let dx_buffer = {
+            // Compute in usize to avoid the u32-multiplication
+            // overflow that would let a crafted `chars` near
+            // MAX_TOTAL_POINTS wrap when ETO_PDY doubles the count.
+            let length = (chars as usize)
+                * if options.contains(crate::parser::ExtTextOutOptions::ETO_PDY)
                 {
                     2
                 } else {
                     1
                 };
 
-            let mut values = vec![];
-            let mut values_bytes = 0;
+            let mut values: Vec<u32> = Vec::with_capacity(length);
 
             for _ in 0..length {
-                let (v, v_bytes) = crate::parser::read_u32_from_le_bytes(buf)?;
-
-                values.push(v);
-                values_bytes += v_bytes;
+                values.push(read_field(buf, &mut consumed_bytes)?);
             }
 
-            (values, values_bytes)
+            values
         };
-
-        consumed_bytes += dx_buffer_bytes;
 
         Ok((
             Self {

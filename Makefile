@@ -3,7 +3,7 @@ MAKEFLAGS += --silent
 endif
 
 .PHONY: ci-suite
-ci-suite: spell-check fix fmt lint udeps wasm test
+ci-suite: spell-check fix fmt lint udeps wasm wasm-minimal test
 
 .PHONY: check
 check:
@@ -11,11 +11,24 @@ check:
 
 .PHONY: clean
 clean:
-	cargo clean
+	git clean -fdX
 
 .PHONY: doc
 doc:
 	cargo doc --open --workspace --no-deps
+
+.PHONY: docker-build
+docker-build:
+	docker compose -f docker/compose.yaml --progress plain build
+
+.PHONY: docker-clean
+docker-clean:
+	docker compose -f docker/compose.yaml --progress plain down \
+		--volumes --remove-orphans
+
+.PHONY: docker-dev
+docker-dev:
+	docker compose -f docker/compose.yaml --progress plain run --rm dev
 
 .PHONY: fix
 fix:
@@ -28,13 +41,31 @@ fmt:
 .PHONY: install-tools
 install-tools:
 	curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
-	cargo binstall -y cargo-machete
-	cargo binstall -y cargo-udeps
-	cargo binstall -y wasm-pack
+	cargo binstall -y \
+		cargo-machete \
+		cargo-udeps \
+		wasm-bindgen-cli \
+		wasm-opt \
+		wasm-pack
 
 .PHONY: lint
 lint:
 	cargo clippy --workspace --all-targets --all-features \
+		-- --no-deps -D warnings
+
+.PHONY: lint-cli
+lint-cli:
+	cargo clippy --package emf-cli --all-targets \
+		-- --no-deps -D warnings
+
+.PHONY: lint-core
+lint-core:
+	cargo clippy --package emf-core --all-targets --all-features \
+		-- --no-deps -D warnings
+
+.PHONY: lint-wasm
+lint-wasm:
+	cargo clippy --package emf-wasm --all-targets --all-features \
 		-- --no-deps -D warnings
 
 .PHONY: release
@@ -68,4 +99,19 @@ udeps:
 
 .PHONY: wasm
 wasm:
-	cd wasm && wasm-pack build --out-dir dist --target web
+	cd wasm && wasm-pack build \
+		--out-dir dist \
+		--release \
+		--target web
+
+# Minimal build with the `tracing` feature stripped. Drops the
+# `tracing-wasm` dependency entirely, which yields a noticeably smaller
+# bundle for consumers that do not need log output. `console_error_panic_hook`
+# is kept so panics still surface in the browser console.
+.PHONY: wasm-minimal
+wasm-minimal:
+	cd wasm && wasm-pack build \
+		--out-dir dist-minimal \
+		--release \
+		--target web \
+		-- --no-default-features --features console_error_panic_hook

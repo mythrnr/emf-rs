@@ -1,5 +1,3 @@
-use crate::imports::*;
-
 /// The ColorAdjustment object defines values for adjusting the colors in source
 /// bitmaps in bit-block transfers.
 ///
@@ -24,7 +22,7 @@ pub struct ColorAdjustment {
     /// Values (2 bytes): An unsigned integer that specifies how to prepare the
     /// output image. This field can be set to NULL or to any combination of
     /// values in the ColorAdjustment enumeration.
-    pub values: BTreeSet<crate::parser::enums::ColorAdjustmentEnum>,
+    pub values: crate::parser::enums::ColorAdjustmentEnumFlags,
     /// IlluminantIndex (2 bytes): An unsigned integer that specifies the type
     /// of standard light source under which the image is viewed, from the
     /// Illuminant enumeration.
@@ -88,72 +86,66 @@ impl ColorAdjustment {
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        use strum::IntoEnumIterator;
+        use crate::parser::records::{read_field, read_with};
 
-        let (size, size_bytes) = crate::parser::read_u16_from_le_bytes(buf)?;
-        if size != 0x0018 {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "size field in ColorAdjustment must be `0x0018`, but \
-                     parsed value is {size:#06X}"
-                ),
-            });
-        }
+        let mut consumed_bytes: usize = 0;
+        let size = read_field(buf, &mut consumed_bytes)?;
 
-        let (values, values_bytes) = {
-            let (v, values_bytes) = crate::parser::read_u16_from_le_bytes(buf)?;
+        crate::parser::ParseError::expect_eq(
+            "size (ColorAdjustment)",
+            size,
+            0x0018_u16,
+        )?;
 
-            (
-                crate::parser::enums::ColorAdjustmentEnum::iter()
-                    .filter(|c| v & (*c as u16) == (*c as u16))
-                    .collect(),
-                values_bytes,
-            )
-        };
-
-        let (
-            (illuminant_index, illuminant_index_bytes),
-            (red_gamma, red_gamma_bytes),
-            (green_gamma, green_gamma_bytes),
-            (blue_gamma, blue_gamma_bytes),
-            (reference_black, reference_black_bytes),
-            (reference_white, reference_white_bytes),
-            (contrast, contrast_bytes),
-            (brightness, brightness_bytes),
-            (colorfulness, colorfulness_bytes),
-            (red_green_tint, red_green_tint_bytes),
-        ) = (
-            crate::parser::Illuminant::parse(buf)?,
-            crate::parser::Gamma::parse(buf)?,
-            crate::parser::Gamma::parse(buf)?,
-            crate::parser::Gamma::parse(buf)?,
-            crate::parser::read_u16_from_le_bytes(buf)?,
-            crate::parser::read_u16_from_le_bytes(buf)?,
-            crate::parser::Adjustment::parse(buf)?,
-            crate::parser::Adjustment::parse(buf)?,
-            crate::parser::Adjustment::parse(buf)?,
-            crate::parser::Adjustment::parse(buf)?,
+        let values = crate::parser::enums::ColorAdjustmentEnumFlags::from_raw(
+            read_field(buf, &mut consumed_bytes)?,
         );
 
-        if reference_black > 4_000 {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "reference_black field in ColorAdjustment must be range \
-                     in zero to `4,000`, but parsed value is \
-                     {reference_black:#06X}"
-                ),
-            });
-        }
+        let illuminant_index = read_with(
+            buf,
+            &mut consumed_bytes,
+            crate::parser::Illuminant::parse,
+        )?;
+        let red_gamma =
+            read_with(buf, &mut consumed_bytes, crate::parser::Gamma::parse)?;
+        let green_gamma =
+            read_with(buf, &mut consumed_bytes, crate::parser::Gamma::parse)?;
+        let blue_gamma =
+            read_with(buf, &mut consumed_bytes, crate::parser::Gamma::parse)?;
+        let reference_black = read_field(buf, &mut consumed_bytes)?;
+        let reference_white = read_field(buf, &mut consumed_bytes)?;
+        let contrast = read_with(
+            buf,
+            &mut consumed_bytes,
+            crate::parser::Adjustment::parse,
+        )?;
+        let brightness = read_with(
+            buf,
+            &mut consumed_bytes,
+            crate::parser::Adjustment::parse,
+        )?;
+        let colorfulness = read_with(
+            buf,
+            &mut consumed_bytes,
+            crate::parser::Adjustment::parse,
+        )?;
+        let red_green_tint = read_with(
+            buf,
+            &mut consumed_bytes,
+            crate::parser::Adjustment::parse,
+        )?;
 
-        if !(6_000..=10_000).contains(&reference_white) {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "reference_white field in ColorAdjustment must be range \
-                     in `6,000` to `10,000`, but parsed value is \
-                     {reference_white:#06X}"
-                ),
-            });
-        }
+        crate::parser::ParseError::expect_le(
+            "reference_black (ColorAdjustment)",
+            reference_black,
+            4_000_u16,
+        )?;
+        crate::parser::ParseError::expect_in_range(
+            "reference_white (ColorAdjustment)",
+            reference_white,
+            6_000_u16,
+            10_000_u16,
+        )?;
 
         Ok((
             Self {
@@ -170,18 +162,7 @@ impl ColorAdjustment {
                 colorfulness,
                 red_green_tint,
             },
-            size_bytes
-                + values_bytes
-                + illuminant_index_bytes
-                + red_gamma_bytes
-                + green_gamma_bytes
-                + blue_gamma_bytes
-                + reference_black_bytes
-                + reference_white_bytes
-                + contrast_bytes
-                + brightness_bytes
-                + colorfulness_bytes
-                + red_green_tint_bytes,
+            consumed_bytes,
         ))
     }
 }
@@ -190,7 +171,7 @@ impl Default for ColorAdjustment {
     fn default() -> Self {
         Self {
             size: 0x0018,
-            values: BTreeSet::new(),
+            values: crate::parser::enums::ColorAdjustmentEnumFlags::empty(),
             illuminant_index:
                 crate::parser::Illuminant::ILLUMINANT_DEVICE_DEFAULT,
             red_gamma: crate::parser::Gamma::default(),

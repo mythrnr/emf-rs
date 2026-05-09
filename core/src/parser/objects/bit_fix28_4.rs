@@ -23,9 +23,12 @@ impl BitFIX28_4 {
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        let ((int_value, int_value_bytes), (frac_value, frac_value_bytes)) =
-            (crate::parser::read(buf)?, crate::parser::read(buf)?);
+        use crate::parser::read_array_field;
 
-        Ok((Self { int_value, frac_value }, int_value_bytes + frac_value_bytes))
+        let mut consumed_bytes: usize = 0;
+        let int_value = read_array_field(buf, &mut consumed_bytes)?;
+        let frac_value = read_array_field(buf, &mut consumed_bytes)?;
+
+        Ok((Self { int_value, frac_value }, consumed_bytes))
     }
 }

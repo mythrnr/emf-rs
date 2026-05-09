@@ -22,3 +22,16 @@ pub enum ColorAdjustmentEnum {
 }
 
 crate::parser::enums::impl_parser!(ColorAdjustmentEnum, u16);
+
+/// Bitmask of `ColorAdjustmentEnum` variants packed into a single
+/// u16. Replaces the prior `BTreeSet<ColorAdjustmentEnum>`
+/// representation to drop the per-record B-tree allocation.
+#[derive(Clone, Copy, Default, Eq, PartialEq)]
+#[repr(transparent)]
+pub struct ColorAdjustmentEnumFlags(u16);
+
+crate::parser::enums::impl_flags!(
+    ColorAdjustmentEnumFlags,
+    ColorAdjustmentEnum,
+    u16
+);

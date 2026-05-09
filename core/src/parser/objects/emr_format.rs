@@ -28,30 +28,27 @@ impl EmrFormat {
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        let (
-            (signature, signature_bytes),
-            (version, version_bytes),
-            (size_data, size_data_bytes),
-            (off_data, off_data_bytes),
-        ) = (
-            crate::parser::FormatSignature::parse(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-        );
+        use crate::parser::records::{read_field, read_with};
 
-        if off_data % 4 != 0 {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "off_data field in EmrFormat must be 32-bit aligned, but \
-                     parsed value is {off_data:#010X}"
-                ),
-            });
-        }
+        let mut consumed_bytes: usize = 0;
+        let signature = read_with(
+            buf,
+            &mut consumed_bytes,
+            crate::parser::FormatSignature::parse,
+        )?;
+        let version = read_field(buf, &mut consumed_bytes)?;
+        let size_data = read_field(buf, &mut consumed_bytes)?;
+        let off_data = read_field(buf, &mut consumed_bytes)?;
 
-        Ok((
-            Self { signature, version, size_data, off_data },
-            signature_bytes + version_bytes + size_data_bytes + off_data_bytes,
-        ))
+        // 32-bit alignment: off_data MUST be a multiple of 4. Encode as
+        // an `expect_eq("... % 4", x, 0)` so the diagnostic format is
+        // consistent with other field-validation errors.
+        crate::parser::ParseError::expect_eq(
+            "off_data (alignment, mod 4)",
+            off_data % 4,
+            0_u32,
+        )?;
+
+        Ok((Self { signature, version, size_data, off_data }, consumed_bytes))
     }
 }

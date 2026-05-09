@@ -32,7 +32,7 @@ impl EMR_INVERTRGN {
     #[cfg_attr(feature = "tracing", tracing::instrument(
         level = tracing::Level::TRACE,
         skip_all,
-        fields(record_type = %format!("{record_type:?}")),
+        fields(record_type = ?record_type),
         err(level = tracing::Level::ERROR, Display),
     ))]
     pub fn parse<R: crate::Read>(
@@ -40,40 +40,39 @@ impl EMR_INVERTRGN {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_INVERTRGN {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_INVERTRGN as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{
+            check_total_points, consume_remaining_bytes, read_field, read_with,
+        };
 
-        let ((bounds, bounds_bytes), (rgn_data_size, rgn_data_size_bytes)) = (
-            wmf_core::parser::RectL::parse(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-        );
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_INVERTRGN as u32,
+        )?;
 
-        size.consume(bounds_bytes + rgn_data_size_bytes);
+        let bounds = read_with(buf, &mut size, wmf_core::parser::RectL::parse)?;
+        let rgn_data_size: u32 = read_field(buf, &mut size)?;
+
+        // Cap `rgn_data_size` so a crafted u32::MAX cannot drive the
+        // loop to exhaustion. Pre-allocating is intentionally skipped
+        // because a single `RegionData` owns a nested `Vec<RectL>`.
+        check_total_points(rgn_data_size)?;
 
         let rgn_data = {
             let mut entries = vec![];
 
             for _ in 0..rgn_data_size {
-                let (v, b) = crate::parser::RegionData::parse(buf)?;
-
-                entries.push(v);
-                size.consume(b);
+                entries.push(read_with(
+                    buf,
+                    &mut size,
+                    crate::parser::RegionData::parse,
+                )?);
             }
 
             entries
         };
 
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
-        )?;
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self { record_type, size, bounds, rgn_data_size, rgn_data })
     }

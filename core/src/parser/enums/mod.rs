@@ -50,34 +50,53 @@ pub use self::{
     stretch_mode::*, stroke_variation::*, weight::*, x_height::*,
 };
 
+/// Generates `impl $T { pub fn parse<R: Read>(buf: &mut R) ->
+/// Result<(Self, usize), ParseError> }` for an enum that derives
+/// `strum::FromRepr` over a little-endian integer of the given type.
+///
+/// The body reads a `$raw`-typed value via `ReadLeField::read_le`,
+/// looks it up with `Self::from_repr`, and returns
+/// `ParseError::UnexpectedEnumValue` when the value is not a known
+/// variant. The selector arm (`u8` / `u16` / `u32` / `i32`) sets the
+/// hex width used in the error message so diagnostics match the
+/// wire-format byte size: `u8` -> `{:#04X}`, `u16` -> `{:#06X}`,
+/// `u32` and `i32` -> `{:#010X}`.
+///
+/// When the `tracing` feature is enabled, the generated `parse` is
+/// wrapped with `#[tracing::instrument]` at the TRACE level so per-
+/// record decode failures surface in the log stream.
+///
+/// Invoke as `impl_parser!(EnumType, u32);`. The `(_, ...)` arm is an
+/// internal dispatch detail and is not part of the public surface.
 #[rustfmt::skip]
 macro_rules! impl_parser {
     ($t:ident,u8) => {
-        $crate::parser::enums::impl_parser!(_, $t, u8, 1, 4);
+        $crate::parser::enums::impl_parser!(_, $t, u8, 4);
     };
     ($t:ident,u16) => {
-        $crate::parser::enums::impl_parser!(_, $t, u16, 2, 6);
+        $crate::parser::enums::impl_parser!(_, $t, u16, 6);
     };
     ($t:ident,u32) => {
-        $crate::parser::enums::impl_parser!(_, $t, u32, 4, 10);
+        $crate::parser::enums::impl_parser!(_, $t, u32, 10);
     };
     ($t:ident,i32) => {
-        $crate::parser::enums::impl_parser!(_, $t, i32, 4, 10);
+        $crate::parser::enums::impl_parser!(_, $t, i32, 10);
     };
-    (_, $t:ident, $raw:ty, $size:expr, $digits:expr) => {
-        paste::paste! {
-            impl $t {
-                #[cfg_attr(feature = "tracing", ::tracing::instrument(
-                    level = tracing::Level::TRACE,
-                    skip_all,
-                    err(level = tracing::Level::ERROR, Display),
-                ))]
-                pub fn parse<R: $crate::Read>(
-                    buf: &mut R,
-                ) -> Result<(Self, usize), $crate::parser::ParseError> {
-                    let (value, consumed_bytes) = crate::parser::[<read_ $raw _from_le_bytes>](buf)?;
-                    let Some(v)  = Self::from_repr(value) else {
-                        return Err($crate::parser::ParseError::UnexpectedEnumValue {
+    (_, $t:ident, $raw:ty, $digits:expr) => {
+        impl $t {
+            #[cfg_attr(feature = "tracing", ::tracing::instrument(
+                level = tracing::Level::TRACE,
+                skip_all,
+                err(level = tracing::Level::ERROR, Display),
+            ))]
+            pub fn parse<R: $crate::Read>(
+                buf: &mut R,
+            ) -> Result<(Self, usize), $crate::parser::ParseError> {
+                let (value, consumed_bytes) =
+                    <$raw as $crate::parser::ReadLeField>::read_le(buf)?;
+                let Some(v) = Self::from_repr(value) else {
+                    return Err(
+                        $crate::parser::ParseError::UnexpectedEnumValue {
                             cause: ::alloc::format!(
                                 ::core::concat!(
                                     "unexpected value as ",
@@ -85,15 +104,90 @@ macro_rules! impl_parser {
                                     ": {:#0", $digits, "X}",
                                 ),
                                 value
-                            ),
-                        });
-                    };
+                            )
+                            .into(),
+                        },
+                    );
+                };
 
-                    Ok((v, consumed_bytes))
-                }
+                Ok((v, consumed_bytes))
             }
         }
     };
 }
 
 use impl_parser;
+
+/// Generates the standard inherent API and `Debug` impl for a
+/// `#[repr(transparent)]` flags wrapper struct (`$flags($raw)`) that
+/// stores an OR-combination of variants drawn from `$enum`.
+///
+/// The generated impl provides `empty` / `from_raw` / `raw` /
+/// `is_empty` / `contains` / `single` / `iter` plus a `Debug` impl
+/// that prints the set of variants whose bits are present. `contains`
+/// uses the `(raw & bit) == bit` check, so any variant whose
+/// discriminant is `0` is reported as present regardless of the
+/// stored bits; document this caveat on the wrapper struct when it
+/// applies (see `PenStyleFlags`).
+///
+/// The wrapped enum must derive `strum::FromRepr` and
+/// `strum::EnumIter`, and every variant's discriminant must fit in
+/// `$raw` (the macro casts via `as $raw`).
+///
+/// Invoke as `impl_flags!(FlagsType, EnumType, u32);`.
+macro_rules! impl_flags {
+    ($flags:ident, $enum:ident, $raw:ty) => {
+        impl $flags {
+            pub const fn empty() -> Self {
+                Self(0)
+            }
+
+            pub const fn from_raw(raw: $raw) -> Self {
+                Self(raw)
+            }
+
+            pub const fn raw(self) -> $raw {
+                self.0
+            }
+
+            pub const fn is_empty(self) -> bool {
+                self.0 == 0
+            }
+
+            /// Returns true when every bit of `flag` is set in `self`.
+            pub const fn contains(self, flag: $enum) -> bool {
+                let bit = flag as $raw;
+                (self.0 & bit) == bit
+            }
+
+            /// Constructs a flags value with only `flag`'s bits set.
+            pub const fn single(flag: $enum) -> Self {
+                Self(flag as $raw)
+            }
+
+            /// Iterates over the variants whose bits are set in `self`.
+            /// Iteration order follows `strum::EnumIter`, which mirrors
+            /// declaration order on the enum.
+            pub fn iter(self) -> impl Iterator<Item = $enum> {
+                use strum::IntoEnumIterator;
+
+                let raw = self.0;
+                $enum::iter().filter(move |v| {
+                    let bit = *v as $raw;
+                    (raw & bit) == bit
+                })
+            }
+        }
+
+        impl ::core::fmt::Debug for $flags {
+            fn fmt(
+                &self,
+                f: &mut ::core::fmt::Formatter<'_>,
+            ) -> ::core::fmt::Result {
+                f.debug_set().entries(self.iter()).finish()
+            }
+        }
+    };
+}
+
+use impl_flags;

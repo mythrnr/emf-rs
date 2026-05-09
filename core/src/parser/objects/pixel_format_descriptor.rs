@@ -104,71 +104,45 @@ impl PixelFormatDescriptor {
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        let ((n_size, n_size_bytes), (n_version, n_version_bytes)) = (
-            crate::parser::read_u16_from_le_bytes(buf)?,
-            crate::parser::read_u16_from_le_bytes(buf)?,
-        );
+        use crate::parser::records::{read_array_field, read_field, read_with};
 
-        if n_version != 0x0001 {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "n_version field in PixelFormatDescriptor must be \
-                     `0x0001`, but parsed value is {n_version:#06X}"
-                ),
-            });
-        }
+        let mut consumed_bytes: usize = 0;
+        let n_size = read_field(buf, &mut consumed_bytes)?;
+        let n_version = read_field(buf, &mut consumed_bytes)?;
 
-        let (
-            (dw_flags, dw_flags_bytes),
-            (i_pixel_type, i_pixel_type_bytes),
-            (c_color_bits, c_color_bits_bytes),
-            (c_red_bits, c_red_bits_bytes),
-            (c_red_shift, c_red_shift_bytes),
-            (c_green_bits, c_green_bits_bytes),
-            (c_green_shift, c_green_shift_bytes),
-            (c_blue_bits, c_blue_bits_bytes),
-            (c_blue_shift, c_blue_shift_bytes),
-            (c_alpha_bits, c_alpha_bits_bytes),
-            (c_alpha_shift, c_alpha_shift_bytes),
-            (c_accum_bits, c_accum_bits_bytes),
-            (c_accum_red_bits, c_accum_red_bits_bytes),
-            (c_accum_green_bits, c_accum_green_bits_bytes),
-            (c_accum_blue_bits, c_accum_blue_bits_bytes),
-            (c_accum_alpha_bits, c_accum_alpha_bits_bytes),
-            (c_depth_bits, c_depth_bits_bytes),
-            (c_stencil_bits, c_stencil_bits_bytes),
-            (c_aux_buffers, c_aux_buffers_bytes),
-            (i_layer_type, i_layer_type_bytes),
-            (b_reserved, b_reserved_bytes),
-            (dw_layer_mask, dw_layer_mask_bytes),
-            (dw_visible_mask, dw_visible_mask_bytes),
-            (dw_damage_mask, dw_damage_mask_bytes),
-        ) = (
-            DwFlags::parse(buf)?,
-            crate::parser::read_u8_from_le_bytes(buf)?,
-            crate::parser::read_u8_from_le_bytes(buf)?,
-            crate::parser::read_u8_from_le_bytes(buf)?,
-            crate::parser::read_u8_from_le_bytes(buf)?,
-            crate::parser::read_u8_from_le_bytes(buf)?,
-            crate::parser::read_u8_from_le_bytes(buf)?,
-            crate::parser::read_u8_from_le_bytes(buf)?,
-            crate::parser::read_u8_from_le_bytes(buf)?,
-            crate::parser::read_u8_from_le_bytes(buf)?,
-            crate::parser::read_u8_from_le_bytes(buf)?,
-            crate::parser::read_u8_from_le_bytes(buf)?,
-            crate::parser::read_u8_from_le_bytes(buf)?,
-            crate::parser::read_u8_from_le_bytes(buf)?,
-            crate::parser::read_u8_from_le_bytes(buf)?,
-            crate::parser::read_u8_from_le_bytes(buf)?,
-            crate::parser::read_u8_from_le_bytes(buf)?,
-            crate::parser::read_u8_from_le_bytes(buf)?,
-            crate::parser::read_u8_from_le_bytes(buf)?,
-            crate::parser::read_u8_from_le_bytes(buf)?,
-            crate::parser::read_u8_from_le_bytes(buf)?,
-            crate::parser::read::<_, 4>(buf)?,
-            crate::parser::read::<_, 4>(buf)?,
-            crate::parser::read::<_, 4>(buf)?,
-        );
+        crate::parser::ParseError::expect_eq(
+            "n_version (PixelFormatDescriptor)",
+            n_version,
+            0x0001_u16,
+        )?;
+
+        let dw_flags = read_with(buf, &mut consumed_bytes, DwFlags::parse)?;
+        let i_pixel_type = read_field(buf, &mut consumed_bytes)?;
+        let c_color_bits = read_field(buf, &mut consumed_bytes)?;
+        let c_red_bits = read_field(buf, &mut consumed_bytes)?;
+        let c_red_shift = read_field(buf, &mut consumed_bytes)?;
+        let c_green_bits = read_field(buf, &mut consumed_bytes)?;
+        let c_green_shift = read_field(buf, &mut consumed_bytes)?;
+        let c_blue_bits = read_field(buf, &mut consumed_bytes)?;
+        let c_blue_shift = read_field(buf, &mut consumed_bytes)?;
+        let c_alpha_bits = read_field(buf, &mut consumed_bytes)?;
+        let c_alpha_shift = read_field(buf, &mut consumed_bytes)?;
+        let c_accum_bits = read_field(buf, &mut consumed_bytes)?;
+        let c_accum_red_bits = read_field(buf, &mut consumed_bytes)?;
+        let c_accum_green_bits = read_field(buf, &mut consumed_bytes)?;
+        let c_accum_blue_bits = read_field(buf, &mut consumed_bytes)?;
+        let c_accum_alpha_bits = read_field(buf, &mut consumed_bytes)?;
+        let c_depth_bits = read_field(buf, &mut consumed_bytes)?;
+        let c_stencil_bits = read_field(buf, &mut consumed_bytes)?;
+        let c_aux_buffers = read_field(buf, &mut consumed_bytes)?;
+        let i_layer_type = read_field(buf, &mut consumed_bytes)?;
+        let b_reserved = read_field(buf, &mut consumed_bytes)?;
+        let dw_layer_mask: [u8; 4] =
+            read_array_field(buf, &mut consumed_bytes)?;
+        let dw_visible_mask: [u8; 4] =
+            read_array_field(buf, &mut consumed_bytes)?;
+        let dw_damage_mask: [u8; 4] =
+            read_array_field(buf, &mut consumed_bytes)?;
 
         Ok((
             Self {
@@ -199,32 +173,7 @@ impl PixelFormatDescriptor {
                 dw_visible_mask,
                 dw_damage_mask,
             },
-            n_size_bytes
-                + n_version_bytes
-                + dw_flags_bytes
-                + i_pixel_type_bytes
-                + c_color_bits_bytes
-                + c_red_bits_bytes
-                + c_red_shift_bytes
-                + c_green_bits_bytes
-                + c_green_shift_bytes
-                + c_blue_bits_bytes
-                + c_blue_shift_bytes
-                + c_alpha_bits_bytes
-                + c_alpha_shift_bytes
-                + c_accum_bits_bytes
-                + c_accum_red_bits_bytes
-                + c_accum_green_bits_bytes
-                + c_accum_blue_bits_bytes
-                + c_accum_alpha_bits_bytes
-                + c_depth_bits_bytes
-                + c_stencil_bits_bytes
-                + c_aux_buffers_bytes
-                + i_layer_type_bytes
-                + b_reserved_bytes
-                + dw_layer_mask_bytes
-                + dw_visible_mask_bytes
-                + dw_damage_mask_bytes,
+            consumed_bytes,
         ))
     }
 }
@@ -278,7 +227,7 @@ pub struct DwFlags {
     /// 2000, Windows Millennium Edition, Windows XP, and Windows Server 2003
     /// do not support this flag.
     pub PFD_SUPPORT_COMPOSITION: bool,
-    /// The pixel buffer supports Direct3D drawing, which accellerated
+    /// The pixel buffer supports Direct3D drawing, which accelerated
     /// rendering in three dimensions.
     pub PFD_DIRECT3D_ACCELERATED: bool,
     /// The pixel buffer supports DirectDraw drawing, which allows applications
@@ -323,7 +272,7 @@ impl DwFlags {
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        let (v, bytes) = crate::parser::read_u32_from_le_bytes(buf)?;
+        let (v, bytes) = <u32 as crate::parser::ReadLeField>::read_le(buf)?;
 
         Ok((
             Self {

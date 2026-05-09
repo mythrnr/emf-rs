@@ -24,7 +24,7 @@ impl EMR_SETLINKEDUFIS {
     #[cfg_attr(feature = "tracing", tracing::instrument(
         level = tracing::Level::TRACE,
         skip_all,
-        fields(record_type = %format!("{record_type:?}")),
+        fields(record_type = ?record_type),
         err(level = tracing::Level::ERROR, Display),
     ))]
     pub fn parse<R: crate::Read>(
@@ -32,42 +32,41 @@ impl EMR_SETLINKEDUFIS {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_SETLINKEDUFIS {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_SETLINKEDUFIS as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{
+            check_total_points, consume_remaining_bytes, read_array_field,
+            read_field, read_with,
+        };
 
-        let (u_num_linked_ufi, u_num_linked_ufi_bytes) =
-            crate::parser::read_u32_from_le_bytes(buf)?;
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_SETLINKEDUFIS as u32,
+        )?;
 
-        size.consume(u_num_linked_ufi_bytes);
+        let u_num_linked_ufi: u32 = read_field(buf, &mut size)?;
+
+        // `u_num_linked_ufi` is unbounded in the spec; cap it at the
+        // same 16 Mi ceiling used for polygon points before it drives
+        // `Vec::with_capacity`.
+        check_total_points(u_num_linked_ufi)?;
 
         let ufis = {
-            let mut entries = vec![];
+            let mut entries = Vec::with_capacity(u_num_linked_ufi as usize);
 
             for _ in 0..u_num_linked_ufi {
-                let (v, b) = crate::parser::UniversalFontId::parse(buf)?;
-
-                entries.push(v);
-                size.consume(b);
+                entries.push(read_with(
+                    buf,
+                    &mut size,
+                    crate::parser::UniversalFontId::parse,
+                )?);
             }
 
             entries
         };
 
-        let (reserved, reserved_bytes) = crate::parser::read::<_, 8>(buf)?;
+        let reserved: [u8; 8] = read_array_field(buf, &mut size)?;
 
-        size.consume(reserved_bytes);
-
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
-        )?;
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self { record_type, size, u_num_linked_ufi, ufis, reserved })
     }

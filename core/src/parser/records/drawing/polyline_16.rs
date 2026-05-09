@@ -25,7 +25,7 @@ impl EMR_POLYLINE16 {
     #[cfg_attr(feature = "tracing", tracing::instrument(
         level = tracing::Level::TRACE,
         skip_all,
-        fields(record_type = %format!("{record_type:?}")),
+        fields(record_type = ?record_type),
         err(level = tracing::Level::ERROR, Display),
     ))]
     pub fn parse<R: crate::Read>(
@@ -33,40 +33,36 @@ impl EMR_POLYLINE16 {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_POLYLINE16 {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_POLYLINE16 as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{
+            check_total_points, consume_remaining_bytes, read_field, read_with,
+        };
 
-        let ((bounds, bounds_bytes), (count, count_bytes)) = (
-            wmf_core::parser::RectL::parse(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-        );
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_POLYLINE16 as u32,
+        )?;
 
-        size.consume(bounds_bytes + count_bytes);
+        let bounds = read_with(buf, &mut size, wmf_core::parser::RectL::parse)?;
+        let count = read_field(buf, &mut size)?;
+
+        check_total_points(count)?;
 
         let a_points = {
-            let mut entries = vec![];
+            let mut entries = Vec::with_capacity(count as usize);
 
             for _ in 0..count {
-                let (v, b) = wmf_core::parser::PointS::parse(buf)?;
-
-                entries.push(v);
-                size.consume(b);
+                entries.push(read_with(
+                    buf,
+                    &mut size,
+                    wmf_core::parser::PointS::parse,
+                )?);
             }
 
             entries
         };
 
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
-        )?;
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self { record_type, size, bounds, count, a_points })
     }

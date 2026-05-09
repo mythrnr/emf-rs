@@ -30,19 +30,16 @@ impl HeaderExtension1 {
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<(Self, usize), crate::parser::ParseError> {
-        let (
-            (cb_pixel_format, cb_pixel_format_bytes),
-            (off_pixel_format, off_pixel_format_bytes),
-            (b_open_gl, b_open_gl_bytes),
-        ) = (
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-        );
+        use crate::parser::records::read_field;
+
+        let mut consumed_bytes: usize = 0;
+        let cb_pixel_format = read_field(buf, &mut consumed_bytes)?;
+        let off_pixel_format = read_field(buf, &mut consumed_bytes)?;
+        let b_open_gl = read_field(buf, &mut consumed_bytes)?;
 
         Ok((
             Self { cb_pixel_format, off_pixel_format, b_open_gl },
-            cb_pixel_format_bytes + off_pixel_format_bytes + b_open_gl_bytes,
+            consumed_bytes,
         ))
     }
 }

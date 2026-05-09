@@ -29,34 +29,39 @@ impl EMR_HEADER {
     pub fn parse<R: crate::Read>(
         buf: &mut R,
     ) -> Result<Self, crate::parser::ParseError> {
-        let ((record_type, record_type_bytes), (size, size_bytes)) = (
-            crate::parser::RecordType::parse(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-        );
+        use crate::parser::records::{
+            consume_remaining_bytes, read_field, read_with,
+        };
 
-        let mut size = crate::parser::Size::from(size);
-        size.consume(record_type_bytes + size_bytes);
+        // The frame size is reconstructed from the inline `Type` and `Size`
+        // fields here; downstream readers receive the resulting `Size`
+        // already advanced past those two fields.
+        let mut header_bytes: usize = 0;
+        let record_type = read_with(
+            buf,
+            &mut header_bytes,
+            crate::parser::RecordType::parse,
+        )?;
+        let size_value = read_field(buf, &mut header_bytes)?;
 
-        if record_type != crate::parser::RecordType::EMR_HEADER {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_HEADER as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_HEADER as u32,
+        )?;
 
-        let (emf_header, emf_header_bytes) = crate::parser::Header::parse(buf)?;
-        size.consume(emf_header_bytes);
+        // Validate the raw size up front so downstream `byte_count()`
+        // consumers cannot be steered into oversized allocations.
+        let mut size = crate::parser::Size::parse(size_value)?;
+        size.consume(header_bytes);
+
+        let emf_header =
+            read_with(buf, &mut size, crate::parser::Header::parse)?;
 
         let (emf_header_record_buffer, size) =
             EmfHeaderRecordBuffer::parse(buf, &emf_header, size)?;
 
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
-        )?;
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self { record_type, size, emf_header, emf_header_record_buffer })
     }
@@ -126,6 +131,8 @@ impl EmfHeaderRecordBuffer {
         mut size: crate::parser::Size,
     ) -> Result<(Option<Self>, crate::parser::Size), crate::parser::ParseError>
     {
+        use crate::parser::records::read_with;
+
         // Valid header record size?
         if size.byte_count() < 88 {
             return Ok((None, size));
@@ -149,9 +156,8 @@ impl EmfHeaderRecordBuffer {
             return Self::parse_as_emf_file_header(buf, emf_header, size);
         }
 
-        let (emf_header_extension_1, emf_header_extension_1_bytes) =
-            crate::parser::HeaderExtension1::parse(buf)?;
-        size.consume(emf_header_extension_1_bytes);
+        let emf_header_extension_1 =
+            read_with(buf, &mut size, crate::parser::HeaderExtension1::parse)?;
 
         // Valid pixel format values?
         if emf_header_extension_1.off_pixel_format < 100
@@ -204,6 +210,8 @@ impl EmfHeaderRecordBuffer {
         mut size: crate::parser::Size,
     ) -> Result<(Option<Self>, crate::parser::Size), crate::parser::ParseError>
     {
+        use crate::parser::records::read_bytes_field;
+
         let description_exists =
             emf_header.off_description != 0 && emf_header.n_description > 0;
 
@@ -214,18 +222,13 @@ impl EmfHeaderRecordBuffer {
             ));
         }
 
-        let ((_, undefined_bytes), (b, description_bytes)) = (
-            crate::parser::read_variable(
-                buf,
-                size.checked_offset(emf_header.off_description)?,
-            )?,
-            crate::parser::read_variable(
-                buf,
-                (emf_header.n_description * 2) as usize,
-            )?,
-        );
-
-        size.consume(undefined_bytes + description_bytes);
+        let undef_offset = size.checked_offset(emf_header.off_description)?;
+        let _ = read_bytes_field(buf, &mut size, undef_offset)?;
+        let b = read_bytes_field(
+            buf,
+            &mut size,
+            (emf_header.n_description * 2) as usize,
+        )?;
 
         let emf_description = Some(crate::parser::utf16le_bytes_to_string(&b)?);
 
@@ -239,22 +242,20 @@ impl EmfHeaderRecordBuffer {
         mut size: crate::parser::Size,
     ) -> Result<(Option<Self>, crate::parser::Size), crate::parser::ParseError>
     {
+        use crate::parser::records::{read_bytes_field, read_with};
+
         let description_exists =
             emf_header.off_description != 0 && emf_header.n_description > 0;
 
         let emf_description = if description_exists {
-            let ((_, undefined_bytes), (b, description_bytes)) = (
-                crate::parser::read_variable(
-                    buf,
-                    size.checked_offset(emf_header.off_description)?,
-                )?,
-                crate::parser::read_variable(
-                    buf,
-                    (emf_header.n_description * 2) as usize,
-                )?,
-            );
-
-            size.consume(undefined_bytes + description_bytes);
+            let undef_offset =
+                size.checked_offset(emf_header.off_description)?;
+            let _ = read_bytes_field(buf, &mut size, undef_offset)?;
+            let b = read_bytes_field(
+                buf,
+                &mut size,
+                (emf_header.n_description as usize) * 2,
+            )?;
 
             Some(crate::parser::utf16le_bytes_to_string(&b)?)
         } else {
@@ -265,17 +266,14 @@ impl EmfHeaderRecordBuffer {
             && emf_header_extension_1.off_pixel_format > 0;
 
         let emf_pixel_format = if pixel_format_exists {
-            let ((_, undefined_bytes), (pixel_format, pixel_format_bytes)) = (
-                crate::parser::read_variable(
-                    buf,
-                    size.checked_offset(
-                        emf_header_extension_1.off_pixel_format,
-                    )?,
-                )?,
-                crate::parser::PixelFormatDescriptor::parse(buf)?,
-            );
-
-            size.consume(undefined_bytes + pixel_format_bytes);
+            let undef_offset =
+                size.checked_offset(emf_header_extension_1.off_pixel_format)?;
+            let _ = read_bytes_field(buf, &mut size, undef_offset)?;
+            let pixel_format = read_with(
+                buf,
+                &mut size,
+                crate::parser::PixelFormatDescriptor::parse,
+            )?;
 
             Some(pixel_format)
         } else {
@@ -299,26 +297,23 @@ impl EmfHeaderRecordBuffer {
         mut size: crate::parser::Size,
     ) -> Result<(Option<Self>, crate::parser::Size), crate::parser::ParseError>
     {
-        let (emf_header_extension_2, emf_header_extension_2_bytes) =
-            crate::parser::HeaderExtension2::parse(buf)?;
-        size.consume(emf_header_extension_2_bytes);
+        use crate::parser::records::{read_bytes_field, read_with};
+
+        let emf_header_extension_2 =
+            read_with(buf, &mut size, crate::parser::HeaderExtension2::parse)?;
 
         let description_exists =
             emf_header.off_description != 0 && emf_header.n_description > 0;
 
         let emf_description = if description_exists {
-            let ((_, undefined_bytes), (b, description_bytes)) = (
-                crate::parser::read_variable(
-                    buf,
-                    size.checked_offset(emf_header.off_description)?,
-                )?,
-                crate::parser::read_variable(
-                    buf,
-                    (emf_header.n_description * 2) as usize,
-                )?,
-            );
-
-            size.consume(undefined_bytes + description_bytes);
+            let undef_offset =
+                size.checked_offset(emf_header.off_description)?;
+            let _ = read_bytes_field(buf, &mut size, undef_offset)?;
+            let b = read_bytes_field(
+                buf,
+                &mut size,
+                (emf_header.n_description as usize) * 2,
+            )?;
 
             Some(crate::parser::utf16le_bytes_to_string(&b)?)
         } else {
@@ -329,17 +324,14 @@ impl EmfHeaderRecordBuffer {
             && emf_header_extension_1.off_pixel_format > 0;
 
         let emf_pixel_format = if pixel_format_exists {
-            let ((_, undefined_bytes), (pixel_format, pixel_format_bytes)) = (
-                crate::parser::read_variable(
-                    buf,
-                    size.checked_offset(
-                        emf_header_extension_1.off_pixel_format,
-                    )?,
-                )?,
-                crate::parser::PixelFormatDescriptor::parse(buf)?,
-            );
-
-            size.consume(undefined_bytes + pixel_format_bytes);
+            let undef_offset =
+                size.checked_offset(emf_header_extension_1.off_pixel_format)?;
+            let _ = read_bytes_field(buf, &mut size, undef_offset)?;
+            let pixel_format = read_with(
+                buf,
+                &mut size,
+                crate::parser::PixelFormatDescriptor::parse,
+            )?;
 
             Some(pixel_format)
         } else {

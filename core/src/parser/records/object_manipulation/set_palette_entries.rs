@@ -28,7 +28,7 @@ impl EMR_SETPALETTEENTRIES {
     #[cfg_attr(feature = "tracing", tracing::instrument(
         level = tracing::Level::TRACE,
         skip_all,
-        fields(record_type = %format!("{record_type:?}")),
+        fields(record_type = ?record_type),
         err(level = tracing::Level::ERROR, Display),
     ))]
     pub fn parse<R: crate::Read>(
@@ -36,45 +36,40 @@ impl EMR_SETPALETTEENTRIES {
         record_type: crate::parser::RecordType,
         mut size: crate::parser::Size,
     ) -> Result<Self, crate::parser::ParseError> {
-        if record_type != crate::parser::RecordType::EMR_SETPALETTEENTRIES {
-            return Err(crate::parser::ParseError::UnexpectedPattern {
-                cause: format!(
-                    "record_type must be `{:#010X}`, but specified `{:#010X}`",
-                    crate::parser::RecordType::EMR_SETPALETTEENTRIES as u32,
-                    record_type as u32
-                ),
-            });
-        }
+        use crate::parser::records::{
+            check_total_points, consume_remaining_bytes, read_field, read_with,
+        };
 
-        let (
-            (ih_pal, ih_pal_bytes),
-            (start, start_bytes),
-            (number_of_entries, number_of_entries_bytes),
-        ) = (
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-            crate::parser::read_u32_from_le_bytes(buf)?,
-        );
+        crate::parser::ParseError::expect_eq(
+            "record_type",
+            record_type as u32,
+            crate::parser::RecordType::EMR_SETPALETTEENTRIES as u32,
+        )?;
 
-        size.consume(ih_pal_bytes + start_bytes + number_of_entries_bytes);
+        let ih_pal = read_field(buf, &mut size)?;
+        let start = read_field(buf, &mut size)?;
+        let number_of_entries: u32 = read_field(buf, &mut size)?;
+
+        // `number_of_entries` is unbounded in the spec; reject
+        // crafted values past the same 16 Mi ceiling used for
+        // polygon points before they drive `Vec::with_capacity`.
+        check_total_points(number_of_entries)?;
 
         let a_pal_entries = {
-            let mut entries = vec![];
+            let mut entries = Vec::with_capacity(number_of_entries as usize);
 
             for _ in 0..number_of_entries {
-                let (v, b) = crate::parser::LogPaletteEntry::parse(buf)?;
-
-                entries.push(v);
-                size.consume(b);
+                entries.push(read_with(
+                    buf,
+                    &mut size,
+                    crate::parser::LogPaletteEntry::parse,
+                )?);
             }
 
             entries
         };
 
-        crate::parser::records::consume_remaining_bytes(
-            buf,
-            size.remaining_bytes(),
-        )?;
+        consume_remaining_bytes(buf, size.remaining_bytes())?;
 
         Ok(Self {
             record_type,
