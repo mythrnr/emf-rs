@@ -14,7 +14,7 @@ emf-rs/
   cli/                # emf-cli: CLI tool (example usage of emf-core)
   wasm/               # emf-wasm: WASM bindings (no_std, wasm-bindgen)
   docker/             # Development Docker environment
-  wasm/dist/          # wasm-pack build artifacts
+  wasm/dist/          # wasm-pack build outputs (gitignored; only index.html is tracked)
 ```
 
 ### emf-core (Main Library)
@@ -83,7 +83,11 @@ Converts parsed records into an output format.
   - `convertEmf2Svg(buf: &[u8]) -> Result<String, JsValue>` — EMF to SVG conversion
   - `setLogLevel(level: &str)` — Set log level (functional only when the `tracing` feature is enabled)
 - Uses `console_error_panic_hook` for better panic messages in the browser.
-- Pre-built artifacts in `wasm/dist/`
+- Build artifacts land in `wasm/dist/` (full build) and `wasm/dist-minimal/`
+  (no-tracing build); both directories are gitignored. Released versions are
+  published as `emf-wasm-<tag>.tar.gz` and `emf-wasm-minimal-<tag>.tar.gz`
+  assets on GitHub Releases via `.github/workflows/release.yaml` when a
+  SemVer tag is pushed.
 
 ## Development Environment
 
@@ -117,8 +121,9 @@ make install-tools
 | `make lint` | `cargo clippy --workspace --all-targets --all-features -- --no-deps -D warnings` |
 | `make udeps` | `cargo machete` && `cargo +nightly udeps --all-targets` |
 | `make spell-check` | Run cSpell via Docker |
-| `make ci-suite` | Run all of the above: `spell-check fix fmt lint udeps test` |
-| `make wasm` | `wasm-pack build --out-dir dist --target web` |
+| `make ci-suite` | Run all of the above: `spell-check fix fmt lint udeps wasm wasm-minimal test` |
+| `make wasm` | `wasm-pack build --out-dir dist --release --target web` (default features) |
+| `make wasm-minimal` | Same as `make wasm` but with `--no-default-features --features console_error_panic_hook`; output goes to `wasm/dist-minimal/`. Drops `tracing-wasm` for a smaller bundle. |
 | `make serve` | Start WASM demo at `localhost:8080` |
 
 ### CI (GitHub Actions)

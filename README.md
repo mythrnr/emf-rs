@@ -167,6 +167,17 @@ make serve
 # Open http://localhost:8080
 ```
 
+Pre-built artifacts (`emf_wasm_bg.wasm`, `emf_wasm.js`, `emf_wasm.d.ts`) are
+attached to each release on the
+[GitHub Releases](https://github.com/mythrnr/emf-rs/releases) page in two
+variants:
+
+- `emf-wasm-<version>.tar.gz` — full build with `tracing` enabled; pair with
+  `setLogLevel` for browser-console logging.
+- `emf-wasm-minimal-<version>.tar.gz` — built without the `tracing` feature.
+  `setLogLevel` becomes a no-op, but the bundle is noticeably smaller because
+  the `tracing-wasm` dependency is dropped entirely.
+
 #### WASM API
 
 - `convertEmf2Svg(buf: Uint8Array): string` - Converts EMF binary data to an SVG string. Falls back to WMF parsing automatically when the input is a WMF file.
