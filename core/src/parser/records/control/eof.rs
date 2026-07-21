@@ -85,7 +85,20 @@ impl EMR_EOF {
             vec![]
         };
 
-        let size_last = read_field(buf, &mut size)?;
+        // Some producers omit SizeLast when the EOF record has no palette and
+        // emit a 16-byte record. Treat the declared record size as SizeLast in
+        // that narrow case so otherwise usable metafiles can still be played.
+        let size_last = if size.remaining_bytes() == 0
+            && n_pal_entries == 0
+            && off_pal_entries == 0
+        {
+            warn!(
+                "EMR_EOF SizeLast is missing; using the declared record size"
+            );
+            u32::from(size)
+        } else {
+            read_field(buf, &mut size)?
+        };
 
         // if size.byte_count() as u32 != size_last {
         //     warn!(
