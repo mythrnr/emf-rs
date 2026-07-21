@@ -1,3 +1,4 @@
+mod emf_plus;
 mod node;
 mod util;
 
@@ -31,6 +32,7 @@ pub struct SVGPlayer {
     definitions: Vec<Node>,
     elements: Vec<Node>,
     emf_object_table: EmfObjectTable,
+    emf_plus: emf_plus::State,
     selected_emf_object: SelectedObject,
     path: Data,
     window: Window,
@@ -50,6 +52,7 @@ impl Default for SVGPlayer {
             definitions: vec![],
             elements: vec![],
             emf_object_table: EmfObjectTable::new(0),
+            emf_plus: emf_plus::State::default(),
             selected_emf_object: SelectedObject::default(),
             path: Data::new(),
             window: Window {
@@ -502,11 +505,38 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn comment(
-        self,
+        mut self,
         record_number: usize,
         record: EMR_COMMENT,
     ) -> Result<Self, PlayError> {
-        info!("EMR_COMMENT: not implemented");
+        let draws = self.emf_plus.play_comment(&record.private_data)?;
+        for draw in draws {
+            let image = Node::new("image")
+                .set("x", "0")
+                .set("y", "0")
+                .set("width", draw.image_width)
+                .set("height", draw.image_height)
+                .set("href", draw.href);
+            let viewport = Node::new("svg")
+                .set("x", draw.destination.x)
+                .set("y", draw.destination.y)
+                .set("width", draw.destination.width)
+                .set("height", draw.destination.height)
+                .set(
+                    "viewBox",
+                    format!(
+                        "{} {} {} {}",
+                        draw.source.x,
+                        draw.source.y,
+                        draw.source.width,
+                        draw.source.height,
+                    ),
+                )
+                .set("preserveAspectRatio", "none")
+                .add(image);
+            self.push_element(record_number, viewport);
+        }
+
         Ok(self)
     }
 

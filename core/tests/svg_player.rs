@@ -6,10 +6,10 @@
 #![allow(clippy::cast_sign_loss)]
 
 use emf_core::{
-    converter::{Player, SVGPlayer},
+    converter::{EMFConverter, Player, SVGPlayer},
     parser::{
-        EMR_BEGINPATH, EMR_ENDPATH, EMR_FILLPATH, EMR_HEADER, EMR_MOVETOEX,
-        EMR_POLYBEZIER, EMR_POLYBEZIERTO, EMR_POLYPOLYGON16,
+        EMR_BEGINPATH, EMR_COMMENT, EMR_ENDPATH, EMR_FILLPATH, EMR_HEADER,
+        EMR_MOVETOEX, EMR_POLYBEZIER, EMR_POLYBEZIERTO, EMR_POLYPOLYGON16,
         EMR_POLYPOLYLINE16, EMR_RECTANGLE, EMR_SETMAPMODE,
         EMR_SETVIEWPORTEXTEX, EMR_SETWINDOWEXTEX, FormatSignature, Header,
         MapMode, RecordType, Size,
@@ -43,6 +43,155 @@ fn build_header(width: i32, height: i32) -> EMR_HEADER {
 fn render(player: SVGPlayer) -> String {
     let bytes = player.generate().expect("SVG generation failed");
     String::from_utf8(bytes).expect("SVG output is not UTF-8")
+}
+
+fn emf_plus_record(record_type: u16, flags: u16, data: &[u8]) -> Vec<u8> {
+    let size = u32::try_from(12 + data.len()).expect("record should fit u32");
+    let data_size = u32::try_from(data.len()).expect("data should fit u32");
+    let mut record = Vec::with_capacity(size as usize);
+    record.extend_from_slice(&record_type.to_le_bytes());
+    record.extend_from_slice(&flags.to_le_bytes());
+    record.extend_from_slice(&size.to_le_bytes());
+    record.extend_from_slice(&data_size.to_le_bytes());
+    record.extend_from_slice(data);
+    record
+}
+
+fn synthetic_emf_plus_bitmap_data() -> Vec<u8> {
+    let mut data = b"EMF+".to_vec();
+
+    let mut header = Vec::new();
+    header.extend_from_slice(&0xDBC0_1002_u32.to_le_bytes());
+    header.extend_from_slice(&0_u32.to_le_bytes());
+    header.extend_from_slice(&96_u32.to_le_bytes());
+    header.extend_from_slice(&96_u32.to_le_bytes());
+    data.extend(emf_plus_record(0x4001, 0, &header));
+
+    let mut image = Vec::new();
+    image.extend_from_slice(&0xDBC0_1002_u32.to_le_bytes());
+    image.extend_from_slice(&1_u32.to_le_bytes());
+    image.extend_from_slice(&2_i32.to_le_bytes());
+    image.extend_from_slice(&1_i32.to_le_bytes());
+    image.extend_from_slice(&8_i32.to_le_bytes());
+    image.extend_from_slice(&0x0026_200A_u32.to_le_bytes());
+    image.extend_from_slice(&0_u32.to_le_bytes());
+    image.extend_from_slice(&[0, 0, 255, 255, 0, 255, 0, 255]);
+    data.extend(emf_plus_record(0x4008, 0x0501, &image));
+
+    let mut draw_image = Vec::new();
+    draw_image.extend_from_slice(&u32::MAX.to_le_bytes());
+    draw_image.extend_from_slice(&2_u32.to_le_bytes());
+    for value in [0.0_f32, 0.0, 2.0, 1.0, 10.0, 20.0, 40.0, 20.0] {
+        draw_image.extend_from_slice(&value.to_le_bytes());
+    }
+    data.extend(emf_plus_record(0x401A, 0x0001, &draw_image));
+    data.extend(emf_plus_record(0x4002, 0, &[]));
+
+    data
+}
+
+fn synthetic_emf_plus_bitmap_comment() -> EMR_COMMENT {
+    let data = synthetic_emf_plus_bitmap_data();
+
+    let size = u32::try_from(data.len() + 12).expect("record should fit u32");
+    EMR_COMMENT {
+        record_type: RecordType::EMR_COMMENT,
+        size: Size::from(size),
+        data_size: u32::try_from(data.len()).expect("comment should fit u32"),
+        private_data: data,
+    }
+}
+
+fn synthetic_emf_plus_bitmap_emf() -> Vec<u8> {
+    let mut header = Vec::new();
+    header.extend_from_slice(&(RecordType::EMR_HEADER as u32).to_le_bytes());
+    header.extend_from_slice(&88_u32.to_le_bytes());
+    for value in [0_i32, 0, 100, 100, 0, 0, 100, 100] {
+        header.extend_from_slice(&value.to_le_bytes());
+    }
+    header.extend_from_slice(
+        &(FormatSignature::ENHMETA_SIGNATURE as u32).to_le_bytes(),
+    );
+    header.extend_from_slice(&0x0001_0000_u32.to_le_bytes());
+    header.extend_from_slice(&0_u32.to_le_bytes());
+    header.extend_from_slice(&3_u32.to_le_bytes());
+    header.extend_from_slice(&1_u16.to_le_bytes());
+    header.extend_from_slice(&0_u16.to_le_bytes());
+    header.extend_from_slice(&0_u32.to_le_bytes());
+    header.extend_from_slice(&0_u32.to_le_bytes());
+    header.extend_from_slice(&0_u32.to_le_bytes());
+    for value in [100_u32, 100, 100, 100] {
+        header.extend_from_slice(&value.to_le_bytes());
+    }
+    assert_eq!(header.len(), 88);
+
+    let private_data = synthetic_emf_plus_bitmap_data();
+    let mut comment = Vec::new();
+    comment.extend_from_slice(&(RecordType::EMR_COMMENT as u32).to_le_bytes());
+    comment.extend_from_slice(
+        &u32::try_from(private_data.len() + 12)
+            .expect("comment should fit u32")
+            .to_le_bytes(),
+    );
+    comment.extend_from_slice(
+        &u32::try_from(private_data.len())
+            .expect("comment should fit u32")
+            .to_le_bytes(),
+    );
+    comment.extend_from_slice(&private_data);
+
+    let mut eof = Vec::new();
+    eof.extend_from_slice(&(RecordType::EMR_EOF as u32).to_le_bytes());
+    eof.extend_from_slice(&16_u32.to_le_bytes());
+    eof.extend_from_slice(&0_u32.to_le_bytes());
+    eof.extend_from_slice(&0_u32.to_le_bytes());
+
+    let total_size = header.len() + comment.len() + eof.len();
+    header[48..52].copy_from_slice(
+        &u32::try_from(total_size).expect("EMF should fit u32").to_le_bytes(),
+    );
+    header.extend(comment);
+    header.extend(eof);
+    header
+}
+
+#[test]
+fn emf_plus_raw_bitmap_draw_image_emits_svg_image() {
+    let player = SVGPlayer::new()
+        .header(0, build_header(100, 100))
+        .expect("header should succeed")
+        .comment(1, synthetic_emf_plus_bitmap_comment())
+        .expect("EMF+ comment should succeed");
+
+    let svg = render(player);
+    assert!(svg.contains("<image "), "expected an image element: {svg}");
+    assert!(svg.contains(r#"id="elem1""#), "image id missing: {svg}");
+    assert!(svg.contains(r#"x="10""#), "image x missing: {svg}");
+    assert!(svg.contains(r#"y="20""#), "image y missing: {svg}");
+    assert!(svg.contains(r#"width="40""#), "image width missing: {svg}");
+    assert!(svg.contains(r#"height="20""#), "image height missing: {svg}");
+    assert!(
+        svg.contains(r#"href="data:image/bmp;base64,Qk"#),
+        "embedded BMP data URL missing: {svg}",
+    );
+}
+
+#[test]
+fn emf_plus_raw_bitmap_converts_from_synthetic_emf() {
+    let input = synthetic_emf_plus_bitmap_emf();
+    let converter = EMFConverter::new(
+        input.as_slice(),
+        SVGPlayer::new(),
+        wmf_core::converter::SVGPlayer::new(),
+    );
+
+    let output = converter.run().expect("synthetic EMF should convert");
+    let svg = String::from_utf8(output).expect("SVG output is not UTF-8");
+    assert!(svg.contains("<image "), "expected an image element: {svg}");
+    assert!(
+        svg.contains(r#"href="data:image/bmp;base64,Qk"#),
+        "embedded BMP data URL missing: {svg}",
+    );
 }
 
 #[test]
