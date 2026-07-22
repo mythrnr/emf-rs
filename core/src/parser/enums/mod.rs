@@ -116,7 +116,9 @@ macro_rules! impl_parser {
     };
 }
 
-use impl_parser;
+// `pub(crate)` so the EMF+ enum definitions in `parser::emf_plus::enums`
+// can reuse the same generated `parse` implementation.
+pub(crate) use impl_parser;
 
 /// Generates the standard inherent API and `Debug` impl for a
 /// `#[repr(transparent)]` flags wrapper struct (`$flags($raw)`) that

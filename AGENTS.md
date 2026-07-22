@@ -51,6 +51,68 @@ Handles binary parsing based on the MS-EMF specification.
 - Key types: `ParseError`, `ReadError`
 - Each record type has a `::parse(buf, record_type, size) -> Result<Self, ParseError>` static method.
 
+#### emf_plus Module (`core/src/parser/emf_plus/`)
+
+Parses EMF+ (MS-EMFPLUS) data embedded in `EMR_COMMENT` records whose
+payload starts with the `"EMF+"` identifier (EMR_COMMENT_EMFPLUS).
+The converter layer does not consume this module yet; it provides the
+typed record layer for the upcoming EMF+ playback support.
+
+- Not re-exported flat from `crate::parser` (names such as `HatchStyle`
+  would collide with EMF); always accessed as
+  `crate::parser::emf_plus::*`.
+- `enums/` — MS-EMFPLUS Section 2.1. 35 enumerations (spec-verbatim
+  variant names such as `BrushTypeSolidColor`) plus 8 bit-flag newtypes
+  in `flags.rs` (`PenDataFlags`, `BrushDataFlags`, ... with named mask
+  constants and `contains()`).
+- `objects/` — Section 2.2. Graphics objects (`EmfPlusBrush`,
+  `EmfPlusPen`, `EmfPlusPath`, `EmfPlusRegion`, `EmfPlusImage`,
+  `EmfPlusFont`, `EmfPlusStringFormat`, `EmfPlusImageAttributes`,
+  `EmfPlusCustomLineCap`), structure objects (points/rects in all three
+  wire encodings, blend patterns, transform matrix, ...), the image
+  effects parameter objects (2.2.3) with their identifier GUIDs, and
+  `EmfPlusObjectData` (typed ObjectData dispatch).
+- `records/` — Section 2.3. 9 categories, 54 records. Record parsers
+  mirror the EMF record parsers: the shape is
+  `parse(buf, record_type, flags, size, data_size)`, the Type value is
+  validated with `expect_eq`, and every record struct stores the
+  common header fields (`record_type`, `flags`, `size`,
+  `data_size`) verbatim in addition to decoded Flags sub-fields
+  (`object_id`, `combine_mode`, ...) and the record-specific fields in
+  wire order. `data_size` is a `Size` tracker bounding every read to
+  the DataSize field. Rustdoc is transcribed verbatim from the
+  MS-EMFPLUS record sections. There is no aggregate record enum:
+  `records/mod.rs` defines `EmfPlusRecordHeader` (the 12-byte common
+  header; `parse` validates Size >= 12, 32-bit alignment,
+  DataSize <= Size - 12, and the `MAX_RECORD_BYTES` bound), and the
+  consumer reads the header, dispatches on its raw Type value in a
+  `match` (like the EMF converter loop), then skips
+  `padding_bytes()`. Unknown and reserved record types are the
+  consumer's concern to skip.
+- `mod.rs` — `is_emf_plus_comment` / `EMF_PLUS_COMMENT_IDENTIFIER`
+  (comment identifier detection), `MAX_ELEMENT_COUNT` /
+  `check_element_count`, and `read_utf16_field`.
+- `object_assembler.rs` — `EmfPlusObjectAssembler` reassembles
+  continued objects (the C flag of `EmfPlusObject`, data larger than
+  64 KB) and yields `EmfPlusObjectData`.
+- Point coordinates keep their wire encoding (`EmfPlusPoints`:
+  absolute i16 / absolute f32 / relative EmfPlusPointR deltas) and
+  normalize via `as_points_f()`; the same applies to rectangles
+  (`EmfPlusRectData::as_rect_f()`).
+- Hardening mirrors the EMF parser: `MAX_ELEMENT_COUNT` (16 Mi) bounds
+  every count field via `check_element_count`, nested object sizes are
+  bounded by `MAX_RECORD_BYTES`, and `EmfPlusRegion` limits its node
+  tree recursion depth to 256.
+- Known spec deviations (verified against GDI+ output, LibreOffice,
+  Wine, libUEMF): `EmfPlusPath` treats relative points (0x0800) and
+  RLE-compressed point types (0x1000) as independent
+  `PathPointFlags` bits, every fragment of a continued object
+  (including the final one with the C flag clear) starts with
+  `TotalObjectSize`, and `EmfPlusBeginContainer` reads PageUnit from
+  the low byte of the record flags (the specification diagram draws
+  it in the high byte, but GDI+ writes the low byte like
+  `EmfPlusSetPageTransform`).
+
 #### converter Module (`core/src/converter/`)
 
 Converts parsed records into an output format.

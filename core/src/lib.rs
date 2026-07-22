@@ -54,6 +54,7 @@ pub mod parser;
 mod imports {
     pub use alloc::{
         borrow::{Cow, ToOwned},
+        boxed::Box,
         collections::{BTreeMap, BTreeSet, VecDeque},
         str,
         string::{String, ToString},
