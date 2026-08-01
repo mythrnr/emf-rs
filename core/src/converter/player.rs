@@ -14,6 +14,20 @@ pub enum PlayError {
     Unknown { cause: String },
 }
 
+impl PlayError {
+    /// Constructs a [`PlayError::InvalidRecord`] from a plain message,
+    /// sparing call sites the struct-literal ceremony.
+    pub fn invalid_record(cause: impl Into<String>) -> Self {
+        Self::InvalidRecord { cause: cause.into() }
+    }
+}
+
+impl From<ParseError> for PlayError {
+    fn from(source: ParseError) -> Self {
+        Self::invalid_record(source.to_string())
+    }
+}
+
 pub trait Player: Sized {
     /// Call after converting to write output.
     fn generate(self) -> Result<Vec<u8>, PlayError>;

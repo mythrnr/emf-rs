@@ -104,3 +104,15 @@ impl EMR_CREATEMONOBRUSH {
         })
     }
 }
+
+impl From<EMR_CREATEMONOBRUSH> for wmf_core::parser::DeviceIndependentBitmap {
+    fn from(v: EMR_CREATEMONOBRUSH) -> Self {
+        Self {
+            dib_header_info: v.bmi_src,
+            colors: wmf_core::parser::Colors::Null,
+            bitmap_buffer: wmf_core::parser::BitmapBuffer {
+                a_data: v.bits_src,
+            },
+        }
+    }
+}

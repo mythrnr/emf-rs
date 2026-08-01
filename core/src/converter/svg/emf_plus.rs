@@ -1,365 +1,260 @@
-use crate::{converter::PlayError, imports::*};
+use crate::{
+    converter::{PlayError, emf_plus::bitmap::DecodedBitmap},
+    imports::*,
+    parser::emf_plus::{
+        EmfPlusDrawImage, UnitType,
+        objects::{EmfPlusObjectData, EmfPlusRectF},
+    },
+};
 
-// cspell:ignore BITFIELDS CIEXYZ pels
-
-const COMMENT_IDENTIFIER: &[u8; 4] = b"EMF+";
-const RECORD_END_OF_FILE: u16 = 0x4002;
-const RECORD_OBJECT: u16 = 0x4008;
-const RECORD_DRAW_IMAGE: u16 = 0x401A;
-const OBJECT_TYPE_IMAGE: u16 = 5;
-const IMAGE_DATA_TYPE_BITMAP: u32 = 1;
-const BITMAP_DATA_TYPE_PIXEL: u32 = 0;
-const UNIT_TYPE_PIXEL: u32 = 2;
-const FLAG_OBJECT_CONTINUABLE: u16 = 0x8000;
-const FLAG_RECT_COMPRESSED: u16 = 0x4000;
-const PIXEL_FORMAT_INDEXED: u32 = 0x0001_0000;
-const PIXEL_FORMAT_ALPHA: u32 = 0x0004_0000;
-const PIXEL_FORMAT_PREMULTIPLIED: u32 = 0x0008_0000;
-
+/// The data an SVG image element needs for one DrawImage record,
+/// borrowing the encoded image from the stored bitmap.
 #[derive(Clone, Debug)]
-struct Bitmap {
-    width: i32,
-    height: i32,
-    href: String,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub(super) struct RectF {
-    pub x: f32,
-    pub y: f32,
-    pub width: f32,
-    pub height: f32,
-}
-
-#[derive(Clone, Debug)]
-pub(super) struct DrawImage {
-    pub href: String,
+pub(super) struct DrawImage<'a> {
+    pub href: &'a str,
     pub image_width: i32,
     pub image_height: i32,
-    pub source: RectF,
-    pub destination: RectF,
+    pub source: EmfPlusRectF,
+    pub destination: EmfPlusRectF,
 }
 
+/// The EMF+ bitmaps the SVG player has tracked so far.
+///
+/// The object table and Dual flag persist across the EMR_COMMENT records
+/// of a metafile: an image object created in one comment can be drawn by
+/// a DrawImage record in a later comment. Framing and record parsing are
+/// handled by [`EmfPlusDispatcher`](crate::converter::EmfPlusDispatcher)
+/// and bitmap decoding by [`DecodedBitmap`]; this layer only turns the
+/// decoded bitmaps and draws into the data an SVG image element needs.
 #[derive(Clone, Debug, Default)]
 pub(super) struct State {
-    images: BTreeMap<u8, Bitmap>,
+    images: BTreeMap<u8, StoredBitmap>,
+    // In an EMF+ Dual metafile the same graphics are also described by
+    // EMF records, which the EMF playback path renders; drawing the EMF+
+    // records too would double-draw, so EMF+ drawing is suppressed and
+    // the EMF path is trusted. An EMF+ Only metafile has no EMF fallback,
+    // so its EMF+ records must be rendered.
+    dual: bool,
 }
 
 impl State {
-    pub fn play_comment(
-        &mut self,
-        data: &[u8],
-    ) -> Result<Vec<DrawImage>, PlayError> {
-        if !data.starts_with(COMMENT_IDENTIFIER) {
-            return Ok(vec![]);
-        }
-
-        let data = &data[COMMENT_IDENTIFIER.len()..];
-        let mut offset = 0;
-        let mut draws = vec![];
-
-        while offset < data.len() {
-            let header = take(data, &mut offset, 12)?;
-            let record_type = u16::from_le_bytes([header[0], header[1]]);
-            let flags = u16::from_le_bytes([header[2], header[3]]);
-            let size = usize::try_from(u32::from_le_bytes([
-                header[4], header[5], header[6], header[7],
-            ]))
-            .map_err(|_| {
-                invalid_record("EMF+ record size does not fit usize")
-            })?;
-            let data_size = usize::try_from(u32::from_le_bytes([
-                header[8], header[9], header[10], header[11],
-            ]))
-            .map_err(|_| {
-                invalid_record("EMF+ record data size does not fit usize")
-            })?;
-
-            if size < 12 || size % 4 != 0 || data_size > size - 12 {
-                return Err(invalid_record("invalid EMF+ record size"));
-            }
-
-            let record_data = take(data, &mut offset, data_size)?;
-            let padding = size - 12 - data_size;
-            take(data, &mut offset, padding)?;
-
-            match record_type {
-                RECORD_OBJECT => self.read_object(flags, record_data)?,
-                RECORD_DRAW_IMAGE => {
-                    if let Some(draw) =
-                        self.read_draw_image(flags, record_data)?
-                    {
-                        draws.push(draw);
-                    }
-                }
-                RECORD_END_OF_FILE => break,
-                _ => {}
-            }
-        }
-
-        Ok(draws)
+    /// Records whether the metafile is EMF+ Dual, from the EmfPlusHeader.
+    pub fn set_dual(&mut self, dual: bool) {
+        self.dual = dual;
     }
 
-    fn read_object(
+    /// Stores an EMF+ object for later drawing, keeping only the image
+    /// objects this layer can render.
+    ///
+    /// The EMF+ object table is shared by every object type, so an id
+    /// reused by an object this layer cannot render must evict the
+    /// image stored under it; otherwise a later DrawImage would render
+    /// the replaced bitmap. For a Dual metafile nothing is stored at
+    /// all: [`State::resolve_draw_image`] discards every draw there, so
+    /// encoding the bitmaps would only waste time and memory.
+    pub fn store_object(
         &mut self,
-        flags: u16,
-        data: &[u8],
+        object_id: u8,
+        object: EmfPlusObjectData,
     ) -> Result<(), PlayError> {
-        if flags & FLAG_OBJECT_CONTINUABLE != 0 {
-            info!("continued EMF+ objects are not implemented");
+        if self.dual {
             return Ok(());
         }
 
-        let object_type = (flags >> 8) & 0x007F;
-        if object_type != OBJECT_TYPE_IMAGE {
-            return Ok(());
-        }
-
-        let object_id = flags as u8;
-        if let Some(bitmap) = read_bitmap(data)? {
-            self.images.insert(object_id, bitmap);
+        if let Some(decoded) = DecodedBitmap::from_object(object)? {
+            self.images.insert(object_id, StoredBitmap {
+                width: decoded.width,
+                height: decoded.height,
+                href: decoded.bmp.as_data_url(),
+            });
+        } else {
+            self.images.remove(&object_id);
         }
 
         Ok(())
     }
 
-    fn read_draw_image(
+    /// Resolves a DrawImage record against the tracked objects, or `None`
+    /// when the image is unknown, its unit is unsupported, or EMF+
+    /// drawing is suppressed for a Dual metafile.
+    pub fn resolve_draw_image(
         &self,
-        flags: u16,
-        data: &[u8],
-    ) -> Result<Option<DrawImage>, PlayError> {
-        let object_id = flags as u8;
-        let Some(bitmap) = self.images.get(&object_id) else {
-            return Ok(None);
-        };
-
-        let mut offset = 0;
-        let _image_attributes_id = read_u32(data, &mut offset)?;
-        let source_unit = read_u32(data, &mut offset)?;
-        if source_unit != UNIT_TYPE_PIXEL {
-            info!(source_unit, "EMF+ DrawImage source unit is not supported");
-            return Ok(None);
+        record: &EmfPlusDrawImage,
+    ) -> Option<DrawImage<'_>> {
+        if self.dual {
+            return None;
         }
 
-        let source = read_rect_f(data, &mut offset)?;
-        let destination = if flags & FLAG_RECT_COMPRESSED == 0 {
-            read_rect_f(data, &mut offset)?
-        } else {
-            read_rect(data, &mut offset)?
-        };
+        let bitmap = self.images.get(&record.object_id)?;
 
-        Ok(Some(DrawImage {
-            href: bitmap.href.clone(),
+        if record.src_unit != UnitType::UnitTypePixel {
+            info!(
+                src_unit = ?record.src_unit,
+                "EMF+ DrawImage source unit is not supported",
+            );
+
+            return None;
+        }
+
+        Some(DrawImage {
+            href: &bitmap.href,
             image_width: bitmap.width,
             image_height: bitmap.height,
-            source,
-            destination,
-        }))
+            source: record.src_rect,
+            destination: record.rect_data.as_rect_f(),
+        })
     }
 }
 
-fn read_bitmap(data: &[u8]) -> Result<Option<Bitmap>, PlayError> {
-    let mut offset = 0;
-    let _version = read_u32(data, &mut offset)?;
-    let image_data_type = read_u32(data, &mut offset)?;
-    if image_data_type != IMAGE_DATA_TYPE_BITMAP {
-        return Ok(None);
-    }
-
-    let width = read_i32(data, &mut offset)?;
-    let height = read_i32(data, &mut offset)?;
-    let stride = read_i32(data, &mut offset)?;
-    let pixel_format = read_u32(data, &mut offset)?;
-    let bitmap_data_type = read_u32(data, &mut offset)?;
-
-    if bitmap_data_type != BITMAP_DATA_TYPE_PIXEL {
-        info!("compressed EMF+ bitmap objects are not implemented");
-        return Ok(None);
-    }
-    if width <= 0 || height <= 0 || stride == 0 {
-        return Err(invalid_record("invalid EMF+ bitmap dimensions"));
-    }
-
-    let bits_per_pixel = (pixel_format >> 8) & 0xFF;
-    if bits_per_pixel != 32 || pixel_format & PIXEL_FORMAT_INDEXED != 0 {
-        info!(
-            bits_per_pixel,
-            pixel_format, "EMF+ bitmap pixel format is not supported",
-        );
-        return Ok(None);
-    }
-
-    let width = usize::try_from(width)
-        .map_err(|_| invalid_record("EMF+ bitmap width does not fit usize"))?;
-    let height = usize::try_from(height)
-        .map_err(|_| invalid_record("EMF+ bitmap height does not fit usize"))?;
-    let row_size = width
-        .checked_mul(4)
-        .ok_or_else(|| invalid_record("EMF+ bitmap row size overflows"))?;
-    let stride_size = usize::try_from(stride.unsigned_abs())
-        .map_err(|_| invalid_record("EMF+ bitmap stride does not fit usize"))?;
-    if stride_size != row_size || stride_size % 4 != 0 {
-        return Err(invalid_record("invalid EMF+ bitmap stride"));
-    }
-
-    let pixel_size = stride_size
-        .checked_mul(height)
-        .ok_or_else(|| invalid_record("EMF+ bitmap data size overflows"))?;
-    let mut pixels = take(data, &mut offset, pixel_size)?.to_vec();
-    normalize_alpha(&mut pixels, pixel_format);
-
-    let dib_height = if stride > 0 {
-        -i32::try_from(height)
-            .map_err(|_| invalid_record("EMF+ bitmap height exceeds i32"))?
-    } else {
-        i32::try_from(height)
-            .map_err(|_| invalid_record("EMF+ bitmap height exceeds i32"))?
-    };
-    let image_size = u32::try_from(pixel_size)
-        .map_err(|_| invalid_record("EMF+ bitmap data exceeds u32"))?;
-    let zero = wmf_core::parser::CIEXYZ { x: 0, y: 0, z: 0 };
-    let dib = wmf_core::parser::DeviceIndependentBitmap {
-        dib_header_info: wmf_core::parser::BitmapInfoHeader::V4(
-            wmf_core::parser::BitmapInfoHeaderV4 {
-                header_size: 108,
-                width: i32::try_from(width).map_err(|_| {
-                    invalid_record("EMF+ bitmap width exceeds i32")
-                })?,
-                height: dib_height,
-                planes: 1,
-                bit_count: wmf_core::parser::BitCount::BI_BITCOUNT_6,
-                compression: wmf_core::parser::Compression::BI_BITFIELDS,
-                image_size,
-                x_pels_per_meter: 0,
-                y_pels_per_meter: 0,
-                color_used: 0,
-                color_important: 0,
-                red_mask: 0x00FF_0000,
-                green_mask: 0x0000_FF00,
-                blue_mask: 0x0000_00FF,
-                alpha_mask: 0xFF00_0000,
-                color_space_type: wmf_core::parser::LogicalColorSpace::LCS_sRGB,
-                endpoints: wmf_core::parser::CIEXYZTriple {
-                    red: zero.clone(),
-                    green: zero.clone(),
-                    blue: zero,
-                },
-                gamma_red: 0,
-                gamma_green: 0,
-                gamma_blue: 0,
-            },
-        ),
-        colors: wmf_core::parser::Colors::Null,
-        bitmap_buffer: wmf_core::parser::BitmapBuffer { a_data: pixels },
-    };
-    let bitmap: wmf_core::converter::Bitmap = dib.into();
-
-    Ok(Some(Bitmap {
-        width: i32::try_from(width)
-            .map_err(|_| invalid_record("EMF+ bitmap width exceeds i32"))?,
-        height: i32::try_from(height)
-            .map_err(|_| invalid_record("EMF+ bitmap height exceeds i32"))?,
-        href: bitmap.as_data_url(),
-    }))
-}
-
-fn normalize_alpha(pixels: &mut [u8], pixel_format: u32) {
-    let has_alpha = pixel_format & PIXEL_FORMAT_ALPHA != 0;
-    let premultiplied = pixel_format & PIXEL_FORMAT_PREMULTIPLIED != 0;
-
-    for pixel in pixels.chunks_exact_mut(4) {
-        if !has_alpha {
-            pixel[3] = u8::MAX;
-        } else if premultiplied && pixel[3] != 0 {
-            let alpha = u16::from(pixel[3]);
-            for component in &mut pixel[..3] {
-                let value = u16::from(*component) * u16::from(u8::MAX) / alpha;
-                *component = u8::try_from(value.min(u16::from(u8::MAX)))
-                    .expect("component is clamped to u8");
-            }
-        }
-    }
-}
-
-fn read_rect_f(data: &[u8], offset: &mut usize) -> Result<RectF, PlayError> {
-    Ok(RectF {
-        x: read_f32(data, offset)?,
-        y: read_f32(data, offset)?,
-        width: read_f32(data, offset)?,
-        height: read_f32(data, offset)?,
-    })
-}
-
-fn read_rect(data: &[u8], offset: &mut usize) -> Result<RectF, PlayError> {
-    Ok(RectF {
-        x: f32::from(read_i16(data, offset)?),
-        y: f32::from(read_i16(data, offset)?),
-        width: f32::from(read_i16(data, offset)?),
-        height: f32::from(read_i16(data, offset)?),
-    })
-}
-
-fn read_u32(data: &[u8], offset: &mut usize) -> Result<u32, PlayError> {
-    let value = take(data, offset, 4)?;
-    Ok(u32::from_le_bytes([value[0], value[1], value[2], value[3]]))
-}
-
-fn read_i32(data: &[u8], offset: &mut usize) -> Result<i32, PlayError> {
-    let value = take(data, offset, 4)?;
-    Ok(i32::from_le_bytes([value[0], value[1], value[2], value[3]]))
-}
-
-fn read_f32(data: &[u8], offset: &mut usize) -> Result<f32, PlayError> {
-    let value = take(data, offset, 4)?;
-    Ok(f32::from_le_bytes([value[0], value[1], value[2], value[3]]))
-}
-
-fn read_i16(data: &[u8], offset: &mut usize) -> Result<i16, PlayError> {
-    let value = take(data, offset, 2)?;
-    Ok(i16::from_le_bytes([value[0], value[1]]))
-}
-
-fn take<'a>(
-    data: &'a [u8],
-    offset: &mut usize,
-    len: usize,
-) -> Result<&'a [u8], PlayError> {
-    let end = offset
-        .checked_add(len)
-        .ok_or_else(|| invalid_record("EMF+ offset overflows"))?;
-    let value = data
-        .get(*offset..end)
-        .ok_or_else(|| invalid_record("truncated EMF+ record"))?;
-    *offset = end;
-    Ok(value)
-}
-
-fn invalid_record(cause: &'static str) -> PlayError {
-    PlayError::InvalidRecord { cause: cause.into() }
+/// A stored bitmap, already encoded as the data URL an SVG image
+/// element consumes.
+#[derive(Clone, Debug)]
+struct StoredBitmap {
+    width: i32,
+    height: i32,
+    href: String,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{
+        converter::emf_plus::bitmap::test_support::bitmap_object,
+        parser::emf_plus::{PixelFormat, RecordType, objects::EmfPlusRectData},
+    };
 
-    #[test]
-    fn normalizes_premultiplied_alpha() {
-        let mut pixels = [10, 20, 30, 128];
-
-        normalize_alpha(
-            &mut pixels,
-            PIXEL_FORMAT_ALPHA | PIXEL_FORMAT_PREMULTIPLIED,
-        );
-
-        assert_eq!(pixels, [19, 39, 59, 128]);
+    fn draw_image_record(
+        object_id: u8,
+        src_unit: UnitType,
+    ) -> EmfPlusDrawImage {
+        EmfPlusDrawImage {
+            record_type: RecordType::EmfPlusDrawImage,
+            flags: u16::from(object_id),
+            object_id,
+            size: 0x34,
+            data_size: crate::parser::Size::from(0x28_u32),
+            image_attributes_id: 0,
+            src_unit,
+            src_rect: EmfPlusRectF { x: 1.0, y: 2.0, width: 3.0, height: 4.0 },
+            rect_data: EmfPlusRectData::Float(EmfPlusRectF {
+                x: 5.0,
+                y: 6.0,
+                width: 7.0,
+                height: 8.0,
+            }),
+        }
     }
 
     #[test]
-    fn fills_missing_alpha_as_opaque() {
-        let mut pixels = [10, 20, 30, 0];
+    fn stores_the_bitmap_dimensions_and_href() {
+        let mut state = State::default();
+        state
+            .store_object(3, bitmap_object(PixelFormat::PixelFormat32bppARGB))
+            .unwrap();
 
-        normalize_alpha(&mut pixels, 0);
+        let bitmap = state.images.get(&3).unwrap();
 
-        assert_eq!(pixels, [10, 20, 30, 255]);
+        assert_eq!((bitmap.width, bitmap.height), (2, 1));
+        assert!(bitmap.href.starts_with("data:image/bmp;base64,"));
+    }
+
+    #[test]
+    fn skips_storing_for_dual_metafiles() {
+        let mut state = State::default();
+        state.set_dual(true);
+        state
+            .store_object(3, bitmap_object(PixelFormat::PixelFormat32bppARGB))
+            .unwrap();
+
+        assert!(state.images.is_empty());
+    }
+
+    #[test]
+    fn evicts_the_stale_image_when_an_object_id_is_reused() {
+        let mut state = State::default();
+        state
+            .store_object(3, bitmap_object(PixelFormat::PixelFormat32bppARGB))
+            .unwrap();
+        state
+            .store_object(3, bitmap_object(PixelFormat::PixelFormat24bppRGB))
+            .unwrap();
+
+        assert!(state.images.is_empty());
+    }
+
+    #[test]
+    fn resolves_a_draw_image_against_a_stored_object() {
+        let mut state = State::default();
+        state
+            .store_object(3, bitmap_object(PixelFormat::PixelFormat32bppARGB))
+            .unwrap();
+
+        let draw = state
+            .resolve_draw_image(&draw_image_record(3, UnitType::UnitTypePixel))
+            .unwrap();
+
+        assert_eq!((draw.image_width, draw.image_height), (2, 1));
+        assert!(draw.href.starts_with("data:image/bmp;base64,"));
+        assert_eq!(draw.source, EmfPlusRectF {
+            x: 1.0,
+            y: 2.0,
+            width: 3.0,
+            height: 4.0,
+        });
+        assert_eq!(draw.destination, EmfPlusRectF {
+            x: 5.0,
+            y: 6.0,
+            width: 7.0,
+            height: 8.0,
+        });
+    }
+
+    #[test]
+    fn suppresses_draws_for_dual_metafiles() {
+        let mut state = State::default();
+        state
+            .store_object(3, bitmap_object(PixelFormat::PixelFormat32bppARGB))
+            .unwrap();
+        state.set_dual(true);
+
+        assert!(
+            state
+                .resolve_draw_image(&draw_image_record(
+                    3,
+                    UnitType::UnitTypePixel,
+                ))
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn skips_draws_for_unknown_object_ids() {
+        let state = State::default();
+
+        assert!(
+            state
+                .resolve_draw_image(&draw_image_record(
+                    3,
+                    UnitType::UnitTypePixel,
+                ))
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn skips_draws_with_unsupported_source_units() {
+        let mut state = State::default();
+        state
+            .store_object(3, bitmap_object(PixelFormat::PixelFormat32bppARGB))
+            .unwrap();
+
+        assert!(
+            state
+                .resolve_draw_image(&draw_image_record(
+                    3,
+                    UnitType::UnitTypeWorld,
+                ))
+                .is_none()
+        );
     }
 }

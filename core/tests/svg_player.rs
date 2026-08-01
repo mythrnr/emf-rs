@@ -90,18 +90,6 @@ fn synthetic_emf_plus_bitmap_data() -> Vec<u8> {
     data
 }
 
-fn synthetic_emf_plus_bitmap_comment() -> EMR_COMMENT {
-    let data = synthetic_emf_plus_bitmap_data();
-
-    let size = u32::try_from(data.len() + 12).expect("record should fit u32");
-    EMR_COMMENT {
-        record_type: RecordType::EMR_COMMENT,
-        size: Size::from(size),
-        data_size: u32::try_from(data.len()).expect("comment should fit u32"),
-        private_data: data,
-    }
-}
-
 fn synthetic_emf_plus_bitmap_emf() -> Vec<u8> {
     let mut header = Vec::new();
     header.extend_from_slice(&(RecordType::EMR_HEADER as u32).to_le_bytes());
@@ -159,9 +147,22 @@ fn synthetic_emf_plus_bitmap_emf() -> Vec<u8> {
 fn emf_plus_raw_bitmap_draw_image_emits_svg_image() {
     let player = SVGPlayer::new()
         .header(0, build_header(100, 100))
-        .expect("header should succeed")
-        .comment(1, synthetic_emf_plus_bitmap_comment())
-        .expect("EMF+ comment should succeed");
+        .expect("header should succeed");
+
+    // Drive the synthetic payload through the player's comment handler,
+    // exactly as the converter does for an EMR_COMMENT record: the player
+    // recognizes the "EMF+" identifier and dispatches to its own
+    // EmfPlusDispatcher.
+    let private_data = synthetic_emf_plus_bitmap_data();
+    let comment = EMR_COMMENT {
+        record_type: RecordType::EMR_COMMENT,
+        size: Size::from(0),
+        data_size: u32::try_from(private_data.len())
+            .expect("comment should fit u32"),
+        private_data,
+    };
+    let player =
+        player.comment(1, comment).expect("EMF+ comment should dispatch");
 
     let svg = render(player);
     assert!(svg.contains("<image "), "expected an image element: {svg}");

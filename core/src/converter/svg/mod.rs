@@ -6,7 +6,7 @@ use wmf_core::parser::{PointL, SizeL};
 
 use crate::{
     converter::{
-        PlayError,
+        EmfPlusDispatcher, EmfPlusPlayer, PlayError,
         playback_device_context::{
             EmfObjectTable, GraphicsEnvironment, GraphicsObject,
             PlaybackDeviceContext, PlaybackStateColors, PlaybackStateDrawing,
@@ -23,7 +23,13 @@ use crate::{
         },
     },
     imports::*,
-    parser::*,
+    parser::{
+        emf_plus::{
+            EmfPlusDrawImage, EmfPlusHeader, is_emf_plus_comment,
+            objects::EmfPlusObjectData,
+        },
+        *,
+    },
 };
 
 pub struct SVGPlayer {
@@ -33,6 +39,11 @@ pub struct SVGPlayer {
     elements: Vec<Node>,
     emf_object_table: EmfObjectTable,
     emf_plus: emf_plus::State,
+    // Reassembles and dispatches the EMF+ records embedded in
+    // EMR_COMMENT payloads. Held here (not in the converter) so the
+    // comment handler owns the EMF+ routing decision; its object
+    // assembler must persist across comment records.
+    emf_plus_dispatcher: EmfPlusDispatcher,
     selected_emf_object: SelectedObject,
     path: Data,
     window: Window,
@@ -53,6 +64,7 @@ impl Default for SVGPlayer {
             elements: vec![],
             emf_object_table: EmfObjectTable::new(0),
             emf_plus: emf_plus::State::default(),
+            emf_plus_dispatcher: EmfPlusDispatcher::new(),
             selected_emf_object: SelectedObject::default(),
             path: Data::new(),
             window: Window {
@@ -150,7 +162,7 @@ impl crate::converter::Player for SVGPlayer {
             let mut buf = &record.bmi_src[..];
             let (dib_header_info, _) =
                 wmf_core::parser::BitmapInfoHeader::parse(&mut buf).map_err(
-                    |err| PlayError::InvalidRecord { cause: err.to_string() },
+                    |err| PlayError::invalid_record(err.to_string()),
                 )?;
 
             dib_header_info
@@ -163,9 +175,7 @@ impl crate::converter::Player for SVGPlayer {
                 record.usage_src.into(),
                 &dib_header_info,
             )
-            .map_err(|err| PlayError::InvalidRecord {
-                cause: err.to_string(),
-            })?;
+            .map_err(|err| PlayError::invalid_record(err.to_string()))?;
 
             colors
         };
@@ -342,7 +352,7 @@ impl crate::converter::Player for SVGPlayer {
             let mut buf = &record.bmi_src[..];
             let (dib_header_info, _) =
                 wmf_core::parser::BitmapInfoHeader::parse(&mut buf).map_err(
-                    |err| PlayError::InvalidRecord { cause: err.to_string() },
+                    |err| PlayError::invalid_record(err.to_string()),
                 )?;
 
             dib_header_info
@@ -355,9 +365,7 @@ impl crate::converter::Player for SVGPlayer {
                 record.usage_src.into(),
                 &dib_header_info,
             )
-            .map_err(|err| PlayError::InvalidRecord {
-                cause: err.to_string(),
-            })?;
+            .map_err(|err| PlayError::invalid_record(err.to_string()))?;
 
             colors
         };
@@ -509,35 +517,25 @@ impl crate::converter::Player for SVGPlayer {
         record_number: usize,
         record: EMR_COMMENT,
     ) -> Result<Self, PlayError> {
-        let draws = self.emf_plus.play_comment(&record.private_data)?;
-        for draw in draws {
-            let image = Node::new("image")
-                .set("x", "0")
-                .set("y", "0")
-                .set("width", draw.image_width)
-                .set("height", draw.image_height)
-                .set("href", draw.href);
-            let viewport = Node::new("svg")
-                .set("x", draw.destination.x)
-                .set("y", draw.destination.y)
-                .set("width", draw.destination.width)
-                .set("height", draw.destination.height)
-                .set(
-                    "viewBox",
-                    format!(
-                        "{} {} {} {}",
-                        draw.source.x,
-                        draw.source.y,
-                        draw.source.width,
-                        draw.source.height,
-                    ),
-                )
-                .set("preserveAspectRatio", "none")
-                .add(image);
-            self.push_element(record_number, viewport);
+        // Only EMR_COMMENT_EMFPLUS payloads carry records this player
+        // renders; any other comment private data is ignored.
+        if !is_emf_plus_comment(&record.private_data) {
+            return Ok(self);
         }
 
-        Ok(self)
+        // `play_comment` moves the player by value, so the dispatcher
+        // cannot stay borrowed from `self` during the call. Take it out,
+        // run it, and restore it onto the returned player; the object
+        // assembler must survive across comment records.
+        let mut dispatcher = core::mem::take(&mut self.emf_plus_dispatcher);
+        let mut player = dispatcher.play_comment(
+            self,
+            record_number,
+            &record.private_data,
+        )?;
+        player.emf_plus_dispatcher = dispatcher;
+
+        Ok(player)
     }
 
     // .
@@ -1009,9 +1007,7 @@ impl crate::converter::Player for SVGPlayer {
         // begins with M (an SVG path that starts with a curveto is
         // invalid).
         let Some(point) = record.a_points.first() else {
-            return Err(PlayError::InvalidRecord {
-                cause: "aPoints[0] is not defined".to_owned(),
-            });
+            return Err(PlayError::invalid_record("aPoints[0] is not defined"));
         };
         let point = self.context.transform_point_l(point);
         self.path =
@@ -1021,9 +1017,9 @@ impl crate::converter::Player for SVGPlayer {
 
         for i in 1..record.count {
             let Some(point) = record.a_points.get(i as usize) else {
-                return Err(PlayError::InvalidRecord {
-                    cause: format!("aPoints[{i}] is not defined"),
-                });
+                return Err(PlayError::invalid_record(format!(
+                    "aPoints[{i}] is not defined"
+                )));
             };
 
             self.context.graphics_environment.drawing.current_position =
@@ -1068,9 +1064,7 @@ impl crate::converter::Player for SVGPlayer {
         // begins with M (an SVG path that starts with a curveto is
         // invalid).
         let Some(point) = record.a_points.first() else {
-            return Err(PlayError::InvalidRecord {
-                cause: "aPoints[0] is not defined".to_owned(),
-            });
+            return Err(PlayError::invalid_record("aPoints[0] is not defined"));
         };
         let point = self.context.transform_point_s(point);
         self.path =
@@ -1080,9 +1074,9 @@ impl crate::converter::Player for SVGPlayer {
 
         for i in 1..record.count {
             let Some(point) = record.a_points.get(i as usize) else {
-                return Err(PlayError::InvalidRecord {
-                    cause: format!("aPoints[{i}] is not defined"),
-                });
+                return Err(PlayError::invalid_record(format!(
+                    "aPoints[{i}] is not defined"
+                )));
             };
 
             self.context.graphics_environment.drawing.current_position =
@@ -1143,9 +1137,9 @@ impl crate::converter::Player for SVGPlayer {
 
         for i in 0..record.count {
             let Some(point) = record.a_points.get(i as usize) else {
-                return Err(PlayError::InvalidRecord {
-                    cause: format!("aPoints[{i}] is not defined"),
-                });
+                return Err(PlayError::invalid_record(format!(
+                    "aPoints[{i}] is not defined"
+                )));
             };
 
             self.context.graphics_environment.drawing.current_position =
@@ -1206,9 +1200,9 @@ impl crate::converter::Player for SVGPlayer {
 
         for i in 0..record.count {
             let Some(point) = record.a_points.get(i as usize) else {
-                return Err(PlayError::InvalidRecord {
-                    cause: format!("aPoints[{i}] is not defined"),
-                });
+                return Err(PlayError::invalid_record(format!(
+                    "aPoints[{i}] is not defined"
+                )));
             };
 
             self.context.graphics_environment.drawing.current_position =
@@ -1311,20 +1305,18 @@ impl crate::converter::Player for SVGPlayer {
             let Some(points_of_polygon) =
                 record.polygon_point_count.get(i as usize)
             else {
-                return Err(PlayError::InvalidRecord {
-                    cause: format!("PolygonPointCount[{i}] is not defined"),
-                });
+                return Err(PlayError::invalid_record(format!(
+                    "PolygonPointCount[{i}] is not defined"
+                )));
             };
 
             let mut points = vec![];
 
             for _ in 0..*points_of_polygon {
                 let Some(point) = a_point.pop_front() else {
-                    return Err(PlayError::InvalidRecord {
-                        cause: format!(
-                            "aPoints[{current_point_index}] is not defined"
-                        ),
-                    });
+                    return Err(PlayError::invalid_record(format!(
+                        "aPoints[{current_point_index}] is not defined"
+                    )));
                 };
 
                 self.context.graphics_environment.drawing.current_position =
@@ -1380,9 +1372,9 @@ impl crate::converter::Player for SVGPlayer {
             let mut data = Data::new();
 
             let Some(first_point) = record.a_points.get(point_index) else {
-                return Err(PlayError::InvalidRecord {
-                    cause: format!("aPoints[{point_index}] is not defined"),
-                });
+                return Err(PlayError::invalid_record(format!(
+                    "aPoints[{point_index}] is not defined"
+                )));
             };
 
             let first_point = self.context.transform_point_l(first_point);
@@ -1391,9 +1383,9 @@ impl crate::converter::Player for SVGPlayer {
             for j in 1..point_count {
                 let idx = point_index + j as usize;
                 let Some(point) = record.a_points.get(idx) else {
-                    return Err(PlayError::InvalidRecord {
-                        cause: format!("aPoints[{idx}] is not defined"),
-                    });
+                    return Err(PlayError::invalid_record(format!(
+                        "aPoints[{idx}] is not defined"
+                    )));
                 };
 
                 let point = self.context.transform_point_l(point);
@@ -1445,9 +1437,9 @@ impl crate::converter::Player for SVGPlayer {
             let mut data = Data::new();
 
             let Some(first_point) = record.a_points.get(point_index) else {
-                return Err(PlayError::InvalidRecord {
-                    cause: format!("aPoints[{point_index}] is not defined"),
-                });
+                return Err(PlayError::invalid_record(format!(
+                    "aPoints[{point_index}] is not defined"
+                )));
             };
 
             let first_point = self.context.transform_point_s(first_point);
@@ -1456,9 +1448,9 @@ impl crate::converter::Player for SVGPlayer {
             for j in 1..point_count {
                 let idx = point_index + j as usize;
                 let Some(point) = record.a_points.get(idx) else {
-                    return Err(PlayError::InvalidRecord {
-                        cause: format!("aPoints[{idx}] is not defined"),
-                    });
+                    return Err(PlayError::invalid_record(format!(
+                        "aPoints[{idx}] is not defined"
+                    )));
                 };
 
                 let point = self.context.transform_point_s(point);
@@ -1540,9 +1532,9 @@ impl crate::converter::Player for SVGPlayer {
 
         for i in 0..record.count {
             let Some(point) = record.a_points.get(i as usize) else {
-                return Err(PlayError::InvalidRecord {
-                    cause: format!("aPoints[{i}] is not defined"),
-                });
+                return Err(PlayError::invalid_record(format!(
+                    "aPoints[{i}] is not defined"
+                )));
             };
 
             self.context.graphics_environment.drawing.current_position =
@@ -1598,9 +1590,9 @@ impl crate::converter::Player for SVGPlayer {
 
         for i in 0..record.count {
             let Some(point) = record.a_points.get(i as usize) else {
-                return Err(PlayError::InvalidRecord {
-                    cause: format!("aPoints[{i}] is not defined"),
-                });
+                return Err(PlayError::invalid_record(format!(
+                    "aPoints[{i}] is not defined"
+                )));
             };
 
             self.context.graphics_environment.drawing.current_position =
@@ -1637,9 +1629,7 @@ impl crate::converter::Player for SVGPlayer {
         }
 
         let Some(point) = record.a_points.first() else {
-            return Err(PlayError::InvalidRecord {
-                cause: "aPoints[0] is not defined".to_owned(),
-            });
+            return Err(PlayError::invalid_record("aPoints[0] is not defined"));
         };
 
         let point = self.context.transform_point_l(point);
@@ -1647,9 +1637,9 @@ impl crate::converter::Player for SVGPlayer {
 
         for i in 1..record.count {
             let Some(point) = record.a_points.get(i as usize) else {
-                return Err(PlayError::InvalidRecord {
-                    cause: format!("aPoints[{i}] is not defined"),
-                });
+                return Err(PlayError::invalid_record(format!(
+                    "aPoints[{i}] is not defined"
+                )));
             };
 
             self.context.graphics_environment.drawing.current_position =
@@ -1681,9 +1671,9 @@ impl crate::converter::Player for SVGPlayer {
 
         data = {
             let Some(point) = record.a_points.first() else {
-                return Err(PlayError::InvalidRecord {
-                    cause: "aPoints[0] is not defined".to_owned(),
-                });
+                return Err(PlayError::invalid_record(
+                    "aPoints[0] is not defined",
+                ));
             };
 
             let point = self.context.transform_point_s(point);
@@ -1693,9 +1683,9 @@ impl crate::converter::Player for SVGPlayer {
 
         for i in 1..record.count {
             let Some(point) = record.a_points.get(i as usize) else {
-                return Err(PlayError::InvalidRecord {
-                    cause: format!("aPoints[{i}] is not defined"),
-                });
+                return Err(PlayError::invalid_record(format!(
+                    "aPoints[{i}] is not defined"
+                )));
             };
 
             let point = self.context.transform_point_s(point);
@@ -1729,9 +1719,9 @@ impl crate::converter::Player for SVGPlayer {
 
         for i in 0..record.count {
             let Some(point) = record.a_points.get(i as usize) else {
-                return Err(PlayError::InvalidRecord {
-                    cause: format!("aPoints[{i}] is not defined"),
-                });
+                return Err(PlayError::invalid_record(format!(
+                    "aPoints[{i}] is not defined"
+                )));
             };
 
             self.context.graphics_environment.drawing.current_position =
@@ -1763,9 +1753,9 @@ impl crate::converter::Player for SVGPlayer {
 
         for i in 0..record.count {
             let Some(point) = record.a_points.get(i as usize) else {
-                return Err(PlayError::InvalidRecord {
-                    cause: format!("aPoints[{i}] is not defined"),
-                });
+                return Err(PlayError::invalid_record(format!(
+                    "aPoints[{i}] is not defined"
+                )));
             };
 
             self.context.graphics_environment.drawing.current_position =
@@ -2061,11 +2051,15 @@ impl crate::converter::Player for SVGPlayer {
         err(level = tracing::Level::ERROR, Display),
     ))]
     fn create_mono_brush(
-        self,
+        mut self,
         record_number: usize,
         record: EMR_CREATEMONOBRUSH,
     ) -> Result<Self, PlayError> {
-        info!("EMR_CREATEMONOBRUSH: not implemented");
+        self.emf_object_table.set(
+            record.ih_brush as usize,
+            GraphicsObject::DeviceIndependentBitmap(record.into()),
+        );
+
         Ok(self)
     }
 
@@ -2222,12 +2216,10 @@ impl crate::converter::Player for SVGPlayer {
                             stock_object,
                         )
                     } else {
-                        return Err(PlayError::InvalidRecord {
-                            cause: format!(
-                                "stock object is not found: index={}",
-                                record.in_object,
-                            ),
-                        });
+                        return Err(PlayError::invalid_record(format!(
+                            "stock object is not found: index={}",
+                            record.in_object,
+                        )));
                     }
                 }
                 v => v.clone(),
@@ -2378,11 +2370,10 @@ impl crate::converter::Player for SVGPlayer {
         record: EMR_BEGINPATH,
     ) -> Result<Self, PlayError> {
         if self.context.graphics_environment.drawing.path_bracket {
-            return Err(PlayError::InvalidRecord {
-                cause: "Path bracket construction MUST be closed by an \
-                        EMR_ABORTPATH or EMR_ENDPATH record."
-                    .to_owned(),
-            });
+            return Err(PlayError::invalid_record(
+                "Path bracket construction MUST be closed by an EMR_ABORTPATH \
+                 or EMR_ENDPATH record.",
+            ));
         }
 
         self.context.graphics_environment.drawing.path_bracket = true;
@@ -2583,9 +2574,9 @@ impl crate::converter::Player for SVGPlayer {
 
         while current < 0 {
             let Some(context) = self.context_stack.pop() else {
-                return Err(PlayError::InvalidRecord {
-                    cause: "device context to restore is not saved.".to_owned(),
-                });
+                return Err(PlayError::invalid_record(
+                    "device context to restore is not saved.",
+                ));
             };
 
             self.context = context;
@@ -3095,6 +3086,82 @@ impl crate::converter::Player for SVGPlayer {
         record: EMR_SETWORLDTRANSFORM,
     ) -> Result<Self, PlayError> {
         self.context.xform = record.x_form;
+
+        Ok(self)
+    }
+}
+
+impl EmfPlusPlayer for SVGPlayer {
+    #[cfg_attr(feature = "tracing", tracing::instrument(
+        level = tracing::Level::TRACE,
+        skip(self),
+        err(level = tracing::Level::ERROR, Display),
+    ))]
+    fn emf_plus_header(
+        mut self,
+        record_number: usize,
+        record: EmfPlusHeader,
+    ) -> Result<Self, PlayError> {
+        self.emf_plus.set_dual(record.dual);
+
+        Ok(self)
+    }
+
+    #[cfg_attr(feature = "tracing", tracing::instrument(
+        level = tracing::Level::TRACE,
+        skip(self, object),
+        err(level = tracing::Level::ERROR, Display),
+    ))]
+    fn emf_plus_object(
+        mut self,
+        record_number: usize,
+        object_id: u8,
+        object: EmfPlusObjectData,
+    ) -> Result<Self, PlayError> {
+        self.emf_plus.store_object(object_id, object)?;
+
+        Ok(self)
+    }
+
+    #[cfg_attr(feature = "tracing", tracing::instrument(
+        level = tracing::Level::TRACE,
+        skip(self),
+        err(level = tracing::Level::ERROR, Display),
+    ))]
+    fn emf_plus_draw_image(
+        mut self,
+        record_number: usize,
+        record: EmfPlusDrawImage,
+    ) -> Result<Self, PlayError> {
+        let Some(draw) = self.emf_plus.resolve_draw_image(&record) else {
+            return Ok(self);
+        };
+
+        let image = Node::new("image")
+            .set("x", "0")
+            .set("y", "0")
+            .set("width", draw.image_width)
+            .set("height", draw.image_height)
+            .set("href", draw.href);
+        let viewport = Node::new("svg")
+            .set("x", draw.destination.x)
+            .set("y", draw.destination.y)
+            .set("width", draw.destination.width)
+            .set("height", draw.destination.height)
+            .set(
+                "viewBox",
+                format!(
+                    "{} {} {} {}",
+                    draw.source.x,
+                    draw.source.y,
+                    draw.source.width,
+                    draw.source.height,
+                ),
+            )
+            .set("preserveAspectRatio", "none")
+            .add(image);
+
+        self.push_element(record_number, viewport);
 
         Ok(self)
     }
