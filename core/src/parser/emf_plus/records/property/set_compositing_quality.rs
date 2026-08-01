@@ -74,7 +74,7 @@ mod tests {
         let record = EmfPlusSetCompositingQuality::parse(
             &mut buf,
             RecordType::EmfPlusSetCompositingQuality,
-            0x0003,
+            0x0002,
             0x0C,
             data_size,
         )
@@ -84,7 +84,7 @@ mod tests {
             record.record_type,
             RecordType::EmfPlusSetCompositingQuality,
         );
-        assert_eq!(record.flags, 0x0003);
+        assert_eq!(record.flags, 0x0002);
         assert_eq!(record.size, 0x0C);
         assert_eq!(
             record.compositing_quality,
@@ -93,7 +93,30 @@ mod tests {
     }
 
     #[test]
+    fn parses_zero_flags_as_default_quality() {
+        // GDI+ writes the native, zero-based CompositingQuality into the
+        // record flags, so 0x0000 is the default quality, not an unknown
+        // value. Rejecting it would fail conversion of real metafiles.
+        let mut buf: &[u8] = &[];
+        let data_size = crate::parser::Size::from(0);
+        let record = EmfPlusSetCompositingQuality::parse(
+            &mut buf,
+            RecordType::EmfPlusSetCompositingQuality,
+            0x0000,
+            0x0C,
+            data_size,
+        )
+        .unwrap();
+
+        assert_eq!(
+            record.compositing_quality,
+            CompositingQuality::CompositingQualityDefault,
+        );
+    }
+
+    #[test]
     fn rejects_unknown_compositing_quality() {
+        // 0x05 is one past AssumeLinear (0x04), the highest defined value.
         let mut buf: &[u8] = &[];
         let data_size = crate::parser::Size::from(0);
 
@@ -101,7 +124,7 @@ mod tests {
             EmfPlusSetCompositingQuality::parse(
                 &mut buf,
                 RecordType::EmfPlusSetCompositingQuality,
-                0x0000,
+                0x0005,
                 0x0C,
                 data_size,
             )

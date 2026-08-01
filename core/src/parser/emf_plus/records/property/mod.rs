@@ -33,8 +33,10 @@ fn enum_from_low_byte<T>(
 
     from_repr(raw).ok_or_else(|| {
         crate::parser::ParseError::UnexpectedEnumValue {
-            cause: alloc::format!("unexpected value as {name}: {raw:#04X}",)
-                .into(),
+            cause: alloc::format!(
+                "unexpected value as {name}: {raw:#04X}, flags: {flags:#06X}"
+            )
+            .into(),
         }
     })
 }
