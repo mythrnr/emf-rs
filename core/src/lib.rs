@@ -1,3 +1,44 @@
+//! A parser for EMF (Enhanced Metafile) binaries and a converter to SVG,
+//! conforming to the [MS-EMF] specification. EMF+ records embedded in
+//! comment records ([MS-EMFPLUS]) are parsed as well.
+//!
+//! # Usage
+//!
+//! [`EMFConverter`](converter::EMFConverter) takes both an EMF player and
+//! a WMF player. The WMF player is only invoked when the input file turns
+//! out to be WMF rather than EMF, so the SVG player implementations
+//! shipped by each crate can be reused:
+//!
+//! ```no_run
+//! let emf_data = std::fs::read("input.emf").expect("failed to read file");
+//!
+//! let emf_player = emf_core::converter::SVGPlayer::new();
+//! let wmf_player = wmf_core::converter::SVGPlayer::new();
+//! let converter = emf_core::converter::EMFConverter::new(
+//!     emf_data.as_slice(),
+//!     emf_player,
+//!     wmf_player,
+//! );
+//!
+//! let svg = converter.run().expect("failed to convert");
+//! ```
+//!
+//! Output formats other than SVG can be produced by implementing the
+//! [`Player`](converter::Player) trait.
+//!
+//! # Attribution
+//!
+//! Portions of the API documentation in this crate are adapted from the
+//! [MS-EMF] and [MS-EMFPLUS] Open Specifications documentation,
+//! © Microsoft Corporation, and are used under the Intellectual Property
+//! Rights Notice for Open Specifications Documentation. The MS-EMF and
+//! MS-EMFPLUS specifications are covered by the
+//! [Microsoft Open Specification Promise][OSP].
+//!
+//! [MS-EMF]: https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-emf/91c257d7-c39d-4a36-9b1f-63e3f73d30ca
+//! [MS-EMFPLUS]: https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-emfplus/5f92c789-64f2-46b5-9ed4-15a9bb0946c6
+//! [OSP]: https://go.microsoft.com/fwlink/?LinkId=214445
+
 #![allow(
     clippy::cast_possible_truncation,
     clippy::cast_possible_wrap,

@@ -1,6 +1,6 @@
 /// The HeaderExtension1 object defines the first extension to the EMF metafile
 /// header. It adds support for a PixelFormatDescriptor object and OpenGL
-/// [OPENGL] records.
+/// \[OPENGL\] records.
 #[derive(Clone, Debug)]
 pub struct HeaderExtension1 {
     /// cbPixelFormat (4 bytes): An unsigned integer that specifies the size of

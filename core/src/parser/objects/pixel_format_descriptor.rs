@@ -193,7 +193,7 @@ pub struct DwFlags {
     ///
     /// If clear, the pixel format is supported by a device driver or hardware.
     pub PFD_GENERIC_FORMAT: bool,
-    /// The pixel buffer supports OpenGL [OPENGL] drawing.
+    /// The pixel buffer supports OpenGL \[OPENGL\] drawing.
     pub PFD_SUPPORT_OPENGL: bool,
     /// This flag SHOULD be clear, but it MAY be set.
     ///

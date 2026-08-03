@@ -7,7 +7,7 @@
 ///
 /// The new window extent is computed as follows.
 ///
-/// ```
+/// ```text
 /// xNewWE = (xOldWE * xNum) / xDenom
 /// yNewWE = (yOldWE * yNum) / yDenom
 /// ```

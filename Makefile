@@ -3,7 +3,7 @@ MAKEFLAGS += --silent
 endif
 
 .PHONY: ci-suite
-ci-suite: spell-check fix fmt lint udeps wasm wasm-minimal test
+ci-suite: spell-check fix fmt lint doc-check udeps wasm wasm-minimal test
 
 .PHONY: check
 check:
@@ -16,6 +16,11 @@ clean:
 .PHONY: doc
 doc:
 	cargo doc --open --workspace --no-deps
+
+.PHONY: doc-check
+doc-check:
+	RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps \
+		--all-features
 
 .PHONY: docker-build
 docker-build:
@@ -43,6 +48,7 @@ install-tools:
 	curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
 	cargo binstall -y \
 		cargo-machete \
+		cargo-release \
 		cargo-udeps \
 		wasm-bindgen-cli \
 		wasm-opt \
@@ -74,8 +80,15 @@ release:
 		echo "release version is required."; \
 		exit 1; \
 	fi \
-	&& git tag $(version) \
-	&& git push origin $(version)
+	&& if [ "$$(git branch --show-current)" != "master" ]; then \
+		echo "release branches must start from master."; \
+		exit 1; \
+	fi \
+	&& git switch -c "release/$(version)" \
+	&& cargo release version $(version) --execute \
+	&& cargo update --workspace \
+	&& echo "Version bumped." \
+	&& echo "Commit and open a PR; merging to master triggers the release."
 
 .PHONY: serve
 serve: wasm

@@ -1,6 +1,15 @@
 [package]
 name = "emf-cli"
+categories = ["command-line-utilities", "graphics", "multimedia::images"]
+description = "CLI tool to convert EMF (Enhanced Metafile) binaries to SVG"
 edition = { workspace = true }
+keywords = ["cli", "emf", "metafile", "svg"]
+license = { workspace = true }
+# Not ready for crates.io yet. Remove this once the first release of
+# emf-cli is prepared; the rest of the metadata is already in place.
+publish = false
+readme = "README.md"
+repository = { workspace = true }
 rust-version = { workspace = true }
 version = { workspace = true }
 

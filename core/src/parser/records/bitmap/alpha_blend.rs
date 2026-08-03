@@ -16,7 +16,7 @@ use crate::imports::*;
 /// Case I: The AlphaFormat value is 0, which means the SrcConstantAlpha value
 /// MUST be used to blend the source and destination bitmaps, as follows.
 ///
-/// ```
+/// ```text
 /// dst.Red = src.Red * (SrcConstantAlpha/255.0) +
 ///     dst.Red * (1.0 - (SrcConstantAlpha/255.0))
 /// dst.Green = src.Green * (SrcConstantAlpha/255.0) +
@@ -28,7 +28,7 @@ use crate::imports::*;
 /// If the destination bitmap has an alpha channel, then it is blended as
 /// follows.
 ///
-/// ```
+/// ```text
 /// dst.Alpha = src.Alpha * (SrcConstantAlpha / 255.0)
 ///     + dst.Alpha * (1.0 - (SrcConstantAlpha / 255.0))
 /// ```
@@ -40,7 +40,7 @@ use crate::imports::*;
 /// pixels MUST be premultiplied by SrcConstantAlpha, and then the blend MUST be
 /// based on the per-pixel source alpha channel, as follows.
 ///
-/// ```
+/// ```text
 /// src.Red = src.Red * (SrcConstantAlpha/255.0)
 /// src.Green = src.Green * (SrcConstantAlpha/255.0)
 /// src.Blue = src.Blue * (SrcConstantAlpha/255.0)
@@ -51,7 +51,7 @@ use crate::imports::*;
 ///
 /// If the destination bitmap has an alpha channel, it is blended as follows.
 ///
-/// ```
+/// ```text
 /// src.Alpha = src.Alpha * (SrcConstantAlpha)/255.0)
 /// dst.Alpha = src.Alpha + (1.0 - (src.Alpha/255.0)) * dst.Alpha
 /// ```

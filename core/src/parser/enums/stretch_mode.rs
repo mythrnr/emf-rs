@@ -5,7 +5,7 @@
 /// enumeration; their meanings are exactly the same as the members with the
 /// same values.
 ///
-/// ```
+/// ```text
 /// #define BLACKONWHITE 1
 /// #define WHITEONBLACK 2
 /// #define COLORONCOLOR 3

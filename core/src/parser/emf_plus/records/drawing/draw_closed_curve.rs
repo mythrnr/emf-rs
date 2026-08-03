@@ -83,7 +83,7 @@ pub struct EmfPlusDrawClosedCurve {
     /// tightly the spline bends as it passes through the points. A
     /// value of 0 specifies that the spline is a sequence of straight
     /// lines. As the value increases, the curve becomes more rounded.
-    /// For more information, see [SPLINE77] and [PETZOLD].
+    /// For more information, see \[SPLINE77\] and \[PETZOLD\].
     pub tension: f32,
     /// Count (4 bytes): An unsigned integer that specifies the number
     /// of points in the PointData field. At least 3 points MUST be

@@ -187,6 +187,7 @@
     "rightmultiply",
     "roundrect",
     "rtlreading",
+    "RUSTDOCFLAGS",
     "savedc",
     "scaleviewportextex",
     "scalewindowextex",

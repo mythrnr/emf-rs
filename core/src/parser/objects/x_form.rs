@@ -3,7 +3,7 @@
 /// The following equations specify how the matrix values are used to transform
 /// a point (X,Y) to a new point (X',Y'):
 ///
-/// ```
+/// ```text
 /// X' = M11 * X + M21 * Y + Dx
 /// Y' = M12 * X + M22 * Y + Dy
 /// ```

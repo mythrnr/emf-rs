@@ -1,8 +1,24 @@
 [package]
 name = "emf-core"
+categories = [
+  "graphics",
+  "multimedia::images",
+  "no-std",
+  "parser-implementations",
+]
+description = "Parser for EMF (Enhanced Metafile) binaries and converter to SVG, conforming to the MS-EMF specification"
 edition = { workspace = true }
+keywords = ["emf", "metafile", "no-std", "parser", "svg"]
+license = { workspace = true }
+readme = "README.md"
+repository = { workspace = true }
 rust-version = { workspace = true }
 version = { workspace = true }
+
+# docs.rs builds with default features unless told otherwise; enabling
+# everything keeps the `svg` converter API visible in the docs.
+[package.metadata.docs.rs]
+all-features = true
 
 [features]
 default = ["svg", "tracing"]

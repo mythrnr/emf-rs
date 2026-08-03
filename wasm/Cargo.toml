@@ -1,6 +1,15 @@
 [package]
 name = "emf-wasm"
+categories = ["graphics", "multimedia::images", "no-std", "wasm"]
+description = "WASM bindings to convert EMF (Enhanced Metafile) binaries to SVG in the browser"
 edition = { workspace = true }
+keywords = ["emf", "metafile", "svg", "wasm"]
+license = { workspace = true }
+# Not ready for crates.io yet. Remove this once the first release of
+# emf-wasm is prepared; the rest of the metadata is already in place.
+publish = false
+readme = "README.md"
+repository = { workspace = true }
 rust-version = { workspace = true }
 version = { workspace = true }
 
@@ -35,12 +44,12 @@ wasm-bindgen-test = { workspace = true }
 # rustc/wasm-bindgen, since they assume `bulk-memory`, `sign-ext`,
 # `mutable-globals`, `nontrapping-float-to-int`, and `reference-types`.
 wasm-opt = [
-    "-Oz",
-    "--enable-bulk-memory",
-    "--enable-sign-ext",
-    "--enable-mutable-globals",
-    "--enable-nontrapping-float-to-int",
-    "--enable-reference-types",
+  "-Oz",
+  "--enable-bulk-memory",
+  "--enable-sign-ext",
+  "--enable-mutable-globals",
+  "--enable-nontrapping-float-to-int",
+  "--enable-reference-types",
 ]
 
 [package.metadata.cargo-udeps.ignore]
