@@ -4,27 +4,21 @@
 //!
 //! # Usage
 //!
-//! [`EMFConverter`](converter::EMFConverter) takes both an EMF player and
-//! a WMF player. The WMF player is only invoked when the input file turns
-//! out to be WMF rather than EMF, so the SVG player implementations
-//! shipped by each crate can be reused:
-//!
 //! ```no_run
 //! let emf_data = std::fs::read("input.emf").expect("failed to read file");
 //!
-//! let emf_player = emf_core::converter::SVGPlayer::new();
-//! let wmf_player = wmf_core::converter::SVGPlayer::new();
-//! let converter = emf_core::converter::EMFConverter::new(
-//!     emf_data.as_slice(),
-//!     emf_player,
-//!     wmf_player,
-//! );
-//!
-//! let svg = converter.run().expect("failed to convert");
+//! let svg = emf_core::converter::convert_to_svg(emf_data.as_slice())
+//!     .expect("failed to convert");
 //! ```
 //!
+//! When the input turns out to be a WMF file rather than EMF,
+//! conversion falls back to the SVG player of [`wmf_core`], which is
+//! re-exported as [`emf_core::wmf_core`](wmf_core) so no direct
+//! dependency on it is needed.
+//!
 //! Output formats other than SVG can be produced by implementing the
-//! [`Player`](converter::Player) trait.
+//! [`Player`](converter::Player) trait and passing the implementation
+//! to [`convert`](converter::convert).
 //!
 //! # Attribution
 //!
@@ -104,3 +98,9 @@ mod imports {
 }
 
 pub use embedded_io::Read;
+// Re-exported so downstream crates build the WMF fallback player from
+// the exact wmf-core version this crate links against. A separate direct
+// dependency could resolve to an incompatible 0.x version, whose
+// `Player` trait would be a distinct type and fail the trait bound on
+// `EMFConverter` with a confusing error.
+pub use wmf_core;

@@ -197,7 +197,6 @@ dependencies = [
  "emf-core",
  "tracing",
  "tracing-subscriber",
- "wmf-core",
 ]
 
 [[package]]
@@ -220,7 +219,6 @@ dependencies = [
  "tracing-wasm",
  "wasm-bindgen",
  "wasm-bindgen-test",
- "wmf-core",
 ]
 
 [[package]]

@@ -6,7 +6,7 @@ use wmf_core::parser::{PointL, SizeL};
 
 use crate::{
     converter::{
-        EmfPlusDispatcher, EmfPlusPlayer, PlayError,
+        ConvertError, EmfPlusDispatcher, EmfPlusPlayer, PlayError,
         playback_device_context::{
             EmfObjectTable, GraphicsEnvironment, GraphicsObject,
             PlaybackDeviceContext, PlaybackStateColors, PlaybackStateDrawing,
@@ -31,6 +31,34 @@ use crate::{
         *,
     },
 };
+
+/// Parses the EMF records in `buffer` and renders them into an SVG
+/// document with the built-in [`SVGPlayer`]. When the input turns out
+/// to be a WMF file, conversion falls back to the SVG player of
+/// [`wmf_core`](crate::wmf_core) automatically.
+///
+/// This is a shorthand for [`convert`](crate::converter::convert) for
+/// callers that do not need a custom
+/// [`Player`](crate::converter::Player).
+///
+/// # Example
+///
+/// ```no_run
+/// let emf_data = std::fs::read("input.emf").expect("failed to read file");
+///
+/// let svg = emf_core::converter::convert_to_svg(emf_data.as_slice())
+///     .expect("failed to convert");
+/// ```
+pub fn convert_to_svg<B>(buffer: B) -> Result<Vec<u8>, ConvertError>
+where
+    B: crate::Read,
+{
+    crate::converter::convert(
+        buffer,
+        SVGPlayer::new(),
+        wmf_core::converter::SVGPlayer::new(),
+    )
+}
 
 pub struct SVGPlayer {
     context_stack: Vec<PlaybackDeviceContext>,

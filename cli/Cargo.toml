@@ -21,7 +21,6 @@ tracing-subscriber = { workspace = true, default-features = true, features = [
 ] }
 
 emf-core = { workspace = true, features = ["svg", "tracing"] }
-wmf-core = { workspace = true, features = ["svg", "tracing"] }
 
 [lints]
 workspace = true

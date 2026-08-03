@@ -101,9 +101,13 @@ spell-check:
 		ghcr.io/streetsidesoftware/cspell:latest \
 			--config .vscode/cspell.json "**"
 
+# `--all-targets` does not include doctests, so they are run as a
+# separate step to keep the doc examples compiling. `emf-wasm` is
+# excluded because doctests cannot run against a cdylib-only crate.
 .PHONY: test
 test:
 	cargo test --workspace --all-targets
+	cargo test --workspace --exclude emf-wasm --doc
 
 .PHONY: udeps
 udeps:

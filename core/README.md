@@ -24,12 +24,9 @@ binaries and converting them to SVG.
 cargo add emf-core
 ```
 
-Because `EMFConverter` takes a WMF player for the fallback path,
-applications also need `wmf-core`:
-
-```sh
-cargo add wmf-core
-```
+[`wmf-core`](https://crates.io/crates/wmf-core) is re-exported as
+`emf_core::wmf_core` for the WMF fallback path, so a direct dependency
+on it is not needed.
 
 ### Feature Flags
 
@@ -46,25 +43,13 @@ cargo add emf-core --no-default-features
 
 ## Usage
 
-`EMFConverter` takes both an EMF player and a WMF player. The WMF player is
-only invoked when the input file turns out to be WMF rather than EMF, so you
-can reuse the SVG player implementations shipped by each crate:
-
 ```rust
 use std::fs;
 
 fn main() {
     let emf_data = fs::read("input.emf").expect("failed to read file");
 
-    let emf_player = emf_core::converter::SVGPlayer::new();
-    let wmf_player = wmf_core::converter::SVGPlayer::new();
-    let converter = emf_core::converter::EMFConverter::new(
-        emf_data.as_slice(),
-        emf_player,
-        wmf_player,
-    );
-
-    match converter.run() {
+    match emf_core::converter::convert_to_svg(emf_data.as_slice()) {
         Ok(svg_bytes) => {
             let svg = String::from_utf8_lossy(&svg_bytes);
             println!("{svg}");
@@ -76,10 +61,15 @@ fn main() {
 }
 ```
 
+When the input turns out to be a WMF file rather than EMF, conversion
+falls back to the SVG player of `wmf-core` automatically.
+
 ### Custom Player
 
 The conversion process is abstracted through the `Player` trait.
-You can implement your own `Player` to produce output formats other than SVG:
+You can implement your own `Player` to produce output formats other than
+SVG, and pass the implementation to `emf_core::converter::convert`
+together with a WMF player for the fallback path:
 
 ```rust
 use emf_core::converter::{Player, PlayError};
