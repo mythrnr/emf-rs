@@ -191,7 +191,7 @@ checksum = "9eb1aa714776b75c7e67e1da744b81a129b3ff919c8712b5e1b32252c1f07cc7"
 
 [[package]]
 name = "emf-cli"
-version = "0.0.10"
+version = "0.1.0"
 dependencies = [
  "clap",
  "emf-core",
@@ -201,7 +201,7 @@ dependencies = [
 
 [[package]]
 name = "emf-core"
-version = "0.0.10"
+version = "0.1.0"
 dependencies = [
  "embedded-io",
  "snafu",
@@ -212,7 +212,7 @@ dependencies = [
 
 [[package]]
 name = "emf-wasm"
-version = "0.0.10"
+version = "0.1.0"
 dependencies = [
  "console_error_panic_hook",
  "emf-core",
@@ -849,9 +849,9 @@ dependencies = [
 
 [[package]]
 name = "wmf-core"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d110b9b26d09a5afa3abb322e9edf4530e52f680ccc6db7772acd873e4984afc"
+checksum = "07e4e5a1144da31955c2c94f291bb55bcd4ad9ef74f4a51e61e1b2e2d4324bfc"
 dependencies = [
  "base64",
  "codepage",
