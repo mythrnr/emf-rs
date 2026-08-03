@@ -1,7 +1,8 @@
+mod emf_plus;
 mod playback_device_context;
 mod player;
 
-pub use self::player::*;
+pub use self::{emf_plus::*, player::*};
 use crate::{imports::*, parser::*};
 
 #[cfg(feature = "svg")]
