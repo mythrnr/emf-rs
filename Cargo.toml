@@ -41,7 +41,7 @@ must_use_candidate = "allow"
 [workspace.package]
 edition = "2024"
 rust-version = "1.88.0"
-version = "0.1.0"
+version = "0.0.10"
 
 [profile.release]
 codegen-units = 1
