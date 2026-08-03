@@ -14,8 +14,8 @@ use emf_core::{
         EMR_SETVIEWPORTEXTEX, EMR_SETWINDOWEXTEX, FormatSignature, Header,
         MapMode, RecordType, Size,
     },
+    wmf_core::parser::{PointL, PointS, RectL, SizeL},
 };
-use wmf_core::parser::{PointL, PointS, RectL, SizeL};
 
 fn build_header(width: i32, height: i32) -> EMR_HEADER {
     EMR_HEADER {
@@ -183,7 +183,7 @@ fn emf_plus_raw_bitmap_converts_from_synthetic_emf() {
     let converter = EMFConverter::new(
         input.as_slice(),
         SVGPlayer::new(),
-        wmf_core::converter::SVGPlayer::new(),
+        emf_core::wmf_core::converter::SVGPlayer::new(),
     );
 
     let output = converter.run().expect("synthetic EMF should convert");

@@ -19,8 +19,12 @@ emf-rs/
 
 - `#![no_std]` compatible. Uses the `alloc` crate; I/O is abstracted via
   the re-exported `embedded_io::Read` trait.
-- Depends on wmf-core (git dependency) for shared types (`RectL`,
+- Depends on wmf-core (crates.io) for shared types (`RectL`,
   `PointL`, `ColorRef`, `Bitmap`, etc.) and WMF fallback conversion.
+  wmf-core is re-exported as `emf_core::wmf_core` so downstream crates
+  (including emf-cli and emf-wasm) construct the WMF fallback player
+  without a direct wmf-core dependency, avoiding 0.x version mismatch
+  against the `wmf_core::converter::Player` trait bound.
 - Feature flags:
   - `svg` (default): SVG conversion (`SVGPlayer`)
   - `tracing` (default): log output (no-op macros when disabled)
@@ -137,6 +141,10 @@ Converts parsed records into an output format.
   `run()` validates the input file signature and automatically falls
   back to the WMF player if the input is a WMF file, so the caller
   does not need to determine the format in advance.
+  `convert(buffer, player, wmf_player)` is the one-shot entry point
+  wrapping the `new` + `run` pair; `convert_to_svg(buffer)` (`svg`
+  feature, in `svg/mod.rs`) is the shorthand that supplies the SVG
+  players of this crate and wmf-core.
 - `playback_device_context.rs` — `PlaybackDeviceContext`: manages the
   graphics environment and transformation matrix. `EmfObjectTable`
   (object storage/retrieval), `SelectedObject` (currently selected
@@ -242,10 +250,15 @@ make install-tools
 
 ## Testing
 
-- Unit tests live in the modules they test; integration tests in
-  `core/tests/svg_player.rs` verify that the SVG output contains the
-  expected elements and attributes.
-- Run tests: `make test` or `cargo test --workspace --all-targets`.
+- Unit tests live in the modules they test. Integration tests are one
+  test target rooted at `core/tests/mod.rs`: `svg_player/` verifies
+  that the SVG output contains the expected elements and attributes,
+  `converter/` drives the one-shot entry points end-to-end against
+  synthesized EMF/WMF binaries (rendering, broken input, WMF
+  fallback), and `emf_plus_parser/` parses a synthetic EMF+ stream
+  through the public API.
+- Run tests: `make test` (which also runs doctests;
+  `cargo test --all-targets` alone does not).
 
 ## Architecture
 

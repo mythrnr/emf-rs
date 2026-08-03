@@ -1,6 +1,15 @@
 [package]
 name = "emf-wasm"
+categories = ["graphics", "multimedia::images", "no-std", "wasm"]
+description = "WASM bindings to convert EMF (Enhanced Metafile) binaries to SVG in the browser"
 edition = { workspace = true }
+keywords = ["emf", "metafile", "svg", "wasm"]
+license = { workspace = true }
+# Not ready for crates.io yet. Remove this once the first release of
+# emf-wasm is prepared; the rest of the metadata is already in place.
+publish = false
+readme = "README.md"
+repository = { workspace = true }
 rust-version = { workspace = true }
 version = { workspace = true }
 
@@ -10,14 +19,13 @@ crate-type = ["cdylib"]
 [features]
 default = ["console_error_panic_hook", "tracing"]
 console_error_panic_hook = ["dep:console_error_panic_hook"]
-tracing = ["dep:tracing-wasm", "emf-core/tracing", "wmf-core/tracing"]
+tracing = ["dep:tracing-wasm", "emf-core/tracing"]
 
 [dependencies]
 tracing-wasm = { workspace = true, optional = true }
 wasm-bindgen = { workspace = true }
 
 emf-core = { workspace = true, features = ["svg"] }
-wmf-core = { workspace = true, features = ["svg"] }
 
 # The `console_error_panic_hook` crate provides better debugging of panics by
 # logging them with `console.error`. This is great for development, but requires
@@ -35,12 +43,12 @@ wasm-bindgen-test = { workspace = true }
 # rustc/wasm-bindgen, since they assume `bulk-memory`, `sign-ext`,
 # `mutable-globals`, `nontrapping-float-to-int`, and `reference-types`.
 wasm-opt = [
-    "-Oz",
-    "--enable-bulk-memory",
-    "--enable-sign-ext",
-    "--enable-mutable-globals",
-    "--enable-nontrapping-float-to-int",
-    "--enable-reference-types",
+  "-Oz",
+  "--enable-bulk-memory",
+  "--enable-sign-ext",
+  "--enable-mutable-globals",
+  "--enable-nontrapping-float-to-int",
+  "--enable-reference-types",
 ]
 
 [package.metadata.cargo-udeps.ignore]

@@ -35,6 +35,34 @@ impl From<crate::converter::PlayError> for ConvertError {
     }
 }
 
+/// Parses the EMF records in `buffer` and renders them with `player`,
+/// returning the bytes produced by [`Player::generate`].
+///
+/// This is the primary entry point of the crate. A conversion consumes
+/// the buffer and both players, so there is no state worth holding
+/// between calls; this function replaces the
+/// [`EMFConverter::new`] + [`EMFConverter::run`] two-step dance for the
+/// common one-shot case.
+///
+/// `wmf_player` is only invoked when the input turns out to be a WMF
+/// file rather than EMF.
+///
+/// When the `svg` feature is enabled, [`convert_to_svg`] is a shorthand
+/// that renders with the SVG players built into this crate and
+/// [`wmf_core`].
+pub fn convert<B, P, WP>(
+    buffer: B,
+    player: P,
+    wmf_player: WP,
+) -> Result<Vec<u8>, ConvertError>
+where
+    B: crate::Read,
+    P: crate::converter::Player,
+    WP: wmf_core::converter::Player,
+{
+    EMFConverter::new(buffer, player, wmf_player).run()
+}
+
 pub struct EMFConverter<B, P, WP> {
     buffer: B,
     player: P,
@@ -83,7 +111,11 @@ where
             buf
         };
 
-        let mut b = &buffer[0..4];
+        // `RecordType::parse` reads exactly 4 bytes and reports a short
+        // read as an error, so the buffer is passed as-is; slicing
+        // `buffer[0..4]` here would panic on inputs shorter than 4
+        // bytes.
+        let mut b = buffer.as_slice();
 
         match RecordType::parse(&mut b) {
             Ok((RecordType::EMR_HEADER, _)) => {}

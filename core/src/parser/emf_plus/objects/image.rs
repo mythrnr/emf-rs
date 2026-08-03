@@ -181,11 +181,11 @@ pub enum EmfPlusBitmapContent {
     /// This object is generic and is used for different types of
     /// compressed data, including:
     ///
-    /// - Exchangeable Image File Format (EXIF) [EXIF];
-    /// - Graphics Interchange Format (GIF) [GIF];
-    /// - Joint Photographic Experts Group (JPEG) [JFIF];
-    /// - Portable Network Graphics (PNG) [RFC2083] [W3C-PNG]; and
-    /// - Tag Image File Format (TIFF) [RFC3302] [TIFF].
+    /// - Exchangeable Image File Format (EXIF) \[EXIF\];
+    /// - Graphics Interchange Format (GIF) \[GIF\];
+    /// - Joint Photographic Experts Group (JPEG) \[JFIF\];
+    /// - Portable Network Graphics (PNG) \[RFC2083\] \[W3C-PNG\]; and
+    /// - Tag Image File Format (TIFF) \[RFC3302\] \[TIFF\].
     ///
     /// The PixelFormat field is undefined for this variant and its raw
     /// value is preserved.

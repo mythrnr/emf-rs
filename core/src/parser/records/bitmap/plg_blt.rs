@@ -35,7 +35,7 @@ pub struct EMR_PLGBLT {
     /// parallelogram, which is computed from the first three points (A, B, and
     /// C) by treating them as vectors.
     ///
-    /// ```
+    /// ```text
     /// D = B + C A
     /// ```
     pub aptl_dest: [wmf_core::parser::PointL; 3],

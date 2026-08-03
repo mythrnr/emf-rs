@@ -16,20 +16,13 @@ A Rust library for parsing [EMF (Enhanced Metafile)](https://learn.microsoft.com
 
 ## Installation
 
-Add `emf-core` to your `Cargo.toml`:
-
-```toml
-[dependencies]
-emf-core = { git = "https://github.com/mythrnr/emf-rs.git", tag = "0.0.1", package = "emf-core" }
+```sh
+cargo add emf-core
 ```
 
-Because `emf-core` may delegate WMF inputs to a WMF player, applications that
-want to enable the fallback also need `wmf-core`:
-
-```toml
-[dependencies]
-wmf-core = { git = "https://github.com/mythrnr/wmf-rs.git", tag = "0.1.0", package = "wmf-core" }
-```
+[`wmf-core`](https://crates.io/crates/wmf-core) is re-exported as
+`emf_core::wmf_core` for the WMF fallback path, so a direct dependency
+on it is not needed.
 
 ### Feature Flags
 
@@ -40,18 +33,13 @@ wmf-core = { git = "https://github.com/mythrnr/wmf-rs.git", tag = "0.1.0", packa
 
 To use with minimal dependencies:
 
-```toml
-[dependencies]
-emf-core = { git = "https://github.com/mythrnr/emf-rs.git", tag = "0.0.1", package = "emf-core", default-features = false }
+```sh
+cargo add emf-core --no-default-features
 ```
 
 ## Usage
 
 ### As a Rust Library
-
-`EMFConverter` takes both an EMF player and a WMF player. The WMF player is
-only invoked when the input file turns out to be WMF rather than EMF, so you
-can reuse the SVG player implementations shipped by each crate:
 
 ```rust
 use std::fs;
@@ -59,15 +47,7 @@ use std::fs;
 fn main() {
     let emf_data = fs::read("input.emf").expect("failed to read file");
 
-    let emf_player = emf_core::converter::SVGPlayer::new();
-    let wmf_player = wmf_core::converter::SVGPlayer::new();
-    let converter = emf_core::converter::EMFConverter::new(
-        emf_data.as_slice(),
-        emf_player,
-        wmf_player,
-    );
-
-    match converter.run() {
+    match emf_core::converter::convert_to_svg(emf_data.as_slice()) {
         Ok(svg_bytes) => {
             let svg = String::from_utf8_lossy(&svg_bytes);
             println!("{svg}");
@@ -79,10 +59,15 @@ fn main() {
 }
 ```
 
+When the input turns out to be a WMF file rather than EMF, conversion
+falls back to the SVG player of `wmf-core` automatically.
+
 ### Custom Player
 
 The conversion process is abstracted through the `Player` trait.
-You can implement your own `Player` to produce output formats other than SVG:
+You can implement your own `Player` to produce output formats other than
+SVG, and pass the implementation to `emf_core::converter::convert`
+together with a WMF player for the fallback path:
 
 ```rust
 use emf_core::converter::{Player, PlayError};
@@ -111,7 +96,7 @@ The `emf-cli` crate provides a command-line converter:
 cargo run --package emf-cli -- --input sample.emf --output out.svg
 ```
 
-```
+```text
 Usage: emf-cli [OPTIONS] --input <INPUT>
 
 Options:
@@ -207,6 +192,43 @@ Optional tools can be installed with:
 make install-tools
 ```
 
+## Releasing
+
+Direct pushes to `master` are forbidden, so a release is driven by a
+version-bump PR:
+
+1. Bump the version:
+
+   ```sh
+   make release version=<x.y.z>
+   ```
+
+   This creates a `release/<x.y.z>` branch from `master`, updates
+   `[workspace.package].version` and dependent version requirements via
+   `cargo release version`, then refreshes `Cargo.lock`. Nothing is
+   committed, tagged, or pushed.
+
+2. Commit the result and open a PR. Merging it to `master` is the release
+   trigger.
+
+3. On the merge, `tag-release.yaml` creates the matching `<version>` git
+   tag and invokes the release workflow, which verifies that the version
+   equals the workspace version, publishes the WASM bundles as GitHub
+   Releases assets, and then publishes `emf-core` to crates.io through
+   Trusted Publishing.
+
+To re-run a release whose tag already exists, dispatch the "Release"
+workflow manually from the Actions tab with the version as input.
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
+
+Portions of the API documentation are adapted from the
+[MS-EMF](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-emf/91c257d7-c39d-4a36-9b1f-63e3f73d30ca)
+and
+[MS-EMFPLUS](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-emfplus/5f92c789-64f2-46b5-9ed4-15a9bb0946c6)
+Open Specifications documentation, © Microsoft Corporation, and are used under
+the Intellectual Property Rights Notice for Open Specifications Documentation.
+The MS-EMF and MS-EMFPLUS specifications are covered by the
+[Microsoft Open Specification Promise](https://go.microsoft.com/fwlink/?LinkId=214445).

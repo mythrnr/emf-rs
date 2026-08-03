@@ -18,7 +18,7 @@ pub struct EpsData {
     /// is computed from the first three points (A, B, and C) by treating them
     /// as vectors.
     ///
-    /// ```
+    /// ```text
     /// D = B + C A
     /// ```
     pub points: [crate::parser::Point28_4; 3],

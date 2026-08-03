@@ -62,7 +62,7 @@ pub struct EmfPlusDrawCurve {
     /// tightly the spline bends as it passes through the points. A
     /// value of 0 specifies that the spline is a sequence of straight
     /// lines. As the value increases, the curve becomes more rounded.
-    /// For more information, see [SPLINE77] and [PETZOLD].
+    /// For more information, see \[SPLINE77\] and \[PETZOLD\].
     pub tension: f32,
     /// Offset (4 bytes): An unsigned integer that specifies the
     /// element in the PointData array that defines the starting point

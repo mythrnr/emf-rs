@@ -2,7 +2,7 @@
 ///
 /// The real number represented by this object is computed as follows:
 ///
-/// ```
+/// ```text
 /// IntValue + (FracValue / 16)
 /// ```
 #[derive(Clone, Debug)]

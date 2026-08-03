@@ -115,15 +115,7 @@ fn main() {
     //     .join("\n");
     // println!("{bytes}");
 
-    let wmf_player = wmf_core::converter::SVGPlayer::new();
-    let emf_player = emf_core::converter::SVGPlayer::new();
-    let converter = emf_core::converter::EMFConverter::new(
-        buffer.as_slice(),
-        emf_player,
-        wmf_player,
-    );
-
-    match converter.run() {
+    match emf_core::converter::convert_to_svg(buffer.as_slice()) {
         Ok(bytes) => {
             if let Err(err) = output.write_all(&bytes) {
                 tracing::error!(%err);

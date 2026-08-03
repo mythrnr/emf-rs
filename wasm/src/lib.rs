@@ -39,12 +39,8 @@ pub fn convert_emf_to_svg(buf: &[u8]) -> Result<String, JsValue> {
 
     set_log_level("info");
 
-    let wmf_player = wmf_core::converter::SVGPlayer::new();
-    let emf_player = emf_core::converter::SVGPlayer::new();
-    let converter =
-        emf_core::converter::EMFConverter::new(buf, emf_player, wmf_player);
-    let output =
-        converter.run().map_err(|err| JsValue::from(err.to_string()))?;
+    let output = emf_core::converter::convert_to_svg(buf)
+        .map_err(|err| JsValue::from(err.to_string()))?;
 
     Ok(String::from_utf8_lossy(&output).to_string())
 }
