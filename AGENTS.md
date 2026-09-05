@@ -109,9 +109,10 @@ remaining record types are parsed but not yet rendered.
 
 Converts parsed records into an output format.
 
-- `player.rs` — `Player` trait: one method per EMF record;
-  `generate(self) -> Result<Vec<u8>, PlayError>` produces the final
-  output.
+- `player.rs` — `Player` trait: one `self`-by-value method per EMF
+  record, all defaulting to a no-op so a player overrides only what it
+  renders; `generate(self) -> Result<Vec<u8>, PlayError>` is the one
+  required method and produces the final output.
 - `emf_plus/bitmap.rs` — `DecodedBitmap`: decodes an EMF+ image object
   into BMP bytes for a player to embed. Covers the MS-EMFPLUS side of
   image playback: validates the 32-bpp pixel format, dimensions, and

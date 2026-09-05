@@ -269,3 +269,48 @@ fn convert_drives_explicit_players() {
     let svg = String::from_utf8(output).expect("SVG output is not UTF-8");
     assert!(svg.contains("<rect "), "expected a rect element: {svg}");
 }
+
+/// A player that relies on the default no-op record handlers of
+/// [`emf_core::converter::Player`], overriding only the records it
+/// observes.
+struct RecordingPlayer {
+    events: Vec<String>,
+}
+
+impl emf_core::converter::Player for RecordingPlayer {
+    fn generate(self) -> Result<Vec<u8>, emf_core::converter::PlayError> {
+        Ok(self.events.join(",").into_bytes())
+    }
+
+    fn rectangle(
+        mut self,
+        record_number: usize,
+        _record: emf_core::parser::EMR_RECTANGLE,
+    ) -> Result<Self, emf_core::converter::PlayError> {
+        self.events.push(format!("rectangle:{record_number}"));
+
+        Ok(self)
+    }
+}
+
+#[test]
+fn convert_drives_player_default_handlers() {
+    // EMR_HEADER and EMR_EOF flow through the default no-op handlers;
+    // only the overridden `rectangle` observes its record.
+    let data = emf_binary(100, 100, &[
+        record(EMR_RECTANGLE, &[10, 20, 150, 120]),
+        record(EMR_EOF, &[0, 0]),
+    ]);
+
+    let output = emf_core::converter::convert(
+        data.as_slice(),
+        RecordingPlayer { events: Vec::new() },
+        emf_core::wmf_core::converter::SVGPlayer::new(),
+    )
+    .expect("conversion failed");
+
+    assert_eq!(
+        String::from_utf8(output).expect("output is not UTF-8"),
+        "rectangle:1",
+    );
+}

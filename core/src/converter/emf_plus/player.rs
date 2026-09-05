@@ -23,25 +23,6 @@ use crate::{
     },
 };
 
-/// Generates a default no-op handler for each `(method, record type)`
-/// pair. The record is consumed so the default body neither warns about
-/// an unused value nor invites a by-reference signature.
-macro_rules! record_handlers {
-    ($($method:ident: $record:ty),+ $(,)?) => {
-        $(
-            fn $method(
-                self,
-                record_number: usize,
-                record: $record,
-            ) -> Result<Self, PlayError> {
-                let _ = (record_number, record);
-
-                Ok(self)
-            }
-        )+
-    };
-}
-
 /// Processes the EMF+ records embedded in a metafile.
 ///
 /// Mirrors the EMF [`Player`](crate::converter::Player) trait: methods
@@ -70,7 +51,7 @@ pub trait EmfPlusPlayer: Sized {
         Ok(self)
     }
 
-    record_handlers! {
+    crate::converter::player::default_record_handlers! {
         // Control records (2.3.3).
         emf_plus_header: EmfPlusHeader,
         emf_plus_end_of_file: EmfPlusEndOfFile,
