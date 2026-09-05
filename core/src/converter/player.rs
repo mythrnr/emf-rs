@@ -28,674 +28,260 @@ impl From<ParseError> for PlayError {
     }
 }
 
+/// Generates a default no-op handler for each `(method, record type)`
+/// pair. The record type doubles as an intra-doc link, resolved in the
+/// scope of the invoking module so the same macro serves both the EMF
+/// and EMF+ player traits.
+macro_rules! default_record_handlers {
+    ($($method:ident : $record:ty),+ $(,)?) => {
+        $(
+            #[doc = concat!(
+                "Renders the [`", stringify!($record), "`] record."
+            )]
+            fn $method(
+                self,
+                _record_number: usize,
+                _record: $record,
+            ) -> Result<Self, PlayError> {
+                info!(concat!(
+                    stringify!($record),
+                    ": skipped (not implemented)"
+                ));
+                Ok(self)
+            }
+        )+
+    };
+}
+
+pub(crate) use default_record_handlers;
+
+/// Processes the EMF records of a metafile.
+///
+/// Methods take `self` by value and return `Self`, so a player folds its
+/// state through the record stream. Every record method defaults to a
+/// no-op; a player implements [`generate`] and overrides only the
+/// records it renders.
+///
+/// [`EMFConverter`](crate::converter::EMFConverter) drives the trait: it
+/// parses the record stream and calls the method matching each record.
+///
+/// [`generate`]: Player::generate
 pub trait Player: Sized {
     /// Call after converting to write output.
     fn generate(self) -> Result<Vec<u8>, PlayError>;
 
     // .
     // .
-    // Functions to handle Bitmap Record
+    // Functions to handle Bitmap Record (2.3.1)
     // .
     // .
-    fn alpha_blend(
-        self,
-        record_number: usize,
-        record: EMR_ALPHABLEND,
-    ) -> Result<Self, PlayError>;
-    fn bit_blt(
-        self,
-        record_number: usize,
-        record: EMR_BITBLT,
-    ) -> Result<Self, PlayError>;
-    fn mask_blt(
-        self,
-        record_number: usize,
-        record: EMR_MASKBLT,
-    ) -> Result<Self, PlayError>;
-    fn plg_blt(
-        self,
-        record_number: usize,
-        record: EMR_PLGBLT,
-    ) -> Result<Self, PlayError>;
-    fn set_dibits_to_device(
-        self,
-        record_number: usize,
-        record: EMR_SETDIBITSTODEVICE,
-    ) -> Result<Self, PlayError>;
-    fn stretch_blt(
-        self,
-        record_number: usize,
-        record: EMR_STRETCHBLT,
-    ) -> Result<Self, PlayError>;
-    fn stretch_dibits(
-        self,
-        record_number: usize,
-        record: EMR_STRETCHDIBITS,
-    ) -> Result<Self, PlayError>;
-    fn transparent_blt(
-        self,
-        record_number: usize,
-        record: EMR_TRANSPARENTBLT,
-    ) -> Result<Self, PlayError>;
+    default_record_handlers! {
+        alpha_blend: EMR_ALPHABLEND,
+        bit_blt: EMR_BITBLT,
+        mask_blt: EMR_MASKBLT,
+        plg_blt: EMR_PLGBLT,
+        set_dibits_to_device: EMR_SETDIBITSTODEVICE,
+        stretch_blt: EMR_STRETCHBLT,
+        stretch_dibits: EMR_STRETCHDIBITS,
+        transparent_blt: EMR_TRANSPARENTBLT,
+    }
 
     // .
     // .
-    // Functions to handle Clipping Record
+    // Functions to handle Clipping Record (2.3.2)
     // .
     // .
-    fn exclude_clip_rect(
-        self,
-        record_number: usize,
-        record: EMR_EXCLUDECLIPRECT,
-    ) -> Result<Self, PlayError>;
-    fn ext_select_clip_rgn(
-        self,
-        record_number: usize,
-        record: EMR_EXTSELECTCLIPRGN,
-    ) -> Result<Self, PlayError>;
-    fn intersect_clip_rect(
-        self,
-        record_number: usize,
-        record: EMR_INTERSECTCLIPRECT,
-    ) -> Result<Self, PlayError>;
-    fn offset_clip_rgn(
-        self,
-        record_number: usize,
-        record: EMR_OFFSETCLIPRGN,
-    ) -> Result<Self, PlayError>;
-    fn select_clip_path(
-        self,
-        record_number: usize,
-        record: EMR_SELECTCLIPPATH,
-    ) -> Result<Self, PlayError>;
-    fn set_meta_rgn(
-        self,
-        record_number: usize,
-        record: EMR_SETMETARGN,
-    ) -> Result<Self, PlayError>;
+    default_record_handlers! {
+        exclude_clip_rect: EMR_EXCLUDECLIPRECT,
+        ext_select_clip_rgn: EMR_EXTSELECTCLIPRGN,
+        intersect_clip_rect: EMR_INTERSECTCLIPRECT,
+        offset_clip_rgn: EMR_OFFSETCLIPRGN,
+        select_clip_path: EMR_SELECTCLIPPATH,
+        set_meta_rgn: EMR_SETMETARGN,
+    }
 
     // .
     // .
-    // Functions to handle Comment Record
+    // Functions to handle Comment Record (2.3.3)
     // .
     // .
-    fn comment(
-        self,
-        record_number: usize,
-        record: EMR_COMMENT,
-    ) -> Result<Self, PlayError>;
+    default_record_handlers! {
+        comment: EMR_COMMENT,
+    }
 
     // .
     // .
-    // Functions to handle Control Record
+    // Functions to handle Control Record (2.3.4)
     // .
     // .
-    fn eof(
-        self,
-        record_number: usize,
-        record: EMR_EOF,
-    ) -> Result<Self, PlayError>;
-    fn header(
-        self,
-        record_number: usize,
-        record: EMR_HEADER,
-    ) -> Result<Self, PlayError>;
+    default_record_handlers! {
+        eof: EMR_EOF,
+        header: EMR_HEADER,
+    }
 
     // .
     // .
-    // Functions to handle Drawing Record
+    // Functions to handle Drawing Record (2.3.5)
     // .
     // .
-    fn angle_arc(
-        self,
-        record_number: usize,
-        record: EMR_ANGLEARC,
-    ) -> Result<Self, PlayError>;
-    fn arc(
-        self,
-        record_number: usize,
-        record: EMR_ARC,
-    ) -> Result<Self, PlayError>;
-    fn arc_to(
-        self,
-        record_number: usize,
-        record: EMR_ARCTO,
-    ) -> Result<Self, PlayError>;
-    fn chord(
-        self,
-        record_number: usize,
-        record: EMR_CHORD,
-    ) -> Result<Self, PlayError>;
-    fn ellipse(
-        self,
-        record_number: usize,
-        record: EMR_ELLIPSE,
-    ) -> Result<Self, PlayError>;
-    fn ext_flood_fill(
-        self,
-        record_number: usize,
-        record: EMR_EXTFLOODFILL,
-    ) -> Result<Self, PlayError>;
-    fn ext_text_out_a(
-        self,
-        record_number: usize,
-        record: EMR_EXTTEXTOUTA,
-    ) -> Result<Self, PlayError>;
-    fn ext_text_out_w(
-        self,
-        record_number: usize,
-        record: EMR_EXTTEXTOUTW,
-    ) -> Result<Self, PlayError>;
-    fn fill_path(
-        self,
-        record_number: usize,
-        record: EMR_FILLPATH,
-    ) -> Result<Self, PlayError>;
-    fn fill_rgn(
-        self,
-        record_number: usize,
-        record: EMR_FILLRGN,
-    ) -> Result<Self, PlayError>;
-    fn frame_rgn(
-        self,
-        record_number: usize,
-        record: EMR_FRAMERGN,
-    ) -> Result<Self, PlayError>;
-    fn gradient_fill(
-        self,
-        record_number: usize,
-        record: EMR_GRADIENTFILL,
-    ) -> Result<Self, PlayError>;
-    fn line_to(
-        self,
-        record_number: usize,
-        record: EMR_LINETO,
-    ) -> Result<Self, PlayError>;
-    fn paint_rgn(
-        self,
-        record_number: usize,
-        record: EMR_PAINTRGN,
-    ) -> Result<Self, PlayError>;
-    fn pie(
-        self,
-        record_number: usize,
-        record: EMR_PIE,
-    ) -> Result<Self, PlayError>;
-    fn poly_bezier(
-        self,
-        record_number: usize,
-        record: EMR_POLYBEZIER,
-    ) -> Result<Self, PlayError>;
-    fn poly_bezier_16(
-        self,
-        record_number: usize,
-        record: EMR_POLYBEZIER16,
-    ) -> Result<Self, PlayError>;
-    fn poly_bezier_to(
-        self,
-        record_number: usize,
-        record: EMR_POLYBEZIERTO,
-    ) -> Result<Self, PlayError>;
-    fn poly_bezier_to_16(
-        self,
-        record_number: usize,
-        record: EMR_POLYBEZIERTO16,
-    ) -> Result<Self, PlayError>;
-    fn poly_draw(
-        self,
-        record_number: usize,
-        record: EMR_POLYDRAW,
-    ) -> Result<Self, PlayError>;
-    fn poly_draw_16(
-        self,
-        record_number: usize,
-        record: EMR_POLYDRAW16,
-    ) -> Result<Self, PlayError>;
-    fn poly_polygon(
-        self,
-        record_number: usize,
-        record: EMR_POLYPOLYGON,
-    ) -> Result<Self, PlayError>;
-    fn poly_polygon_16(
-        self,
-        record_number: usize,
-        record: EMR_POLYPOLYGON16,
-    ) -> Result<Self, PlayError>;
-    fn poly_polyline(
-        self,
-        record_number: usize,
-        record: EMR_POLYPOLYLINE,
-    ) -> Result<Self, PlayError>;
-    fn poly_polyline_16(
-        self,
-        record_number: usize,
-        record: EMR_POLYPOLYLINE16,
-    ) -> Result<Self, PlayError>;
-    fn poly_text_out_a(
-        self,
-        record_number: usize,
-        record: EMR_POLYTEXTOUTA,
-    ) -> Result<Self, PlayError>;
-    fn poly_text_out_w(
-        self,
-        record_number: usize,
-        record: EMR_POLYTEXTOUTW,
-    ) -> Result<Self, PlayError>;
-    fn polygon(
-        self,
-        record_number: usize,
-        record: EMR_POLYGON,
-    ) -> Result<Self, PlayError>;
-    fn polygon_16(
-        self,
-        record_number: usize,
-        record: EMR_POLYGON16,
-    ) -> Result<Self, PlayError>;
-    fn polyline(
-        self,
-        record_number: usize,
-        record: EMR_POLYLINE,
-    ) -> Result<Self, PlayError>;
-    fn polyline_16(
-        self,
-        record_number: usize,
-        record: EMR_POLYLINE16,
-    ) -> Result<Self, PlayError>;
-    fn polyline_to(
-        self,
-        record_number: usize,
-        record: EMR_POLYLINETO,
-    ) -> Result<Self, PlayError>;
-    fn polyline_to_16(
-        self,
-        record_number: usize,
-        record: EMR_POLYLINETO16,
-    ) -> Result<Self, PlayError>;
-    fn rectangle(
-        self,
-        record_number: usize,
-        record: EMR_RECTANGLE,
-    ) -> Result<Self, PlayError>;
-    fn round_rect(
-        self,
-        record_number: usize,
-        record: EMR_ROUNDRECT,
-    ) -> Result<Self, PlayError>;
-    fn set_pixel_v(
-        self,
-        record_number: usize,
-        record: EMR_SETPIXELV,
-    ) -> Result<Self, PlayError>;
-    fn small_text_out(
-        self,
-        record_number: usize,
-        record: EMR_SMALLTEXTOUT,
-    ) -> Result<Self, PlayError>;
-    fn stroke_and_fill_path(
-        self,
-        record_number: usize,
-        record: EMR_STROKEANDFILLPATH,
-    ) -> Result<Self, PlayError>;
-    fn stroke_path(
-        self,
-        record_number: usize,
-        record: EMR_STROKEPATH,
-    ) -> Result<Self, PlayError>;
+    default_record_handlers! {
+        angle_arc: EMR_ANGLEARC,
+        arc: EMR_ARC,
+        arc_to: EMR_ARCTO,
+        chord: EMR_CHORD,
+        ellipse: EMR_ELLIPSE,
+        ext_flood_fill: EMR_EXTFLOODFILL,
+        ext_text_out_a: EMR_EXTTEXTOUTA,
+        ext_text_out_w: EMR_EXTTEXTOUTW,
+        fill_path: EMR_FILLPATH,
+        fill_rgn: EMR_FILLRGN,
+        frame_rgn: EMR_FRAMERGN,
+        gradient_fill: EMR_GRADIENTFILL,
+        line_to: EMR_LINETO,
+        paint_rgn: EMR_PAINTRGN,
+        pie: EMR_PIE,
+        poly_bezier: EMR_POLYBEZIER,
+        poly_bezier_16: EMR_POLYBEZIER16,
+        poly_bezier_to: EMR_POLYBEZIERTO,
+        poly_bezier_to_16: EMR_POLYBEZIERTO16,
+        poly_draw: EMR_POLYDRAW,
+        poly_draw_16: EMR_POLYDRAW16,
+        poly_polygon: EMR_POLYPOLYGON,
+        poly_polygon_16: EMR_POLYPOLYGON16,
+        poly_polyline: EMR_POLYPOLYLINE,
+        poly_polyline_16: EMR_POLYPOLYLINE16,
+        poly_text_out_a: EMR_POLYTEXTOUTA,
+        poly_text_out_w: EMR_POLYTEXTOUTW,
+        polygon: EMR_POLYGON,
+        polygon_16: EMR_POLYGON16,
+        polyline: EMR_POLYLINE,
+        polyline_16: EMR_POLYLINE16,
+        polyline_to: EMR_POLYLINETO,
+        polyline_to_16: EMR_POLYLINETO16,
+        rectangle: EMR_RECTANGLE,
+        round_rect: EMR_ROUNDRECT,
+        set_pixel_v: EMR_SETPIXELV,
+        small_text_out: EMR_SMALLTEXTOUT,
+        stroke_and_fill_path: EMR_STROKEANDFILLPATH,
+        stroke_path: EMR_STROKEPATH,
+    }
 
     // .
     // .
-    // Functions to handle Escape Record
+    // Functions to handle Escape Record (2.3.6)
     // .
     // .
-    fn draw_escape(
-        self,
-        record_number: usize,
-        record: EMR_DRAWESCAPE,
-    ) -> Result<Self, PlayError>;
-    fn ext_escape(
-        self,
-        record_number: usize,
-        record: EMR_EXTESCAPE,
-    ) -> Result<Self, PlayError>;
-    fn named_escape(
-        self,
-        record_number: usize,
-        record: EMR_NAMEDESCAPE,
-    ) -> Result<Self, PlayError>;
+    default_record_handlers! {
+        draw_escape: EMR_DRAWESCAPE,
+        ext_escape: EMR_EXTESCAPE,
+        named_escape: EMR_NAMEDESCAPE,
+    }
 
     // .
     // .
-    // Functions to handle Object Creation Record
+    // Functions to handle Object Creation Record (2.3.7)
     // .
     // .
-    fn create_brush_indirect(
-        self,
-        record_number: usize,
-        record: EMR_CREATEBRUSHINDIRECT,
-    ) -> Result<Self, PlayError>;
-    fn create_color_space(
-        self,
-        record_number: usize,
-        record: EMR_CREATECOLORSPACE,
-    ) -> Result<Self, PlayError>;
-    fn create_color_space_w(
-        self,
-        record_number: usize,
-        record: EMR_CREATECOLORSPACEW,
-    ) -> Result<Self, PlayError>;
-    fn create_dib_pattern_brush_pt(
-        self,
-        record_number: usize,
-        record: EMR_CREATEDIBPATTERNBRUSHPT,
-    ) -> Result<Self, PlayError>;
-    fn create_mono_brush(
-        self,
-        record_number: usize,
-        record: EMR_CREATEMONOBRUSH,
-    ) -> Result<Self, PlayError>;
-    fn create_palette(
-        self,
-        record_number: usize,
-        record: EMR_CREATEPALETTE,
-    ) -> Result<Self, PlayError>;
-    fn create_pen(
-        self,
-        record_number: usize,
-        record: EMR_CREATEPEN,
-    ) -> Result<Self, PlayError>;
-    fn ext_create_font_indirect_w(
-        self,
-        record_number: usize,
-        record: EMR_EXTCREATEFONTINDIRECTW,
-    ) -> Result<Self, PlayError>;
-    fn ext_create_pen(
-        self,
-        record_number: usize,
-        record: EMR_EXTCREATEPEN,
-    ) -> Result<Self, PlayError>;
+    default_record_handlers! {
+        create_brush_indirect: EMR_CREATEBRUSHINDIRECT,
+        create_color_space: EMR_CREATECOLORSPACE,
+        create_color_space_w: EMR_CREATECOLORSPACEW,
+        create_dib_pattern_brush_pt: EMR_CREATEDIBPATTERNBRUSHPT,
+        create_mono_brush: EMR_CREATEMONOBRUSH,
+        create_palette: EMR_CREATEPALETTE,
+        create_pen: EMR_CREATEPEN,
+        ext_create_font_indirect_w: EMR_EXTCREATEFONTINDIRECTW,
+        ext_create_pen: EMR_EXTCREATEPEN,
+    }
 
     // .
     // .
-    // Functions to handle Object Manipulation Record
+    // Functions to handle Object Manipulation Record (2.3.8)
     // .
     // .
-    fn color_correct_palette(
-        self,
-        record_number: usize,
-        record: EMR_COLORCORRECTPALETTE,
-    ) -> Result<Self, PlayError>;
-    fn delete_color_space(
-        self,
-        record_number: usize,
-        record: EMR_DELETECOLORSPACE,
-    ) -> Result<Self, PlayError>;
-    fn delete_object(
-        self,
-        record_number: usize,
-        record: EMR_DELETEOBJECT,
-    ) -> Result<Self, PlayError>;
-    fn resize_palette(
-        self,
-        record_number: usize,
-        record: EMR_RESIZEPALETTE,
-    ) -> Result<Self, PlayError>;
-    fn select_object(
-        self,
-        record_number: usize,
-        record: EMR_SELECTOBJECT,
-    ) -> Result<Self, PlayError>;
-    fn select_palette(
-        self,
-        record_number: usize,
-        record: EMR_SELECTPALETTE,
-    ) -> Result<Self, PlayError>;
-    fn set_color_space(
-        self,
-        record_number: usize,
-        record: EMR_SETCOLORSPACE,
-    ) -> Result<Self, PlayError>;
-    fn set_palette_entries(
-        self,
-        record_number: usize,
-        record: EMR_SETPALETTEENTRIES,
-    ) -> Result<Self, PlayError>;
+    default_record_handlers! {
+        color_correct_palette: EMR_COLORCORRECTPALETTE,
+        delete_color_space: EMR_DELETECOLORSPACE,
+        delete_object: EMR_DELETEOBJECT,
+        resize_palette: EMR_RESIZEPALETTE,
+        select_object: EMR_SELECTOBJECT,
+        select_palette: EMR_SELECTPALETTE,
+        set_color_space: EMR_SETCOLORSPACE,
+        set_palette_entries: EMR_SETPALETTEENTRIES,
+    }
 
     // .
     // .
-    // Functions to handle OpenGL Record
+    // Functions to handle OpenGL Record (2.3.9)
     // .
     // .
-    fn gls_bounded_record(
-        self,
-        record_number: usize,
-        record: EMR_GLSBOUNDEDRECORD,
-    ) -> Result<Self, PlayError>;
-    fn gls_record(
-        self,
-        record_number: usize,
-        record: EMR_GLSRECORD,
-    ) -> Result<Self, PlayError>;
+    default_record_handlers! {
+        gls_bounded_record: EMR_GLSBOUNDEDRECORD,
+        gls_record: EMR_GLSRECORD,
+    }
 
     // .
     // .
-    // Functions to handle Path Bracket Record
+    // Functions to handle Path Bracket Record (2.3.10)
     // .
     // .
-    fn abort_path(
-        self,
-        record_number: usize,
-        record: EMR_ABORTPATH,
-    ) -> Result<Self, PlayError>;
-    fn begin_path(
-        self,
-        record_number: usize,
-        record: EMR_BEGINPATH,
-    ) -> Result<Self, PlayError>;
-    fn close_figure(
-        self,
-        record_number: usize,
-        record: EMR_CLOSEFIGURE,
-    ) -> Result<Self, PlayError>;
-    fn end_path(
-        self,
-        record_number: usize,
-        record: EMR_ENDPATH,
-    ) -> Result<Self, PlayError>;
-    fn flatten_path(
-        self,
-        record_number: usize,
-        record: EMR_FLATTENPATH,
-    ) -> Result<Self, PlayError>;
-    fn widen_path(
-        self,
-        record_number: usize,
-        record: EMR_WIDENPATH,
-    ) -> Result<Self, PlayError>;
+    default_record_handlers! {
+        abort_path: EMR_ABORTPATH,
+        begin_path: EMR_BEGINPATH,
+        close_figure: EMR_CLOSEFIGURE,
+        end_path: EMR_ENDPATH,
+        flatten_path: EMR_FLATTENPATH,
+        widen_path: EMR_WIDENPATH,
+    }
 
     // .
     // .
-    // Functions to handle State Record
+    // Functions to handle State Record (2.3.11)
     // .
     // .
-    fn color_match_to_target_w(
-        self,
-        record_number: usize,
-        record: EMR_COLORMATCHTOTARGETW,
-    ) -> Result<Self, PlayError>;
-    fn force_ufi_mapping(
-        self,
-        record_number: usize,
-        record: EMR_FORCEUFIMAPPING,
-    ) -> Result<Self, PlayError>;
-    fn invert_rgn(
-        self,
-        record_number: usize,
-        record: EMR_INVERTRGN,
-    ) -> Result<Self, PlayError>;
-    fn move_to_ex(
-        self,
-        record_number: usize,
-        record: EMR_MOVETOEX,
-    ) -> Result<Self, PlayError>;
-    fn pixel_format(
-        self,
-        record_number: usize,
-        record: EMR_PIXELFORMAT,
-    ) -> Result<Self, PlayError>;
-    fn realize_palette(
-        self,
-        record_number: usize,
-        record: EMR_REALIZEPALETTE,
-    ) -> Result<Self, PlayError>;
-    fn restore_dc(
-        self,
-        record_number: usize,
-        record: EMR_RESTOREDC,
-    ) -> Result<Self, PlayError>;
-    fn save_dc(
-        self,
-        record_number: usize,
-        record: EMR_SAVEDC,
-    ) -> Result<Self, PlayError>;
-    fn scale_viewport_ext_ex(
-        self,
-        record_number: usize,
-        record: EMR_SCALEVIEWPORTEXTEX,
-    ) -> Result<Self, PlayError>;
-    fn scale_window_ext_ex(
-        self,
-        record_number: usize,
-        record: EMR_SCALEWINDOWEXTEX,
-    ) -> Result<Self, PlayError>;
-    fn set_arc_direction(
-        self,
-        record_number: usize,
-        record: EMR_SETARCDIRECTION,
-    ) -> Result<Self, PlayError>;
-    fn set_bk_color(
-        self,
-        record_number: usize,
-        record: EMR_SETBKCOLOR,
-    ) -> Result<Self, PlayError>;
-    fn set_bk_mode(
-        self,
-        record_number: usize,
-        record: EMR_SETBKMODE,
-    ) -> Result<Self, PlayError>;
-    fn set_brush_org_ex(
-        self,
-        record_number: usize,
-        record: EMR_SETBRUSHORGEX,
-    ) -> Result<Self, PlayError>;
-    fn set_color_adjustment(
-        self,
-        record_number: usize,
-        record: EMR_SETCOLORADJUSTMENT,
-    ) -> Result<Self, PlayError>;
-    fn set_icm_mode(
-        self,
-        record_number: usize,
-        record: EMR_SETICMMODE,
-    ) -> Result<Self, PlayError>;
-    fn set_icm_profile_a(
-        self,
-        record_number: usize,
-        record: EMR_SETICMPROFILEA,
-    ) -> Result<Self, PlayError>;
-    fn set_icm_profile_w(
-        self,
-        record_number: usize,
-        record: EMR_SETICMPROFILEW,
-    ) -> Result<Self, PlayError>;
-    fn set_layout(
-        self,
-        record_number: usize,
-        record: EMR_SETLAYOUT,
-    ) -> Result<Self, PlayError>;
-    fn set_linked_ufis(
-        self,
-        record_number: usize,
-        record: EMR_SETLINKEDUFIS,
-    ) -> Result<Self, PlayError>;
-    fn set_map_mode(
-        self,
-        record_number: usize,
-        record: EMR_SETMAPMODE,
-    ) -> Result<Self, PlayError>;
-    fn set_mapper_flags(
-        self,
-        record_number: usize,
-        record: EMR_SETMAPPERFLAGS,
-    ) -> Result<Self, PlayError>;
-    fn set_miter_limit(
-        self,
-        record_number: usize,
-        record: EMR_SETMITERLIMIT,
-    ) -> Result<Self, PlayError>;
-    fn set_polyfill_mode(
-        self,
-        record_number: usize,
-        record: EMR_SETPOLYFILLMODE,
-    ) -> Result<Self, PlayError>;
-    fn set_rop2(
-        self,
-        record_number: usize,
-        record: EMR_SETROP2,
-    ) -> Result<Self, PlayError>;
-    fn set_stretch_blt_mode(
-        self,
-        record_number: usize,
-        record: EMR_SETSTRETCHBLTMODE,
-    ) -> Result<Self, PlayError>;
-    fn set_text_align(
-        self,
-        record_number: usize,
-        record: EMR_SETTEXTALIGN,
-    ) -> Result<Self, PlayError>;
-    fn set_text_color(
-        self,
-        record_number: usize,
-        record: EMR_SETTEXTCOLOR,
-    ) -> Result<Self, PlayError>;
-    fn set_text_justification(
-        self,
-        record_number: usize,
-        record: EMR_SETTEXTJUSTIFICATION,
-    ) -> Result<Self, PlayError>;
-    fn set_viewport_ext_ex(
-        self,
-        record_number: usize,
-        record: EMR_SETVIEWPORTEXTEX,
-    ) -> Result<Self, PlayError>;
-    fn set_viewport_org_ex(
-        self,
-        record_number: usize,
-        record: EMR_SETVIEWPORTORGEX,
-    ) -> Result<Self, PlayError>;
-    fn set_window_ext_ex(
-        self,
-        record_number: usize,
-        record: EMR_SETWINDOWEXTEX,
-    ) -> Result<Self, PlayError>;
-    fn set_window_org_ex(
-        self,
-        record_number: usize,
-        record: EMR_SETWINDOWORGEX,
-    ) -> Result<Self, PlayError>;
+    default_record_handlers! {
+        color_match_to_target_w: EMR_COLORMATCHTOTARGETW,
+        force_ufi_mapping: EMR_FORCEUFIMAPPING,
+        invert_rgn: EMR_INVERTRGN,
+        move_to_ex: EMR_MOVETOEX,
+        pixel_format: EMR_PIXELFORMAT,
+        realize_palette: EMR_REALIZEPALETTE,
+        restore_dc: EMR_RESTOREDC,
+        save_dc: EMR_SAVEDC,
+        scale_viewport_ext_ex: EMR_SCALEVIEWPORTEXTEX,
+        scale_window_ext_ex: EMR_SCALEWINDOWEXTEX,
+        set_arc_direction: EMR_SETARCDIRECTION,
+        set_bk_color: EMR_SETBKCOLOR,
+        set_bk_mode: EMR_SETBKMODE,
+        set_brush_org_ex: EMR_SETBRUSHORGEX,
+        set_color_adjustment: EMR_SETCOLORADJUSTMENT,
+        set_icm_mode: EMR_SETICMMODE,
+        set_icm_profile_a: EMR_SETICMPROFILEA,
+        set_icm_profile_w: EMR_SETICMPROFILEW,
+        set_layout: EMR_SETLAYOUT,
+        set_linked_ufis: EMR_SETLINKEDUFIS,
+        set_map_mode: EMR_SETMAPMODE,
+        set_mapper_flags: EMR_SETMAPPERFLAGS,
+        set_miter_limit: EMR_SETMITERLIMIT,
+        set_polyfill_mode: EMR_SETPOLYFILLMODE,
+        set_rop2: EMR_SETROP2,
+        set_stretch_blt_mode: EMR_SETSTRETCHBLTMODE,
+        set_text_align: EMR_SETTEXTALIGN,
+        set_text_color: EMR_SETTEXTCOLOR,
+        set_text_justification: EMR_SETTEXTJUSTIFICATION,
+        set_viewport_ext_ex: EMR_SETVIEWPORTEXTEX,
+        set_viewport_org_ex: EMR_SETVIEWPORTORGEX,
+        set_window_ext_ex: EMR_SETWINDOWEXTEX,
+        set_window_org_ex: EMR_SETWINDOWORGEX,
+    }
 
     // .
     // .
-    // Functions to handle Transform Record
+    // Functions to handle Transform Record (2.3.12)
     // .
     // .
-    fn modify_world_transform(
-        self,
-        record_number: usize,
-        record: EMR_MODIFYWORLDTRANSFORM,
-    ) -> Result<Self, PlayError>;
-    fn set_world_transform(
-        self,
-        record_number: usize,
-        record: EMR_SETWORLDTRANSFORM,
-    ) -> Result<Self, PlayError>;
+    default_record_handlers! {
+        modify_world_transform: EMR_MODIFYWORLDTRANSFORM,
+        set_world_transform: EMR_SETWORLDTRANSFORM,
+    }
 }
