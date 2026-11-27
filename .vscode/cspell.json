@@ -10,6 +10,7 @@
     "*.local.*",
     "*.lock",
     "node_modules",
+    "pnpm-lock.yaml",
     "target",
     "wasm/dist",
     "wasm/dist-minimal"
