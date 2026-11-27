@@ -196,7 +196,7 @@ Converts parsed records into an output format.
 
 - `cargo-machete`, `cargo-udeps` (unused dependency detection)
 - `wasm-pack` (WASM build)
-- Yarn (running WASM demo)
+- pnpm (running WASM demo)
 
 Bulk install of tools:
 
